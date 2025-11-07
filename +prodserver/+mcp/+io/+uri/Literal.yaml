@@ -1,0 +1,8 @@
+# Marshalling configuration for literal:// scheme.
+# Copyright (c) 2024, The MathWorks, Inc.
+defaults:
+  persist: query
+read:
+  fcn: matlab.internal.pipeline.data.io.importVariable
+write:
+  fcn: matlab.internal.pipeline.data.io.exportVariable

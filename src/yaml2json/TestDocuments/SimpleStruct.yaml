@@ -1,0 +1,12 @@
+schema:
+    type: "generator"
+    version: "0.1"
+generator:
+    name: "Math by MATLAB"
+    contact: "Dr. Eigenvalue"
+    type: "MATLAB Production Server"
+    config:
+        host: "localhost"
+        port: 9910
+        archive: "humanActivities"
+        arch: "win64"

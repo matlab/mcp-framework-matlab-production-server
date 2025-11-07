@@ -1,0 +1,10 @@
+# Marshalling configuration for json:// scheme.
+# Copyright (c) 2024, The MathWorks, Inc.
+defaults:
+  persist: query
+read:
+  fcn: prodserver.mcp.io.importJSON
+  threadpool: true
+write:
+  fcn: prodserver.mcp.io.exportJSON
+  threadpool: true

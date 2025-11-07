@@ -1,0 +1,23 @@
+function toyToolOneMCP(a,bURL,xURL,yURL,zURL)
+% First of the toy tools which do nothing useful.
+    arguments(Input)
+        % A scalar, as if the declaration wasn't obvious
+        a (1,1) double
+        % Who knows how big this could get?
+        bURL (1,1) string
+        % A powerful result
+        xURL (1,1) string
+        % Power augmented by 2^8!
+        yURL (1,1) string
+        % Not quite so much
+        zURL (1,1) string
+    end
+    !marshalVar = prodserver.mcp.io.MarshallURI();
+    % deserialize always returns a cell array.
+    b = deserialize(!marshalVar,bURL);
+    b = b{1};
+    [x,y,z] = toyToolOne(a,b);
+    serialize(!marshalVar, xURL, {x});
+    serialize(!marshalVar, yURL, {y});
+    serialize(!marshalVar, zURL, {z});
+end
