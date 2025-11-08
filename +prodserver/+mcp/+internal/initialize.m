@@ -45,7 +45,7 @@ function [session,id,capabilities] = initialize(endpoint, opts)
     capabilities = [];
     if ~isempty(opts.require)
         for n = 1:numel(opts.require)
-            resource = lower(string(opts.require(n)));
+            resource = mcpName(opts.require(n));
             if hasField(response, ...
                     "Body.Data.result.capabilities."+resource) == false
             error("prodserver:mcp:NoToolsOnServer", ...

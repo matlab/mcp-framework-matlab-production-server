@@ -42,14 +42,14 @@ function [varargout] = feval(endpoint, tool, varargin)
 
     % Require that the server publish tools.
     [session,id] = prodserver.mcp.internal.initialize(endpoint, ...
-        require="Tools");
+        require="Tool");
 
     %
     % Check tools, to verify that TOOL exists at ENDPOINT
     %
     
     [items,id] = prodserver.mcp.internal.list(endpoint,session, ...
-        "Tools",id=id);
+        "Tool",id=id);
     tools = items.tools;
 
     % Out, out, damn char!

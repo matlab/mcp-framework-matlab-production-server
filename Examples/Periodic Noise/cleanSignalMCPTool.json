@@ -5,7 +5,7 @@
             "function": "cleanSignalMCP",
             "input": {
                 "name": ["noisy","frequency","clean"],
-                "type": ["string", "double", "string"]
+                "type": ["string", "number", "string"]
             },
             "output": {
                 "name": ["status","msg"], 
@@ -23,7 +23,7 @@
             "properties": {
                 "noisy": {
                     "type": "string",
-                    "description": "The noisy input signal as a file:// URL."
+                    "description": "The noisy input signal as a file: URL."
                 },
                 "frequency": {
                     "type": "number",
@@ -31,7 +31,7 @@
                 },
                 "clean": {
                     "type": "string",
-                    "description": "The filtered signal after removing the periodic noise, as a file:// URI."
+                    "description": "The filtered signal after removing the periodic noise, as a file: URI."
                 }
             },
             "required": ["noisy","frequency","clean"]

@@ -38,7 +38,7 @@ function tf = exist(endpoint, name, type)
         for n = 1:numel(items)
     
             % Name of the primitive type's field in items
-            t = lower(string(type(n)));
+            t = mcpName(type(n));
             p = items.(t);
     
             % Names of all the <type> primitives on the server.

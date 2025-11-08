@@ -17,7 +17,7 @@ function [items,id] = list(endpoint, session, resource, opts)
     data.jsonrpc = MCPConstants.jrpcVersion;
     id = opts.id;
     for n = 1:numel(resource)
-        data.method = lower(string(resource(n))) + "/list";
+        data.method = mcpName(resource(n)) + "/list";
         data.id = id; id = id + 1;
         % Must send session ID with all messages post-initialization.
         headers = [
@@ -31,7 +31,7 @@ function [items,id] = list(endpoint, session, resource, opts)
             request=data.method);
     
         % Expect information about the primitive. 
-        pfield = lower(string(resource(n)));
+        pfield = mcpName(resource(n));
         if hasField(response,"Body.Data.result."+pfield) == false
         end
         items.(pfield) = response.Body.Data.result.(pfield);
