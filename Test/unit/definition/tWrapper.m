@@ -44,7 +44,7 @@ classdef tWrapper < matlab.unittest.TestCase
             % identification.
             code = split(code,newline);
             wrap = split(wrap,newline);
-            test.verifyEqual(numel(wrap),numel(code),"Wrong number of lines");
+            test.verifyEqual(numel(wrap),numel(code),"Wrong number of lines in " + tool);
             for n = 1:numel(code)
                 test.verifyEqual(code(n),wrap(n),"Line " + string(n) + ...
                     ". Generated code: " + tool);
@@ -76,7 +76,6 @@ classdef tWrapper < matlab.unittest.TestCase
 
             % Generate wrappers for three tools
             fcn = ["toyToolOne", "toyToolTwo", "toyToolThree"];
-            wrapper = fullfile(wrapFolder,fcn + "MCP.m");
 
             % Vanilla argument list -- tools only, no GenAI.
             wrap = prodserver.mcp.internal.wrapForMCP(fcn,["","",""],wrapFolder, ...

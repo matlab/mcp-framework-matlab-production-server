@@ -36,7 +36,8 @@ function wrappers = wrapForMCP(fcns,wrappers,folder,availableAI,timeout,retry)
                 wrapFcn = name+MCPConstants.WrapperFileSuffix;
                 code = prodserver.mcp.internal.mcpWrapper(fcns(n), wrapFcn);
                 wrappers(n) = fullfile(folder,wrapFcn+".m");
-                writelines(code,wrappers(n));
+                % Generated code already ends with a newline.
+                writelines(code,wrappers(n),TrailingLineEndingRule="never");
             end
         else
             if strcmpi(wrappers(n),MCPConstants.NoWrapper) == true
