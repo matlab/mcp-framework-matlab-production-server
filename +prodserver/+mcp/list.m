@@ -12,6 +12,7 @@ function items = list(endpoint, type)
 %           description: 'Removes periodic noise from a signal using ' ...
 %           inputSchema: [1x1 struct]
 %          outputSchema: [1x1 struct]
+%                server: "http://localhost:9910/cleanSignal/mcp"
 %
 % See also: prodserver.mcp.Primitive
 
@@ -37,7 +38,12 @@ function items = list(endpoint, type)
         
         % List all primitives of TYPE at ENDPOINT
         items = prodserver.mcp.internal.list(endpoint,session,type,id=id);
-        items = items.(lower(string(type)));
+        items = items.(mcpName(type));
+
+        % Add the server endpoint to all the tools.
+        server.type = "http";
+        server.url = endpoint;
+        [items.server] = deal(server);
 
     catch me
         if strcmpi(me.identifier,"prodserver:mcp:HttpError") && ...

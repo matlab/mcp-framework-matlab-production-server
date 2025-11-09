@@ -55,7 +55,7 @@ There are many MCP clients and each has its own configuration mechanism for MCP 
 same idea: identifying the location of each MCP tool and the communication protocol the tool understands. MCP Framework creates HTTP-based MCP tools. To aid development and testing, an STDIO to HTTP server bridge is also included.
 
 This repo has been tested against these MCP clients, using the configuration each of these links describes.
-* [LLMs with MATLAB](https://www.mathworks.com/matlabcentral/fileexchange/163796-large-language-models-llms-with-matlab)
+* [LLMs with MATLAB](./Examples/MATLABOpenAI/MATLABOpenAI.md) with OpenAI LLMs
 * [Claude&reg; Desktop](./Documentation/ConfigureClaude.md)
 * [Microsoft&reg; VS Code with GitHub&reg; Copilot](./Documentation/ConfigureVSCode.md)
 
@@ -92,7 +92,7 @@ calling them in MATLAB. For example, call `build` using its full name: `prodserv
 
 ## Utilities
 | Name | Description |  
-| :---     | :---        |
+| :---     | :---    |
 | [mcpstdio2http.py](./Documentation/mcpstdio2http.md) | MCP STDIO to HTTP server bridge. |
 | [linePlot.py](./Documentation/linePlot.md) | MCP STDIO server. Creates line plots from CSV files. |
 
