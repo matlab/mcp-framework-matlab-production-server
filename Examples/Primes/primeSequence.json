@@ -1,0 +1,47 @@
+{
+  "signatures": [
+      {
+        "primeSequence": { 
+            "function": "primeSequence",
+            "input": {
+                "name": ["n","type"],
+                "type": ["double", "string"]
+            },
+            "output": {
+                "name": ["seq"], 
+                "type": ["double"]
+            }
+        }
+      }
+  ],
+  "tools": [
+    {
+        "name": "primeSequence",
+        "description": "Return the first N primes of the given sequence type. Four sequence types supported: Eisenstein, Balanced, Isolated and Gaussian.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "n": {
+                    "type": "number",
+                    "description": "Length of the generated sequence."
+                },
+                "type": {
+                    "type": "string",
+                    "description": "Name of the sequence to generate."
+                }
+            },
+            "required": ["n","type"]
+        },
+        "outputSchema": {
+            "type": "object",
+            "properties": {
+                "seq": {
+                    "type": "number",
+                    "description": "Generated sequence of prime numbers."
+                }
+            },
+            "required": ["seq"]
+        }
+    }
+  ]
+}

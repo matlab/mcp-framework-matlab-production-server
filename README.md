@@ -84,9 +84,9 @@ calling them in MATLAB. For example, call `build` using its full name: `prodserv
 | Function | Description | Example | 
 | :---     | :---        | :---    |
 | [build](./Documentation/build.md) | Package function as MCP tool | `build("primeSequence",wrapper="None")` |
+| [call](./Documentation/call.md) | Invoke deployed tool (for testing) | `call(endpoint, "primeSequence", 9, "Eisenstein")` |
 | [deploy](./Documentation/deploy.md) | Upload tool to MATLAB Production Server | `deploy(tool, "localhost", 9910)` |
 | [exist](./Documentation/exist.md) | Check existence of tool on MATLAB Production Server | `exist("http://localhost:9910/primes/mcp", "primeSequenceMCP", "tool")` |
-| [call](./Documentation/call.md) | Invoke deployed tool (for testing) | `call(endpoint, "primeSequence", 9, "Eisenstein")` |
 | [list](./Documentation/list.md) | List MCP primitives available at `endpoint` | `list(endpoint, "Tools")` |
 | [ping](./Documentation/ping.md) | Send a ping to server at `endpoint`. Return true if server responsive. | `ping(endpoint)` |
 

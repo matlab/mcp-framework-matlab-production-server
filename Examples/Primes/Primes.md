@@ -15,8 +15,16 @@ function seq = primeSequence(n,type)
 
 # Package and Deploy Prime Sequence Tool
 Create an MCP tool from the `primeSequence` function. If the returned sequences are likely to be large in production, a [wrapper function](../../Documentation/ExternalData.md) with URL-based output will improve performance when interacting with an AI. But for these examples, which are running without AI, a wrapper of None is sufficient. This code assumes an active MATLAB Production Server server running at `localhost:9910`.
+
+Automatic MCP tool description generation is only available in MATLAB R2026a ([prerelease available](https://www.mathworks.com/products/new_products/release-highlights.html)). Earlier releases require the definition as a JSON file.
 ```MATLAB
-ctf = prodserver.mcp.build("primeSequence",wrapper="None");
+if isMATLABReleaseOlderThan("R2026a")
+    exampleFolder = string(fileparts(matlab.desktop.editor.getActiveFilename));
+    ctf = prodserver.mcp.build("primeSequence",wrapper="None",...
+        definition=fullfile(exampleFolder,"primeSequence.json"));
+else
+    ctf = prodserver.mcp.build("primeSequence",wrapper="None");
+end
 endpoint = prodserver.mcp.deploy(ctf,"localhost",9910);
 ```
 
