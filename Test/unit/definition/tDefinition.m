@@ -62,8 +62,7 @@ classdef tDefinition < matlab.unittest.TestCase
             tool = "toyToolOne";
             wrapper = "toyToolOneMCP";
             % Vanilla argument list -- tools only, no GenAI.
-            td = prodserver.mcp.internal.defineForMCP(tool,wrapper,[], ...
-                [], []);
+            td = prodserver.mcp.internal.defineForMCP(tool,wrapper);
           
             test.verifyEqual(td.tools{1}.name,tool)
             
@@ -81,8 +80,9 @@ classdef tDefinition < matlab.unittest.TestCase
             % Generate definitions for three tools
             tools = ["toyToolOne", "toyToolTwo", "toyToolThree"];
             % Vanilla argument list -- tools only, no GenAI.
-            td = prodserver.mcp.internal.defineForMCP(tools,tools,[], ...
-                [], []);
+            types.geom = "double";
+            td = prodserver.mcp.internal.defineForMCP(tools,tools, ...
+                typemap=types);
             definition.tools = td.tools;
             definition.signatures = td.signatures;
 

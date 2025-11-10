@@ -1,5 +1,4 @@
-function definition = defineForMCP(tools,fcns,availableAI,definitions, ...
-    folder)
+function definition = defineForMCP(tools,fcns, opts)
 % Create a single MCP tool definition structure for one or more MCP tools.
 % Use metafunction (R2026a and later) or generative AI to create MCP tool
 % definition from the text in each function's file. tools, fcns and
@@ -8,35 +7,44 @@ function definition = defineForMCP(tools,fcns,availableAI,definitions, ...
 
 % Copyright 2025, The MathWorks, Inc.
 
-    validateattributes(tools,["string","char","cell"], {"nonempty","vector"}, '', ...
-        'tools',1);
-    validateattributes(fcns,["string","char","cell"], {"nonempty","vector"}, '', ...
-        'fcns',2);
+    arguments
+        tools { prodserver.mcp.validation.mustBeText }
+        fcns { prodserver.mcp.validation.mustBeText }
+        opts.AI = [];
+        opts.definitions string = string.empty;
+        opts.folder string = ""
+        opts.typemap struct = [];
+        opts.timeout double = 30;
+        opts.retry double = 2;
+    end
+
     prodserver.mcp.validation.mustBeSameSize(1,{tools,fcns});
     
     for n = 1:numel(tools)
-        if isempty(definitions)
+        if isempty(opts.definitions)
             if isMATLABReleaseOlderThan("R2026a")
-                if isempty(availableAI)
+                if isempty(opts.AI)
                     error("prodserver:mcp:Indescriable", ...
 "MCP tool definition required but unavailable. No MCP tool definition " + ...
 "provided and no generative AI available to create one.");
                 else
-    
                     td = prodserver.mcp.genai.mcpDescription(tools(n),fcns(n), ...
-                        availableAI(1),folder,timeout,retry);
+                        opts.AI(1),opts.folder,opts.timeout,opts.retry);
                 end
             else
-                td = prodserver.mcp.internal.mcpDefinition(tools(n),fcns(n));
+                td = prodserver.mcp.internal.mcpDefinition(tools(n), ...
+                    fcns(n),opts.typemap);
             end
         else
             % Assume each of these is a complete description of a single 
             % tool. Add the "tools" value to the definition we're building.
     
-            if exist(definitions(n),"file") == 2
-                td = jsondecode(fileread(definitions(n)));
-            elseif isstring(definitions(n))
-                td = jsondecode(definitions(n));
+            if exist(opts.definitions(n),"file") == 2
+                td = jsondecode(fileread(opts.definitions(n)));
+            elseif isstring(opts.definitions(n))
+                td = jsondecode(opts.definitions(n));
+            elseif isstruct(opts.definitions(n))
+                td = opts.definitions(n);
             end
         end
     

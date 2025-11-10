@@ -23,9 +23,8 @@ function [ctf,endpoint] = build(fcn, opts)
         % Folder in which to generate deployable archive and other files.
         opts.folder (1,1) string = "./deploy"
 
-        % MCP tool definition as MATLAB structure. Generated if not
-        % provided.
-        opts.definition {prodserver.mcp.validation.mustBeToolDefinition} = struct.empty
+        % MCP tool definition. Generated if not provided.
+        opts.definition {prodserver.mcp.validation.mustBeToolDefinition} = string.empty
 
         % Embed routes in archive or use MPS instance-global routes?
         opts.routes prodserver.mcp.RoutesType = prodserver.mcp.RoutesType.Archive
@@ -91,7 +90,7 @@ function [ctf,endpoint] = build(fcn, opts)
     end
 
     definition = prodserver.mcp.internal.defineForMCP(opts.tool, ...
-        wrapperFcn,availableAI, opts.definition, opts.folder);
+        wrapperFcn,AI=availableAI,definition=opts.definition,folder=opts.folder);
 
     % Save the definition to deploy with the MCP tool. -struct saves the
     % fields of the structure as named variables. "def" itself does not

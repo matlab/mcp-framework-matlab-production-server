@@ -10,19 +10,19 @@
           "description": "file: URL containing a table of uncorrected 3-axis seismometer accelerations"
         },
         "sampleRate": {
-          "type": "double",
+          "type": "number",
           "description": "Seismometer sample rate in Hertz"
         },
         "correction": {
-          "type": "double",
+          "type": "number",
           "description": "Instrument correction: apply to quakeData"
         },
         "start": {
-          "type": "double",
+          "type": "number",
           "description": "Start offset, in seconds, for trajectory data"
         },
         "stop": {
-          "type": "double",
+          "type": "number",
           "description": "Stop offset, in seconds, for trajectory data"
         },
         "plotURL": {
@@ -40,9 +40,10 @@
       ]
     },
     "outputSchema": {
+      "type": "object",
       "properties": {
         "status": {
-          "type": "logical",
+          "type": "boolean",
           "description": "True on success, false on error or failure."
         },
         "msg": {

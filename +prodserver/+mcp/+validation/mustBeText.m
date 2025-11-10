@@ -7,9 +7,19 @@ function mustBeText(x,var,constraint)
 % Written because validateattributes can't check for cellstr and MATLAB's
 % mustBeText doesn't allow customization of the error message.
 
-    validateattributes(x,["string","cell","char"],"nonempty",x,var);
+    if nargin == 1
+        extra = {};
+    elseif nargin == 2
+        extra = { var };
+    elseif nargin == 3
+        extra = { var, constraint };
+    end
+    validateattributes(x,["string","cell","char"],["nonempty","vector"],extra{:});
+
     if iscell(x) && ~iscellstr(x) %#ok<ISCLSTR> -- Already done.
-        error(message(msgid("pipeline:VarMustBeCellstr", x, var)));
+        error("prodserver:mcp:VarMustBeCellstr", ...
+            "In order to be text, variable %s with type cell must be " + ...
+            "cellstr.", var);
     end
 
     if nargin > 2

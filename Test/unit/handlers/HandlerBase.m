@@ -35,7 +35,7 @@ classdef HandlerBase < matlab.unittest.TestCase
             test.fcnNames = ["plotTrajectoriesMCP","primeSequence"];
             test.toolNames = ["plotTrajectories","primeSequence"];
             definition = prodserver.mcp.internal.defineForMCP(...
-                test.toolNames, test.fcnNames, [],[],[]);
+                test.toolNames, test.fcnNames);
             test.definitionFile = fullfile(test.tempFolder.Folder,...
                 MCPConstants.DefinitionFile);
             def.(MCPConstants.DefinitionVariable) = definition;

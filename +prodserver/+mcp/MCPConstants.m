@@ -19,7 +19,7 @@ classdef MCPConstants
         jrpcVersion = "2.0"
         protocolVersion = "2025-06-18";
 
-        DefaultArgType = "double";
+        DefaultArgType = "double";  
 
         % Call and response
         Ping = "ping";

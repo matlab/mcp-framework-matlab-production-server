@@ -1,4 +1,4 @@
-function definition = mcpDefinition(tool,fcn)
+function definition = mcpDefinition(tool,fcn,typemap)
 %mcpDefinition Generate a definition for tool from the code in fcn.
 
 % Copyright 2025, The MathWorks, Inc.
@@ -7,6 +7,10 @@ function definition = mcpDefinition(tool,fcn)
     import prodserver.mcp.internal.hasField
     import prodserver.mcp.internal.parameterDescription
 
+    % Optional mapping of MATLAB types to JSONRPC types.
+    if nargin < 3
+        typemap = [];
+    end
 
     if exist(fcn,"file") == false
         error("prodserver:mcp:ToolFcnNotFound", "MCP function %s " + ...
@@ -24,7 +28,9 @@ function definition = mcpDefinition(tool,fcn)
     %
     % MCP Tool Description
     % 
+
     definition.tools.name = tool;
+
     % Make description into a single line.
     d = strtrim(mf.Description);
     if isempty(mf.DetailedDescription)
@@ -44,61 +50,97 @@ function definition = mcpDefinition(tool,fcn)
             "the function line.", fcn, mf.FullPath);
     end
 
-    % Description of inputs
-    definition.tools.inputSchema.type = "object";
-    [properties,required] = argumentDeclaration(mf.Signature.Inputs);
-    definition.tools.inputSchema.properties = properties;
-    definition.tools.inputSchema.required = required;
-
-    % Description of outputs
-    [properties,required] = argumentDeclaration(mf.Signature.Outputs);
-    definition.tools.outputSchema.properties = properties;
-    definition.tools.outputSchema.required = required;
+    % MPS mapping of tool name to callable MATLAB function
+    definition.signatures.(tool).function = mf.Name;
 
     % Heuristic searching about for comments that describe each input and
     % output argument.
-
     [in,out] = parameterDescription(mf);
-    if ~isempty(in)
-        definition = addDescriptionToSchema(definition,"inputSchema",in);
-    end
-    if ~isempty(out)
-        definition = addDescriptionToSchema(definition,"outputSchema",out);
-    end
 
-    % 
-    % MPS mapping of tool name to callable MATLAB function
-    %
-    definition.signatures.(tool).function = mf.Name;
-
-    if hasField(definition.tools,"inputSchema")
-        [name,type] = mpsArguments(definition.tools.inputSchema.properties);
-        definition.signatures.(tool).input.name = name;
-        definition.signatures.(tool).input.type = type;
-    end
-
-    if hasField(definition.tools,"outputSchema")
-        [name,type] = mpsArguments(definition.tools.outputSchema.properties);
-        definition.signatures.(tool).output.name = name;
-        definition.signatures.(tool).output.type = type;
-    end
+    % Define inputs
+    definition = defineParameters(definition,tool,"input",in, ...
+        mf.Signature.Inputs,typemap);
+ 
+    % Define outputs
+    definition = defineParameters(definition,tool,"output",out, ...
+        mf.Signature.Outputs,typemap);
 end
 
-function definition = addDescriptionToSchema(definition,schema,ad)
-% Copy the description text into the "description" field of each argument
-% in the schema. ad is a dictionary: name -> description. If the
-% description has multiple lines, join the lines together into a single
-% line.
-for arg = keys(ad)'
-    definition.tools.(schema).properties.(arg).description = ...
-        strjoin(ad(arg).description," ");
+function definition = defineParameters(definition,tool,io,descriptions, ...
+    signature,typemap)
+% Define a set of parameters, either input or output. Use introspection to
+% collect parameter names and types. metafunction doesn't support parameter
+% descriptions yet so they are extracted using a heuristic process.
+%
+%  definition: Structure capturing all knowledge about the tool. This
+%      function adds information about parameters.
+%  tool: Name of the tool.
+%  io: "input" or "output" -- the group of parameters we're processing.
+%  descriptions: Parameter descriptions extracted from function text.
+%  signature: metafunction data on the group of parameters.
+%  typemap: Maps "extra" MATLAB types to JSONRPC types. A structure.
+
+    % Set schema name based on parameter group -- input or output.
+    if strcmp(io,"input")
+        schema = "inputSchema";
+    elseif strcmp(io,"output")
+        schema = "outputSchema";
+    end
+
+    % Collect input argument information from metafunction data.
+    [parameters,required] = argumentDeclaration(signature);
+    
+    % Update parameter structure with descriptions.
+    if ~isempty(descriptions)
+        parameters = addDescription(parameters,descriptions);
+    end
+    
+    % Populate MATLAB signature structure with MATLAB native types.
+    if ~isempty(parameters)
+        [name,type] = mpsArguments(parameters);
+        definition.signatures.(tool).(io).name = name;
+        definition.signatures.(tool).(io).type = type;
+    end
+    
+    % Convert MATLAB types to compatible JSON types
+    parameters = mcpArgumentTypes(parameters,typemap);
+    
+    % Description of parameters
+    definition.tools.(schema).type = "object";
+    definition.tools.(schema).properties = parameters;
+    definition.tools.(schema).required = required;
 end
+
+
+function parameters = addDescription(parameters,ad)
+% Copy the description text into the "description" field of each parameter.
+% ad is a dictionary: name -> description. If the description has multiple 
+% lines, join the lines together into a single line.
+    for arg = keys(ad)'
+        parameters.(arg).description = strjoin(ad(arg).description," ");
+    end
 end
 
 function [name,type] = mpsArguments(schema)
     name = string(fieldnames(schema));
     type = arrayfun(@(i)string(schema.(i).type), name);
 end
+
+function parameters = mcpArgumentTypes(parameters,typemap)
+
+    name = string(fieldnames(parameters));
+    for n = 1:numel(name)
+        t = jsonParameterType(parameters.(name(n)).type,typemap);
+        if isempty(t)
+            error("prodserver:mcp:IncompatibleArgumentType", ...
+                "Parameter '%s' has unsupported type '%s'. Valid types " + ...
+                "include numeric types, strings, cell arrays and " + ...
+                "structures.", name(n), parameters.(name(n)).type);
+        end
+        parameters.(name(n)).type = t;
+    end
+end
+
 
 function [properties,required] = argumentDeclaration(args)
 % Extract argument names and types, but not descriptions from an argument
@@ -120,6 +162,7 @@ function [properties,required] = argumentDeclaration(args)
                 t = args(i).Validation.Class.Name;
             end
         end
+
         d.type = t;
         % No time-frame for mf.Signature.Inputs(i).Description, so
         % placeholder for now and fix-up later.
@@ -127,9 +170,64 @@ function [properties,required] = argumentDeclaration(args)
 
         decl{i} = d;
     end
+
+    % Structure with one field per argument. name -> (type, description)
+    % Except description is empty right now -- to be filled in later.
     args = [ names; decl ];
     properties = struct(args{:});
     required = names(required);
 end
 
+function jsonType = jsonParameterType(matlabType,typemap)
+% Map MATLAB types to JSON RPC types. The only valid types for JSON are:
+% array, boolean, integer, null, number, object, string. In this list,
+% "object" means struct.
+% 
+% Return a "" string if there is no compatible JSON type.
 
+    arguments
+        matlabType string
+        typemap struct
+    end
+
+    intType = textBoundary("start") + ("int" | "uint") + ...
+        ("8" | "16" | "32" | "64" | "128") + textBoundary("end");
+    
+    jsonType = strings(1,numel(matlabType));
+
+    for n = 1:numel(matlabType)
+
+        % Special case types first -- user specified these conversions, so
+        % honor them.
+        if ismember(matlabType(n),fieldnames(typemap))
+            jsonType(n) = typemap.(matlabType(n));
+        % Character types become string
+        elseif strcmp(matlabType(n),"char") || strcmp(matlabType(n),"string")
+            jsonType(n) = "string";
+    
+        % All integer types become "integer"
+        elseif matches(matlabType(n),intType)
+            jsonType(n) = "integer";
+    
+        % Floating point types are "number"
+        elseif strcmp(matlabType(n),"double") || strcmp(matlabType(n),"float")
+            jsonType(n) = "number";
+    
+        % Data with named fields is an "object"
+        elseif strcmp(matlabType(n),"struct")
+            jsonType(n) = "object";
+    
+        % logical -> boolean
+        elseif strcmp(matlabType(n),"logical")
+            jsonType(n) = "boolean";
+    
+        % cell arrays are JSON arrays
+        elseif strcmp(matlabType(n),"cell")
+            jsonType(n) = "array";
+    
+        % No compatible JSON type for this MATLAB type. 
+        else
+            jsonType(n) = "";
+        end
+    end
+end
