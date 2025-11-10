@@ -114,7 +114,7 @@ Set security parameters by configuration in MATLAB Production Server.
 | +prodserver | Top-level directory for prodserver.mcp namespace. Contains the bulk of the repo functions. |
 | Documentation | Collection of Markdown reference pages documenting the public functions. |
 | Examples | Complete examples of MCP tools and the workflows to create, deploy and use them. |
-| Test | Unit and Integration tests. Please run these tests before making any pull requests. |
+| Test | Unit and Integration tests. |
 | Utilities | Mostly standalone functions and scripts that make the repo easier to integrate with other environments. |
 
 # License
