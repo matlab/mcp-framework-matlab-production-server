@@ -9,7 +9,7 @@ function seq = primeSequence(n,type)
         seq double  % Generated sequence of prime numbers
     end
 
-    seq = feval(type,n);
+    seq = feval(lower(type),n);
 
 end
 
