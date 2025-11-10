@@ -1,7 +1,7 @@
-function [varargout] = feval(endpoint, tool, varargin)
-% feval Call Model Context Protocol tool at endpoint with variable inputs.
+function [varargout] = call(endpoint, tool, varargin)
+% call Call Model Context Protocol tool at endpoint with variable inputs.
 %
-%   [varargout] = feval(endpoint, tool, varargin) calls the
+%   [varargout] = call(endpoint, tool, varargin) calls the
 %   named TOOL hosted at the MCP server at ENDPOINT, passing all the
 %   input arguments in VARARGIN. Output arguments are returned in
 %   VARARGOUT.
@@ -14,12 +14,12 @@ function [varargout] = feval(endpoint, tool, varargin)
 %
 %  Invoke "cleanSignal" tool with three required inputs:
 %
-%    prodserver.mcp.feval("http://localhost:9910/mcp", ...
+%    prodserver.mcp.call("http://localhost:9910/mcp", ...
 %        "cleanSignal", noisy, frequency, clean)
 %
 %  Invoke "detectEdge" tool with two required and two optional inputs:
 %
-%    prodserver.mcp.feval("http://localhost:9910/mcp", ...
+%    prodserver.mcp.call("http://localhost:9910/mcp", ...
 %        "detectEdge", image, edges, algorithm="Canny", aperture=7)
 %    
 

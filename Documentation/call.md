@@ -1,6 +1,6 @@
-# prodserver.mcp.feval
+# prodserver.mcp.call
 ```MATLAB
-[varargout] = feval(endpoint, tool, varargin)
+[varargout] = call(endpoint, tool, varargin)
 ```
 Call the named `tool` hosted by the Model Context Protocol server at `endpoint` with
 all the input arguments in `varargin`. Output arguments returned in `varargout`. Inputs may be required or optional. Required arguments are positional (order matters) while optional arguments are order-independent; all required arguments must appear in varargin before any optional arguments.
@@ -22,7 +22,7 @@ Invoke `cleanSignal` tool with three required inputs:
 noisy = "file:/input/data/noisySignal.csv";
 clean = "file:/output/data/cleanSignal.csv";
 frequency = 60;
-prodserver.mcp.feval("http://localhost:9910/signal/mcp", "cleanSignal", noisy, frequency, clean)
+prodserver.mcp.call("http://localhost:9910/signal/mcp", "cleanSignal", noisy, frequency, clean)
 ```
 
 ***
@@ -31,6 +31,6 @@ Invoke the `detectEdge` tool with two required and two optional inputs:
 ```MATLAB
 image = "file:/image/data/circuit.jpg";
 edges = "file:/image/data/circuit_edges.jpg";
-prodserver.mcp.feval("http://localhost:9910/edges/mcp","detectEdge",image,edges,...
+prodserver.mcp.call("http://localhost:9910/edges/mcp","detectEdge",image,edges,...
           algorithm="Canny", aperture=7)
 ```

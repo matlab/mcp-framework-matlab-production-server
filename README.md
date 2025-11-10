@@ -42,7 +42,7 @@ For example, to create an MCP tool from the `primeSequence` function use these c
 available = 
     true
 
->> gp = prodserver.mcp.feval(endpoint, "primeSequence", 11, "gaussian")
+>> gp = prodserver.mcp.call(endpoint, "primeSequence", 11, "gaussian")
 gp = 1×11
      3    7    11    19    23    31    43    47    59    67    71
 ```
@@ -86,7 +86,7 @@ calling them in MATLAB. For example, call `build` using its full name: `prodserv
 | [build](./Documentation/build.md) | Package function as MCP tool | `build("primeSequence",wrapper="None")` |
 | [deploy](./Documentation/deploy.md) | Upload tool to MATLAB Production Server | `deploy(tool, "localhost", 9910)` |
 | [exist](./Documentation/exist.md) | Check existence of tool on MATLAB Production Server | `exist("http://localhost:9910/primes/mcp", "primeSequenceMCP", "tool")` |
-| [feval](./Documentation/feval.md) | Invoke deployed tool (for testing) | `feval(endpoint, "primeSequence", 9, "Eisenstein")` |
+| [call](./Documentation/call.md) | Invoke deployed tool (for testing) | `call(endpoint, "primeSequence", 9, "Eisenstein")` |
 | [list](./Documentation/list.md) | List MCP primitives available at `endpoint` | `list(endpoint, "Tools")` |
 | [ping](./Documentation/ping.md) | Send a ping to server at `endpoint`. Return true if server responsive. | `ping(endpoint)` |
 

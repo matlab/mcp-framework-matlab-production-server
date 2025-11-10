@@ -31,7 +31,7 @@ function observation = evaluateToolCall(toolCall,tools)
     % is an obvious candidate.
     argValues = arrayfun(@(fieldName) args.(fieldName),requiredArgs,UniformOutput=false);
     if strcmpi(tool.server.type,"http")
-        [status,msg] = prodserver.mcp.feval(tool.server.url,toolName,argValues{:});
+        [status,msg] = prodserver.mcp.call(tool.server.url,toolName,argValues{:});
         if status == false
             observation = msg;
         else
