@@ -34,11 +34,11 @@ To create an MCP tool from one of your MATLAB functions:
 For example, to create an MCP tool from the `primeSequence` function use these commands in MATLAB:
 
 ```MATLAB
->> ctf = prodserver.mcp.build("primeSequence",wrapper="None");
+ctf = prodserver.mcp.build("primeSequence",wrapper="None", definition="primeSequence.json");
 
->> endpoint = prodserver.mcp.deploy(ctf,"localhost",9910);
+endpoint = prodserver.mcp.deploy(ctf,"localhost",9910);
 
->> available = prodserver.mcp.ping(endpoint)
+available = prodserver.mcp.ping(endpoint)
 available = 
     true
 
@@ -47,8 +47,9 @@ gp = 1×11
      3    7    11    19    23    31    43    47    59    67    71
 ```
 
-And then you might be able to use it from your LLM host with the prompt: "Generate the first 11 Gaussian primes." 
-See the discussion of [external](./Documentation/ExternalData.md) data sources for details of the `wrapper` input to `prodserver.mcp.build`.
+And then you might be able to use it from your LLM host with the prompt: "Generate the first 11 Gaussian primes." See the discussion of [external](./Documentation/ExternalData.md) data sources for details of the `wrapper` input to `prodserver.mcp.build`.
+
+If you're using the MATLAB R2026a prerelease, the `definition` argument is no longer necessary. MCP tool definitions can be automatically generated in R2026a.
 
 ## Step 3: Configure MCP Client 
 There are many MCP clients and each has its own configuration mechanism for MCP tools. But they all share the 
