@@ -18,10 +18,13 @@ classdef HandlerBase < matlab.unittest.TestCase
 
             % Put the earthquake and signal example folders on the path.
             import matlab.unittest.fixtures.PathFixture
-            test.applyFixture(PathFixture(fullfile(test.exampleFolder,...
-                "Earthquake")));
-            test.applyFixture(PathFixture(fullfile(test.exampleFolder,...
-                "Primes")));
+
+            earthquakeFolder = fullfile(test.exampleFolder,...
+                "Earthquake");
+            test.applyFixture(PathFixture(earthquakeFolder));
+
+            primeFolder = fullfile(test.exampleFolder,"Primes");
+            test.applyFixture(PathFixture(primeFolder));
 
             % Make a temporary folder for output and put it on the path
             import matlab.unittest.fixtures.TemporaryFolderFixture
@@ -34,8 +37,28 @@ classdef HandlerBase < matlab.unittest.TestCase
             % work.
             test.fcnNames = ["plotTrajectoriesMCP","primeSequence"];
             test.toolNames = ["plotTrajectories","primeSequence"];
-            definition = prodserver.mcp.internal.defineForMCP(...
-                test.toolNames, test.fcnNames);
+
+            % Definition generation support in 26a and later.
+            if isMATLABReleaseOlderThan("R2026a")
+                dFiles = [ ...
+                    fullfile(earthquakeFolder,"plotTrajectories.json"), ...
+                    fullfile(primeFolder,"primeSequence.json"), ...
+                    ];
+                dJSON = arrayfun(@(f)jsondecode(fileread(f)),dFiles, ...
+                    UniformOutput=false);
+                definition.tools = cell(1,numel(dJSON));
+                for n = 1:numel(dJSON)
+                    td = dJSON{n};
+                    definition.tools{n} = td.tools;
+                    for f = string(fieldnames(td.signatures))'
+                        definition.signatures.(f) = td.signatures.(f);
+                    end
+                end
+            else
+                definition = prodserver.mcp.internal.defineForMCP(...
+                    test.toolNames, test.fcnNames);
+            end
+
             test.definitionFile = fullfile(test.tempFolder.Folder,...
                 MCPConstants.DefinitionFile);
             def.(MCPConstants.DefinitionVariable) = definition;

@@ -1,6 +1,7 @@
 classdef tmcpHandler < HandlerBase
 
     methods(Test)
+
         function toolsList(test)
             import prodserver.mcp.internal.mcpHandler
             import prodserver.mcp.internal.hasField
@@ -53,6 +54,56 @@ classdef tmcpHandler < HandlerBase
             reqT.Headers = [reqT.Headers; {MCPConstants.ContentLength, 0}];
             response = prodserver.mcp.internal.mcpHandler(reqT);
             test.verifyEqual(response.HttpCode,405);
+        end
+
+        function content(test)
+            import prodserver.mcp.internal.mcpHandler
+            import prodserver.mcp.MCPConstants
+            import prodserver.mcp.internal.hasField
+
+            % Get base request structure
+            req = test.request;
+            req.Headers = [req.Headers; {MCPConstants.ContentType, ...
+                'application/json'}];
+
+            % Make up a session ID
+            id = matlab.lang.internal.uuid;
+            req.Headers = [req.Headers; { MCPConstants.SessionId id} ];
+
+            % Call primeSequence requesting 13 Eisenstein primes.
+            body = [...
+'{' ...
+'    "jsonrpc": "2.0",' ...
+'    "id": 1,'...
+'    "method": "tools/call",'...
+'    "params": {'...
+'        "name": "primeSequence",'...
+'        "arguments": {'...
+'           "n": 13,'...
+'           "type": "Eisenstein"'...
+'        }'...
+'    }'...
+'}'
+];
+            reqT = req;
+            reqT.Method = "POST";  % Because there's a body
+            reqT.Path = "http://localhost:9910/prime/mcp";
+            reqT.Headers = [reqT.Headers; {MCPConstants.ContentLength, numel(body)}];
+            reqT.Body = unicode2native(body,"UTF-8");
+            response = prodserver.mcp.internal.mcpHandler(reqT);
+            response = prodserver.mcp.internal.decodeBody(response);
+
+            % Expecting content and structuredContent
+            test.verifyEqual(response.id, 1);
+            test.verifyTrue(hasField(response, 'result.content'));
+            test.verifyTrue(hasField(response, 'result.structuredContent'));
+
+            % Result is a column vector.
+            expected.seq = primeSequence(13,"Eisenstein")';
+            test.verifyEqual(response.result.structuredContent,expected);
+            % Since HTTP interface sends all strings as char
+            test.verifyEqual(response.result.content.text, ...
+                char(MCPConstants.IndirectionMsg));
         end
     end
 

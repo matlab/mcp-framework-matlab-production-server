@@ -56,7 +56,7 @@ classdef tSignature < HandlerBase
         function anode(test)
             import prodserver.mcp.MCPConstants
 
-            req =test.request;
+            req = test.request;
             req.Headers = [req.Headers; {MCPConstants.ContentType, 'application/json'}];
 
             body = { 17, { struct.empty }, struct('x',21), 867.5309 };

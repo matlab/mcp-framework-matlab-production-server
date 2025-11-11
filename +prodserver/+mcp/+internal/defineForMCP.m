@@ -49,7 +49,7 @@ function definition = defineForMCP(tools,fcns, opts)
         end
     
         % MCP tool JSON expects tools field to have an array value,
-        % event if there is only one tool. The only way to ensure
+        % even if there is only one tool. The only way to ensure
         % that is to place the tool description in a cell array.
         % Which is a good idea anyway because the structures won't
         % be identical even at the highest level, so might not

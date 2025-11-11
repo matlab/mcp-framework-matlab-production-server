@@ -208,9 +208,12 @@ function [result, httpCode, httpMsg, msgHeaders] = handlePost(jrpc)
             r.structuredContent.(out{n}) = outArgs{n};
         end
 
-        % Should not be required but some clients apparently don't
-        % implement the protocol correctly.
-        r.content = {};
+        % Should not be required but some clients require non-empty
+        % content, even when structuredContent has a value (looking at you,
+        % Claude).
+        indirection.type = "text";
+        indirection.text = MCPConstants.IndirectionMsg;
+        r.content = {indirection};
     end
 
     if ~isempty(result)

@@ -21,6 +21,8 @@ classdef MCPConstants
 
         DefaultArgType = "double";  
 
+        IndirectionMsg = "Refer to structuredContent for tool results.";
+
         % Call and response
         Ping = "ping";
         Pong = "pong";
