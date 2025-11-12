@@ -29,7 +29,7 @@ function msg = encodeBody(msg)
                 prodserver.mcp.MCPConstants.ContentType, msg.Headers);
         elseif hasField(msg,"Header")
             contentPos = matches([msg.Header.Name], ...
-                rodserver.mcp.MCPConstants.ContentType);
+                prodserver.mcp.MCPConstants.ContentType);
             if ~isempty(contentPos)
                 bodyCT = msg.Header(contentPos).Value;
             end

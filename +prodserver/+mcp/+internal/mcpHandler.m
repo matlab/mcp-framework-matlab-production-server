@@ -204,16 +204,19 @@ function [result, httpCode, httpMsg, msgHeaders] = handlePost(jrpc)
         % Extract tool results from cell array and write them to structure
         % (which will be JSON-encoded). outArgs and out define the order,
         % which structuredContent does not care about.
+        r.content = cell(1,numel(out));
         for n = 1:numel(out)
             r.structuredContent.(out{n}) = outArgs{n};
+            r.content{n}.type = "text";
+            r.content{n}.text = jsonencode(outArgs{n});
         end
 
         % Should not be required but some clients require non-empty
         % content, even when structuredContent has a value (looking at you,
         % Claude).
-        indirection.type = "text";
-        indirection.text = MCPConstants.IndirectionMsg;
-        r.content = {indirection};
+        % indirection.type = "text";
+        % indirection.text = MCPConstants.IndirectionMsg;
+        % r.content = {indirection};
     end
 
     if ~isempty(result)
