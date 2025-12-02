@@ -68,7 +68,7 @@ The Examples folder contains several complete MCP tools of varying complexity. E
 * [Primes](./Examples/Primes/Primes.md): Generates four different kinds of prime number sequences. Does not require a data marshaling wrapper function.
 * [Periodic Noise](./Examples/Periodic%20Noise/PeriodicNoise.md): Eliminates periodic noise from a measured signal. Demonstrates explicit use of an automatically generated wrapper function.
 * [Earthquake](./Examples/Earthquake/Earthquake.md): Generates plots of earthquake data. Demonstates use of a user-written wrapper function.
-* [Multiple Tools](./Examples/MultiTool/MultiTool.pdf): Build a server hosting multiple MCP tools.
+* [Multiple Tools](./Examples/MultiTool/MultipleTools.md): Build a server hosting multiple MCP tools.
 
 To become effective MCP tools, MATLAB functions must accommodate the MCP environment. In particular,
 your functions must: 
