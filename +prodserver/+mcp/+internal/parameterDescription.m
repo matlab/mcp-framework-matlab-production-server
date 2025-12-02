@@ -169,6 +169,23 @@ function ad = argDescriptionFromBlock(textLines,argBlockLine,file,block)
                 "declaration of %s.", block, a, file, a);
         end
     end
+
+    % Name-value pair arguments are declared in "groups". opts.range, for
+    % example, declares the "range" argument in the "opts" group. Add a
+    % group name field to every entry. And remove the group prefix from the
+    % names of any arguments in a group.
+    names = keys(ad);
+    for n = 1:numel(names)
+        group = extract(names(n),textBoundary("start")+...
+            wildcardPattern(Except='.')+lookAheadBoundary("."));
+        if ~isempty(group)
+            d = ad(names(n));                % metadata for argument names(n)
+            d.group = group;                 % add group name field
+            an = erase(names(n),group+".");  % remove group prefix
+            ad = remove(ad,names(n));        % delete entry for names(n)
+            ad(an) = d;                      % add entry for new name
+        end
+    end
 end
 
 function d = argDescriptionFromComment(textLines,n)

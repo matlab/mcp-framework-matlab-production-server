@@ -1,4 +1,4 @@
-function items = list(endpoint, type)
+function items = list(endpoint, type, opts)
 % List all of the MCP primitives of TYPE available at ENDPOINT.
 % Returns a MATLAB structure corresponding to the MCP protocol JSON 
 % description of the available primitives, or empty if none exist.
@@ -21,6 +21,9 @@ function items = list(endpoint, type)
     arguments
         endpoint string { prodserver.mcp.validation.mustBeMCPServer }
         type (1,1) prodserver.mcp.Primitive 
+        opts.timeout double {mustBePositive} = 60
+        opts.retry double {mustBePositive} = 3
+        opts.delay double {mustBePositive} = 2
     end
 
     %
@@ -30,14 +33,17 @@ function items = list(endpoint, type)
     % Require that the server publish the resources we're inquiring about.
     try    
         [session,id] = prodserver.mcp.internal.initialize(endpoint, ...
-            require=type);
+            require=type, timeout=opts.timeout, delay=opts.delay, ...
+            retry=opts.retry);
 
         % Terminate session -- no response expected.
         terminator = onCleanup(@()prodserver.mcp.internal.terminate( ...
             endpoint,session));
         
         % List all primitives of TYPE at ENDPOINT
-        items = prodserver.mcp.internal.list(endpoint,session,type,id=id);
+        items = prodserver.mcp.internal.list(endpoint,session,type, ...
+            id=id,timeout=opts.timeout, delay=opts.delay, ...
+            retry=opts.retry);
         items = items.(mcpName(type));
 
         % Add the server endpoint to all the tools.

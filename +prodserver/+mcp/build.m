@@ -29,17 +29,27 @@ function [ctf,endpoint] = build(fcn, opts)
         % Embed routes in archive or use MPS instance-global routes?
         opts.routes prodserver.mcp.RoutesType = prodserver.mcp.RoutesType.Archive
 
+        % ImportOptions objects for auto-generated wrapper functions.
+        opts.import {prodserver.mcp.validation.mustBeArgImport} = struct.empty
+
         % Wrapper function for marshaling large data as files.
-        opts.wrapper string {prodserver.mcp.validation.mustBeWrapper} = strings(1:numel(fcn))
+        opts.wrapper string {prodserver.mcp.validation.mustBeWrapper} = strings(1,numel(fcn))
 
         % Timeout, in seconds, for server interactions.
         opts.timeout (1,1) double = 30
 
         % Number of times to retry operations that time out.
         opts.retry (1,1) double = 2
+
+        % Stage at which to stop the build process. Useful for testing.
+        opts.stop (1,1) prodserver.mcp.BuildStage = prodserver.mcp.BuildStage.Deploy
     end
 
     import prodserver.mcp.MCPConstants
+
+    % Might be zero-length strings, depending on final stage executed.
+    ctf = "";
+    endopint = "";
 
     % Both wrapper and definition generation might use generative AI.
     if opts.genai == prodserver.mcp.GenerativeAI.None
@@ -66,13 +76,27 @@ function [ctf,endpoint] = build(fcn, opts)
         end
     end
 
+    % Not possible, currently, but in place just in case another, earlier
+    % stage is developed later.
+    if opts.stop < prodserver.mcp.BuildStage.Wrapper, return; end
+
     % Generate or copy wrappers for each MCP tool. fcn MUST NOT be a file
     % path, because wrapForMCP requires MATLAB-callable identifiers -- just
     % the function name in this case.
     wrapper = prodserver.mcp.internal.wrapForMCP(fcn, ...
-        opts.wrapper, opts.folder, availableAI, opts.timeout,opts.retry);
+        opts.wrapper, opts.folder, AI=availableAI, timeout=opts.timeout, ...
+        retry=opts.retry,import=fieldnames(opts.import));
     if ~isempty(wrapper)
         files = [files, wrapper];
+    end
+
+    % Save wrapper file argument importer 
+    appendDefinition = {};
+    if isempty(opts.import) == false
+        def.(MCPConstants.ImporterVariable) = opts.import;
+        definitionFile = fullfile(opts.folder,MCPConstants.DefinitionFile);
+        save(definitionFile,"-struct","def");
+        appendDefinition = {"-append"};
     end
 
     % Put the output folder on the path so that defineForMCP can find the
@@ -89,6 +113,9 @@ function [ctf,endpoint] = build(fcn, opts)
         [~,wrapperFcn] = fileparts(wrapper);
     end
 
+    % Only generate definition if stop-stage permits it.
+    if opts.stop < prodserver.mcp.BuildStage.Definition, return; end
+
     definition = prodserver.mcp.internal.defineForMCP(opts.tool, ...
         wrapperFcn,AI=availableAI,definition=opts.definition,folder=opts.folder);
 
@@ -97,13 +124,14 @@ function [ctf,endpoint] = build(fcn, opts)
     % become a name.
     def.(MCPConstants.DefinitionVariable) = definition;
     definitionFile = fullfile(opts.folder,MCPConstants.DefinitionFile);
-    save(definitionFile,"-struct","def");
+    save(definitionFile,"-struct","def",appendDefinition{:});
 
-    % Build the MCP-enabled CTF archive
+    % Build the MCP-enabled CTF archive unless stop-stage prevents it.
     ctf = buildMCP(files,opts.folder,opts.archive,definitionFile, ...
-        opts.routes);
+        opts.routes, opts.stop);
 
     % If a server was provided, publish the archive to the server.
+    if opts.stop < prodserver.mcp.BuildStage.Deploy, return; end
     if ~isempty(opts.server)
         endpoint = prodserver.mcp.deploy(opts.archive,opts.server);
     end
@@ -137,9 +165,15 @@ function name = basename(fcn)
     name = arrayfun(@(f)fcnName(f),fcn);
 end
 
-function ctf = buildMCP(files, folder, archive, definition, routesType)
+function ctf = buildMCP(files, folder, archive, definition, routesType, stop)
 %buildMCP Create a Model Context Protocol-enabled CTF archive for MATLAB
 %Production Server.
+
+    % Zero-length string if the stop stage is < Archive
+    ctf = "";
+
+    % buildMCP produces the routes file and the archive.
+    if stop < prodserver.mcp.BuildStage.Routes, return; end
 
     % Copy boiler-plate routes files into customer-provided deployment
     % artifact folder (which must exist).
@@ -217,6 +251,8 @@ function ctf = buildMCP(files, folder, archive, definition, routesType)
         end
         binFiles(ad*2-1:ad*2) = bf;
     end
+
+    if stop < prodserver.mcp.BuildStage.Archive, return; end
 
     hFiles = arrayfun(@(fcn)string(which(fcn)),handlers);
     opts = compiler.build.ProductionServerArchiveOptions(hFiles, ...

@@ -22,19 +22,8 @@ function definition = defineForMCP(tools,fcns, opts)
     
     for n = 1:numel(tools)
         if isempty(opts.definitions)
-            if isMATLABReleaseOlderThan("R2026a")
-                if isempty(opts.AI)
-                    error("prodserver:mcp:Indescriable", ...
-"MCP tool definition required but unavailable. No MCP tool definition " + ...
-"provided and no generative AI available to create one.");
-                else
-                    td = prodserver.mcp.genai.mcpDescription(tools(n),fcns(n), ...
-                        opts.AI(1),opts.folder,opts.timeout,opts.retry);
-                end
-            else
-                td = prodserver.mcp.internal.mcpDefinition(tools(n), ...
-                    fcns(n),opts.typemap);
-            end
+            td = prodserver.mcp.internal.mcpDefinition(tools(n), ...
+                fcns(n),opts.typemap);
         else
             % Assume each of these is a complete description of a single 
             % tool. Add the "tools" value to the definition we're building.

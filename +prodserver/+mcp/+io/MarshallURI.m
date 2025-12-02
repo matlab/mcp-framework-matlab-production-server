@@ -214,6 +214,7 @@ classdef MarshallURI
                 mu prodserver.mcp.io.MarshallURI
                 location
                 opts.type = "double";
+                opts.import {prodserver.mcp.validation.mustBeImportOptions} = []
             end
 
             import prodserver.mcp.validation.istext
@@ -224,7 +225,11 @@ classdef MarshallURI
             readFcn = reader(mu,location,opts.type);
             value = cell(size(location));
             for n = 1:numel(location)
-                value{n} = feval(readFcn{n},location(n));
+                if isempty(opts.import)
+                    value{n} = feval(readFcn{n},location(n));
+                else
+                    value{n} = feval(readFcn{n},location(n),import=opts.import);
+                end
             end
         end
 
@@ -476,7 +481,6 @@ classdef MarshallURI
         %writer Return a function that serializes values into the format of
         %the scheme in the given URI.
 
-            
             import prodserver.mcp.internal.hasField
 
             writeFcn = cell(1,numel(uri));
@@ -509,8 +513,7 @@ classdef MarshallURI
         %according to the scheme of the given URI.
         %
         %See also: writer, accomodate
-
-            
+       
             import prodserver.mcp.internal.hasField
 
             readFcn = cell(1,numel(uri));
@@ -518,7 +521,8 @@ classdef MarshallURI
                 if isKey(mu.config, uri(n).scheme)
                     md = mu.config{uri(n).scheme}.configuration;
                     if hasField(md,"read.fcn")
-                        readFcn{n} = @(var)feval(md.read.fcn,var,type,md.read);
+                        readFcn{n} = @(varargin)feval(md.read.fcn,...
+                            varargin{1},type,md.read,varargin{2:end});
                     else
                         error("prodserver:mcp:SchemeReadMissing", ...
               "Field 'read.fcn' missing from definition of scheme %s.", ...
@@ -527,7 +531,7 @@ classdef MarshallURI
                 else
                     error("prodserver:mcp:UnknownScheme", ...
                         "Unrecognized scheme %s in data URI %s.",...
-                        uri(n).scheme, uri(n));
+                        uri(n).scheme, uri(n).uri);
                 end
             end
         end

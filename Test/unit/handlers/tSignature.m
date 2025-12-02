@@ -1,6 +1,18 @@
 classdef tSignature < HandlerBase
 % Test signature handler
 
+    methods (TestClassSetup)
+        function prepareTools(test)
+            % Assume defineForMCP is working. It has its own tests. :-)
+            % Better decoupling requires a lot of (probably unnecessary)
+            % work.
+            test.fcnNames = ["plotTrajectoriesMCP","primeSequence"];
+            test.toolNames = ["plotTrajectories","primeSequence"];
+    
+            defineTools(test,test.fcnNames,test.toolNames);
+        end
+    end
+
     methods (Test)
 
         function cathode(test)

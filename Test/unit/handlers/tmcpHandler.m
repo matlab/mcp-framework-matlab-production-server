@@ -1,5 +1,17 @@
 classdef tmcpHandler < HandlerBase
 
+    methods (TestClassSetup)
+        function prepareTools(test)
+            % Assume defineForMCP is working. It has its own tests. :-)
+            % Better decoupling requires a lot of (probably unnecessary)
+            % work.
+            test.fcnNames = ["plotTrajectoriesMCP","primeSequence"];
+            test.toolNames = ["plotTrajectories","primeSequence"];
+
+            defineTools(test,test.fcnNames,test.toolNames);
+        end
+    end
+
     methods(Test)
 
         function toolsList(test)
@@ -56,6 +68,9 @@ classdef tmcpHandler < HandlerBase
             test.verifyEqual(response.HttpCode,405);
         end
 
+        function errorResult(test)
+        end
+
         function content(test)
             import prodserver.mcp.internal.mcpHandler
             import prodserver.mcp.MCPConstants
@@ -103,7 +118,7 @@ classdef tmcpHandler < HandlerBase
             test.verifyEqual(response.result.structuredContent,expected);
             % Since HTTP interface sends all strings as char
             test.verifyEqual(response.result.content.text, ...
-                char(MCPConstants.IndirectionMsg));
+                jsonencode(expected.seq));
         end
     end
 

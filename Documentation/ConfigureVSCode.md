@@ -44,7 +44,7 @@ This configuration uses Microsoft Windows&reg; paths and commands.
 
 Assumptions:
 * Python is available on your system path as the command "s:/MCP/Examples/.venv/Scripts/python.exe". The ".venv/Scripts" portion of the path indicates the use of a Python virutal environment.
-* The MCP Framwork (this repo) installed in a folder named s:\MCP\MCPFramework.
+* The MCP Framwork (this package) installed in a folder named s:\MCP\MCPFramework.
 * Log files should be written to `s:/MCP/logs/vscode`.
 * The MATLAB Production Server hosting the `cleanSignal` MCP tools has the network address "http://localhost:9910".
 Modify the configuration as necessary for your environment.

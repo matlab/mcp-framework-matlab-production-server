@@ -12,6 +12,25 @@ function tf = isuri(x,opts)
 % Copyright 2025, The MathWorks, Inc.
 
     import prodserver.mcp.internal.Constants
+
+    % URI object is trivially a URI.
+    if isa(x,"matlab.net.URI")
+        tf = true;
+        return
+    end
+
+    % structure with the right fields (output of parseURI) is also a
+    % legitimate URI. A bit of a self-reflective trick here: if the URI
+    % in the structure parses to the same structure, the original structure
+    % was a valid URI.
+    fields = ["scheme","host","port","userInfo","path","query","uri"];
+    if isstruct(x) && isempty(setxor(fields,fieldnames(x)))
+        xx = prodserver.mcp.io.parseURI(x.uri);
+        if isequal(xx,x)
+            tf = true;
+            return;
+        end
+    end
     
     % Generally shouldn't error on this "is*" function. A bit of tension
     % here, since tf should, in general, be the same size as the input x.

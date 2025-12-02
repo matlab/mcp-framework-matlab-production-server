@@ -1,5 +1,6 @@
 function [hero,area] = heronian(N)
-% heronian Generate unique Heronian triangles with sides <= N
+% heronian Generate unique Heronian triangles with sides <= N. A Heronian
+% triangle has integer side lengths and area.
 
 % Copyright 2025, The MathWorks, Inc.
 

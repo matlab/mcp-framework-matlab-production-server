@@ -38,7 +38,8 @@
           "start",
           "stop",
           "plotURL"
-        ]
+        ],
+        "additionalProperties": false
       },
       "outputSchema": {
         "type": "object",
@@ -52,7 +53,8 @@
             "description": "Non-empty error message if status is false."
           }
         },
-        "required": []
+        "required": [],
+        "additionalProperties": false
       }
     }
   ],

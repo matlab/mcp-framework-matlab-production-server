@@ -11,7 +11,6 @@ function u = parseURI(uri)
 % Copyright (C) 2022-2024, The MathWorks, Inc.
 
     import prodserver.mcp.internal.Constants
-    
     import prodserver.mcp.validation.istext
     import prodserver.mcp.io.normalizeURI
 

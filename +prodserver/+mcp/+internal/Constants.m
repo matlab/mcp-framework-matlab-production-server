@@ -16,6 +16,9 @@
 
         DefaultPersistVar = "xyzzy";
 
+        HTTPClientError = 400;
+        HTTPServerError = 500;
+
         % HTTP session ID - RFC 7329
         SessionIDPrefix = "SID";
         SessionIDSep = ":";

@@ -1,4 +1,4 @@
-function tf = exist(endpoint, name, type)
+function tf = exist(endpoint, name, type, opts)
 %exist Check existence of tools, resources and prompts on the given server.
 %
 %   tf = exist(endpoint, name, type) returns TRUE if NAME exists as a TYPE
@@ -14,6 +14,9 @@ function tf = exist(endpoint, name, type)
         endpoint string { prodserver.mcp.validation.mustBeMCPServer }
         name string { mustBeTextScalar }
         type prodserver.mcp.Primitive { prodserver.mcp.validation.mustBeSameSize(2,name,type) }
+        opts.timeout double {mustBePositive} = 60
+        opts.retry double {mustBePositive} = 3
+        opts.delay double {mustBePositive} = 2
     end
 
     import prodserver.mcp.internal.hasField
@@ -25,7 +28,9 @@ function tf = exist(endpoint, name, type)
     %
 
     % Require that the server publish the resources we're inquiring about.
-    [session,id] = prodserver.mcp.internal.initialize(endpoint, require=type);
+    [session,id] = prodserver.mcp.internal.initialize(endpoint, ...
+        require=type, timeout=opts.timeout, retry=opts.retry, ...
+        delay=opts.delay);
 
     %
     % Check TYPE, to verify that NAME exists at ENDPOINT
@@ -33,7 +38,8 @@ function tf = exist(endpoint, name, type)
 
     % Get a list of all the elements of each requested primitive type
     items = prodserver.mcp.internal.list(endpoint,session, ...
-        type,id=id);
+        type,id=id,timeout=opts.timeout, retry=opts.retry, ...
+        delay=opts.delay);
 
         for n = 1:numel(items)
     

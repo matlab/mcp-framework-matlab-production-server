@@ -7,8 +7,8 @@ function [items,id] = list(endpoint, session, resource, opts)
         endpoint string { prodserver.mcp.validation.mustBeMCPServer }
         session string { mustBeTextScalar }
         resource prodserver.mcp.Primitive
-        opts.timeout double { mustBePositive }
         opts.id double { mustBePositive } = 1
+        opts.timeout double { mustBePositive } = 10
         opts.retry double { mustBePositive } = 3
         opts.delay double { mustBePositive } = 2
     end
@@ -28,29 +28,11 @@ function [items,id] = list(endpoint, session, resource, opts)
             ];
         body = matlab.net.http.MessageBody(data);
         request = matlab.net.http.RequestMessage('POST', headers, body);
-        done = false;
-        tries = 0;
-        while ~done
-            try
-                response = send(request,endpoint);
-                prodserver.mcp.internal.requireSuccess(response,endpoint, ...
-                    request=data.method);
-                done = true;
-            catch me
-                % Allow opts.retry HttpErrors
-                if strcmpi(me.identifier,"prodserver.mcp.HttpError")
-                    tries = tries + 1;
-                    if tries > opts.retry
-                        done = true;
-                        pause(opts.delay);
-                    end
-                else
-                    % All other errors are immediately fatal.
-                    rethrow(me);
-                end
-            end
-        end
-    
+        
+        response = prodserver.mcp.internal.sendRequest(request,endpoint, ...
+            timeout=opts.timeout, retry=opts.retry, delay=opts.delay, ...
+            label=data.method);
+
         % Expect information about the primitive. 
         pfield = mcpName(resource(n));
         if hasField(response,"Body.Data.result."+pfield) == false

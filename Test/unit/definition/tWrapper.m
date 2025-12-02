@@ -1,4 +1,5 @@
-classdef tWrapper < matlab.unittest.TestCase
+classdef tWrapper < matlab.unittest.TestCase & ...
+        prodserver.mcp.test.mixin.ExternalData
 
     properties
         toolFolder
@@ -18,7 +19,7 @@ classdef tWrapper < matlab.unittest.TestCase
             % Put the toyTools folder on the path.
             import matlab.unittest.fixtures.PathFixture
             test.toolFolder = fullfile(fileparts(mfilename("fullpath")),...
-                "toyTools");
+                "..", "..", "tools","toyTools");
             test.applyFixture(PathFixture(test.toolFolder));
         end
     end
@@ -78,8 +79,8 @@ classdef tWrapper < matlab.unittest.TestCase
             fcn = ["toyToolOne", "toyToolTwo", "toyToolThree"];
 
             % Vanilla argument list -- tools only, no GenAI.
-            wrap = prodserver.mcp.internal.wrapForMCP(fcn,["","",""],wrapFolder, ...
-                [], 0, []);
+            wrap = prodserver.mcp.internal.wrapForMCP(fcn,["","",""], ...
+                wrapFolder);
 
             test.verifyEqual(numel(wrap),numel(fcn),"Wrapper count");
 
@@ -113,7 +114,7 @@ classdef tWrapper < matlab.unittest.TestCase
 
             % Vanilla argument list -- tools only, no GenAI.
             wrapFile = prodserver.mcp.internal.wrapForMCP(fcn,"",...
-                wrapFolder, [], 0, []);
+                wrapFolder);
             rehash
 
             validateWrapperFile(test,fcn,wrapFile);
@@ -124,26 +125,21 @@ classdef tWrapper < matlab.unittest.TestCase
             one = { 48 };
             [one_out,two_out,three_out] = toyToolThree(three,two,one);
 
-            threeURL = urlData(wrapFolder,"three",three);
-            twoURL = urlData(wrapFolder,"two",two);
-            oneURL = urlData(wrapFolder,"one",one);
+            threeURL = stow(test,wrapFolder,"three",three);
+            twoURL = stow(test,wrapFolder,"two",two);
+            oneURL = stow(test,wrapFolder,"one",one);
 
-            oneOutFile =  fullfile(wrapFolder,"oneOut.mat");
-            oneOutURL = "file:" + replace(oneOutFile,filesep,"/");
-
-            threeOutFile = fullfile(wrapFolder,"threeOut.mat");
-            threeOutURL = "file:" + replace(threeOutFile,filesep,"/");
+            oneOutURL = locate(test,"oneOut",wrapFolder);
+            threeOutURL = locate(test,"threeOut",wrapFolder);
 
             two_w = feval(wrapper,threeURL,twoURL,oneURL,oneOutURL, ...
                 threeOutURL);
             test.verifyEqual(two_w,two_out,"two_w");
 
-            data = load(oneOutFile);
-            one_w = data.(Constants.DefaultPersistVar);
+            one_w = fetch(test,oneOutURL);
             test.verifyEqual(one_w,one_out,"one_w");
 
-            data = load(threeOutFile);
-            three_w = data.(Constants.DefaultPersistVar);
+            three_w = fetch(test,threeOutURL);
             test.verifyEqual(three_w,three_out,"three_w");
         end
 
@@ -167,8 +163,7 @@ classdef tWrapper < matlab.unittest.TestCase
             wrapper = fcn + "MCP";
 
             % Vanilla argument list -- tools only, no GenAI.
-            wrapFile = prodserver.mcp.internal.wrapForMCP(fcn,"",wrapFolder, ...
-                [], 0, []);
+            wrapFile = prodserver.mcp.internal.wrapForMCP(fcn,"",wrapFolder);
             rehash
 
             test.verifyEqual(exist(wrapFile,"file"),2,fcn);
@@ -183,10 +178,10 @@ classdef tWrapper < matlab.unittest.TestCase
             [out_a,out_b,c] = feval(fcn, a, x, b, 10);
 
             % Create the file URL inputs in the temporary folder.
-            aURL = urlData(wrapFolder,"a",a);
-            xURL = urlData(wrapFolder,"x",x);
-            bURL = urlData(wrapFolder,"b",b);
-            out_bURL = urlData(wrapFolder,"out_b");
+            aURL = stow(test,wrapFolder,"a",a);
+            xURL = stow(test,wrapFolder,"x",x);
+            bURL = stow(test,wrapFolder,"b",b);
+            out_bURL = locate(test,"out_b",wrapFolder);
 
             % Call the generated wrapper; test to be sure generated code
             % will actually run.
@@ -196,10 +191,7 @@ classdef tWrapper < matlab.unittest.TestCase
             % the original, unwrapped, function.
             test.verifyEqual(aMCP,out_a,"out_a");
             test.verifyEqual(cMCP,c,"c");
-            out_bFile = erase(out_bURL,"file:");
-            test.verifyEqual(exist(out_bFile,"file"),2,out_bURL);
-            bData = load(out_bFile);
-            bData = bData.(Constants.DefaultPersistVar);
+            bData = fetch(test,out_bURL);
             test.verifyEqual(bData,out_b,out_bURL);
 
         end
@@ -238,28 +230,15 @@ classdef tWrapper < matlab.unittest.TestCase
             bURL = replace(bURL,filesep,"/");
 
             % Outputs
-            xURL = "file:" + fullfile(urlFolder,"X.mat");
-            xURL = replace(xURL,filesep,"/");
-
-            yURL = "file:" + fullfile(urlFolder,"Y.mat");
-            yURL = replace(yURL,filesep,"/");
-
-            zURL = "file:" + fullfile(urlFolder,"Z.mat");
-            zURL = replace(zURL,filesep,"/");
+            xURL = locate(test,"X",urlFolder);
+            yURL = locate(test,"Y",urlFolder);
+            zURL = locate(test,"Z",urlFolder);
 
             feval(tool+"MCP",a,bURL,xURL,yURL,zURL);
 
-            test.verifyEqual(exist(erase(xURL,"file:"),"file"),2,xURL);
-            data = load(erase(xURL,"file:"));
-            x = data.(Constants.DefaultPersistVar);
-
-            test.verifyEqual(exist(erase(xURL,"file:"),"file"),2,yURL);
-            data = load(erase(yURL,"file:"));
-            y = data.(Constants.DefaultPersistVar); 
-
-            test.verifyEqual(exist(erase(xURL,"file:"),"file"),2,zURL);
-            data = load(erase(zURL,"file:"));
-            z = data.(Constants.DefaultPersistVar); 
+            x = fetch(test,xURL);
+            y = fetch(test,yURL);
+            z = fetch(test,zURL) ;
 
             test.verifyEqual(x, uint64(b .^ a), "X");
             test.verifyEqual(y, x + 64, "Y");
@@ -296,44 +275,22 @@ classdef tWrapper < matlab.unittest.TestCase
             urlFolder = string(tempFolder.Folder);
 
             % Inputs
-            oFile = fullfile(urlFolder,"O.mat");
-            save(oFile,"o");
-            oURL = "file:" + oFile;
-            oURL = replace(oURL,filesep,"/");
-
-            mFile = fullfile(urlFolder,"M.mat");
-            save(mFile,"m");
-            mURL = "file:" + mFile;
-            mURL = replace(mURL,filesep,"/");
+            oURL = stow(test,urlFolder,"O",o);
+            mURL = stow(test,urlFolder,"M",m);
 
             % Outputs
-            cURL = "file:" + fullfile(urlFolder,"C.mat");
-            cURL = replace(cURL,filesep,"/");
-
-            aURL = "file:" + fullfile(urlFolder,"A.mat");
-            aURL = replace(aURL,filesep,"/");
+            cURL = locate(test,"C",urlFolder);
+            aURL = locate(test,"A",urlFolder);
 
             % Invoke wrapper
             feval(wrapper,oURL,mURL,cURL,aURL);
 
-            data = load(erase(cURL,"file:"));
-            cw = data.(Constants.DefaultPersistVar); 
-
-            data = load(erase(aURL,"file:"));
-            aw = data.(Constants.DefaultPersistVar); 
+            cw = fetch(test,cURL); 
+            aw = fetch(test,aURL);
 
             test.verifyEqual(cw,c,"chiral");
             test.verifyEqual(aw,a,"asymmetry");
 
         end
     end
-end
-
-function url = urlData(folder,prefix,data)
-    name = prefix + "Data.mat";
-    pth = fullfile(folder,name);
-    if nargin == 3
-        save(pth,"data");
-    end
-    url = "file:" + replace(pth,filesep,"/");
 end

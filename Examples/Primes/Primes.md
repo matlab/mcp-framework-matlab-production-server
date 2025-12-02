@@ -14,17 +14,12 @@ function seq = primeSequence(n,type)
 ```
 
 # Package and Deploy Prime Sequence Tool
-Create an MCP tool from the `primeSequence` function. If the returned sequences are likely to be large in production, a [wrapper function](../../Documentation/ExternalData.md) with URL-based output will improve performance when interacting with an AI. But for these examples, which are running without AI, a wrapper of None is sufficient. This code assumes an active MATLAB Production Server server running at `localhost:9910`.
+Create an MCP tool from the `primeSequence` function. If the returned sequences are likely to be large in production, a [wrapper function](../../Documentation/ExternalData.md) with URL-based output will improve performance when interacting with an AI. But for these examples, which are running without AI, a wrapper of `None` is sufficient. This code assumes an active MATLAB Production Server server running at `localhost:9910`. 
 
-Automatic MCP tool description generation is only available in MATLAB R2026a ([prerelease available](https://www.mathworks.com/products/new_products/release-highlights.html)). Earlier releases require the definition as a JSON file.
+`prodserver.mcp.build` creates the deployable archive and `prodserver.mcp.deploy` uploads it to the MATLAB Production Server instance running at the given endpoint. `prodserver.mcp.build` automatically generates the MCP tool definition; tool definitions are always required, even when wrapper functions are not. The file `primeSequence.json` in the example folder contains the automatically generated MCP tool definition.
+
 ```MATLAB
-if isMATLABReleaseOlderThan("R2026a")
-    exampleFolder = string(fileparts(matlab.desktop.editor.getActiveFilename));
-    ctf = prodserver.mcp.build("primeSequence",wrapper="None",...
-        definition=fullfile(exampleFolder,"primeSequence.json"));
-else
-    ctf = prodserver.mcp.build("primeSequence",wrapper="None");
-end
+ctf = prodserver.mcp.build("primeSequence",wrapper="None");
 endpoint = prodserver.mcp.deploy(ctf,"localhost",9910);
 ```
 

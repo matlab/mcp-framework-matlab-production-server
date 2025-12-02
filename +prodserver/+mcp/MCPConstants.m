@@ -7,6 +7,8 @@ classdef MCPConstants
         ProtocolVersion = 'MCP-Protocol-Version';
         DefinitionFile = "McpServices.mat";
         DefinitionVariable = "mcpToolDefinition";
+        SignatureVariable = "signatures";
+        ImporterVariable = "urlImport";
         NoWrapper = "None";
         ContentType = 'Content-Type';
         ContentLength = 'Content-Length';

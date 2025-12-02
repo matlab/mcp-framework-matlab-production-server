@@ -97,29 +97,7 @@ function [varargout] = call(endpoint, tool, varargin)
     % Invoke tool
     %
 
-    data.id = id;
-    data.method = "tools/call";
-    data.jsonrpc = MCPConstants.jrpcVersion;
-    data.params.name = tool;
-
-    % Assume "required" lists parameters in order.
-    req = string(split(t.inputSchema.required,','));
-    for n = 1:numel(req)
-        data.params.arguments.(req(n)) = varargin{n};
-    end
-    if n < numel(varargin)
-        varargin = varargin(n:end);
-        N = numel(varargin)/2;
-        if mod(N,2) ~= 0
-            error("prodserver:mcp:UnevenOptionalArguments", ...
-                "Optional arguments must be name/value pairs, but " + ...
-                "only an uneven number (%d) of arguments remain after " + ...
-                "processing the required arguments.");
-        end
-        for n = 1:N
-            data.params.arguments.(varargin{n*2-1}) = varargin{n*2};
-        end
-    end
+    data = prodserver.mcp.jsonrpc.toolsCall(tool,id,t,varargin{:});
 
     headers = [
         matlab.net.http.HeaderField('Content-Type', 'application/json'), ...
@@ -133,46 +111,54 @@ function [varargout] = call(endpoint, tool, varargin)
     prodserver.mcp.internal.requireSuccess(response,endpoint, ...
         request=data.method);
 
-    % Require structuredContent field.
-    if hasField(response,"Body.Data.result.structuredContent") == false
-        error("prodserver:mcp:NoStructuredContent", "Call to tool %s " + ...
-            "did not produce expected structured content.", ...
-            tool);
+    % Require structuredContent field if the tool has an output schema
+    % with required outputs.
+    if hasField(t,"outputSchema.required") && ...
+            hasField(response,"Body.Data.result.structuredContent") == false
+        error("prodserver:mcp:NoStructuredContent", "Tool %s has required" + ...
+            "outputs but did not produce structured content.", tool);
     end
 
-    % Result is "structuredContent". Return the outputs as a cell
-    % array. Order by output schema if available.
-    result = response.Body.Data.result.structuredContent;
-    req = string.empty;
-    if hasField(t,"outputSchema.required")
-        req = string(t.outputSchema.required);
-    end
-    if hasField(sig,tool+".output")
-        req = union(req,string(sig.(tool).output.name),"stable");
-    end
-    if ~isempty(req)
-        req = string(req);
-        varargout = cell(1,nargout);
-        for n=1:nargout
-            varargout{n} = result.(req(n));
+    % Prefer structured content, if available.
+    if hasField(response,"Body.Data.result.structuredContent")  
+        % Result is "structuredContent". Return the outputs as a cell
+        % array. Order by output schema if available.
+        result = response.Body.Data.result.structuredContent;
+        req = string.empty;
+        if hasField(t,"outputSchema.required")
+            req = string(t.outputSchema.required);
         end
-    elseif nargout > 0
-        error("prodserver:mcp:TooFewOutputs",...
-            "Too few outputs. %d requested. %d received from %s.", ...
-            nargout, numel(req), endpoint);
-    end
-
-    if n < numel(result)
-        % Create name/value pairs from the remaining (non-required)
-        % outputs and add them to the end of varargout.
-        if exist("req","var")
-            result = rmfield(result,req);
+        if hasField(sig,tool+".output")
+            req = union(req,string(sig.(tool).output.name),"stable");
         end
-        names = fieldnames(result);
-        values = cellfun(@(n)results.(n),names);
-        optOut = [names;values]; optOut = optOut{:};
-
-        varargout = [ varargout, optOut ];
+        if ~isempty(req)
+            req = string(req);
+            varargout = cell(1,nargout);
+            for n=1:nargout
+                varargout{n} = result.(req(n));
+            end
+        elseif nargout > 0
+            error("prodserver:mcp:TooFewOutputs",...
+                "Too few outputs. %d requested. %d received from %s.", ...
+                nargout, numel(req), endpoint);
+        end
+    
+        if n < numel(result)
+            % Create name/value pairs from the remaining (non-required)
+            % outputs and add them to the end of varargout.
+            if exist("req","var")
+                result = rmfield(result,req);
+            end
+            names = fieldnames(result);
+            values = cellfun(@(n)results.(n),names);
+            optOut = [names;values]; optOut = optOut{:};
+    
+            varargout = [ varargout, optOut ];
+        end
+    elseif hasField(response,"Body.Data.result.content")  
+        varargout{1} = response.Body.Data.result.content;
+    else 
+        varargout = {};
     end
 
     %

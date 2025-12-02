@@ -17,6 +17,15 @@ Tools, resouces and prompts are three of the _primitives_ potentially hosted by 
 | :---     | :--- | :---        | :---    |
 | items | struct | Varies by `type`, formed by encoding JSON description. | Tools structure with fields `name`, `description`, `inputSchema`, `outputSchema` and `server`. |
 
+### Optional Inputs (Name/Value pairs)
+Pass optional arguments with *argument=value* syntax following required inputs. For example: `timeout=17`.
+| Argument | Type | Description | Default |
+| :---     | :--- | :---        | :---    |
+| delay | integer | Number of seconds pause between retries | 3 |
+| retry | integer | Number of times to retry on HTTP protocol errors (404, for example) | 2 | 
+| timeout | integer | Number of seconds to wait for a reply | 60 |
+
+
 Fields of the tool structure:
 
 | Field | Type | Description | 

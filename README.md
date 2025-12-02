@@ -4,15 +4,15 @@ as [Model Context Protocol (MCP)](https://modelcontextprotocol.io/docs/getting-s
 call your functions, enhancing their capabilities with domain-specific expertise.
 
 # Required Products
-In addition to this repo, you'll need:
+In addition to this package, you'll need:
 * [MATLAB](https://www.mathworks.com/products/matlab.html) R2025b or later.
 * [MATLAB Compiler SDK&trade;](https://www.mathworks.com/products/matlab-compiler-sdk.html) compatible with your MATLAB version.
 * Access to [MATLAB Production Server](https://www.mathworks.com/products/matlab-production-server.html) R2022a or later.
-* An [MCP client](https://modelcontextprotocol.io/clients) that does not require streamable HTTP. MCP servers created with this repo do not support streamable HTTP or HTTP Server Sent Events (SSE).
+* An [MCP client](https://modelcontextprotocol.io/clients) that does not require streamable HTTP. MCP servers created with this package do not support streamable HTTP or HTTP Server Sent Events (SSE).
 
 # Quickstart
 To make a MATLAB function available to an LLM as an MCP tool you:
-* Install this repo where MATLAB can find it -- and add the top level folder to MATLAB's path.
+* Install this package where MATLAB can find it -- and add the top level folder to MATLAB's path.
 * Build an MCP tool from a MATLAB function
 * Configure your MCP client to make the tool available to your LLM.
 
@@ -55,7 +55,7 @@ If you're using the MATLAB R2026a prerelease, the `definition` argument is no lo
 There are many MCP clients and each has its own configuration mechanism for MCP tools. But they all share the 
 same idea: identifying the location of each MCP tool and the communication protocol the tool understands. MCP Framework creates HTTP-based MCP tools. To aid development and testing, an STDIO to HTTP server bridge is also included.
 
-This repo has been tested against these MCP clients, using the configuration each of these links describes.
+MCP Framework has been tested against these MCP clients, using the configuration each of these links describes.
 * [LLMs with MATLAB](./Examples/MATLABOpenAI/MATLABOpenAI.md) with OpenAI LLMs
 * [Claude&reg; Desktop](./Documentation/ConfigureClaude.md)
 * [Microsoft&reg; VS Code with GitHub&reg; Copilot](./Documentation/ConfigureVSCode.md)
@@ -68,6 +68,7 @@ The Examples folder contains several complete MCP tools of varying complexity. E
 * [Primes](./Examples/Primes/Primes.md): Generates four different kinds of prime number sequences. Does not require a data marshaling wrapper function.
 * [Periodic Noise](./Examples/Periodic%20Noise/PeriodicNoise.md): Eliminates periodic noise from a measured signal. Demonstrates explicit use of an automatically generated wrapper function.
 * [Earthquake](./Examples/Earthquake/Earthquake.md): Generates plots of earthquake data. Demonstates use of a user-written wrapper function.
+* [Multiple Tools](./Examples/MultiTool/MultiTool.pdf): Build a server hosting multiple MCP tools.
 
 To become effective MCP tools, MATLAB functions must accommodate the MCP environment. In particular,
 your functions must: 
@@ -105,18 +106,17 @@ pong
 ```
 
 ## Security
-Security is your responsiblity. MCP Servers hosted by MATLAB Production Server may use 
-[HTTPS, OAuth2 and OIDC](https://www.mathworks.com/help/mps/security.html) for security.
+Security is your responsiblity. MCP Servers hosted by MATLAB Production Server may use [HTTPS](https://www.mathworks.com/help/mps/security.html) for security.
 Set security parameters by configuration in MATLAB Production Server. 
 
 ## Directory Structure
 | Folder | Description |
 | :---   | :---        | 
-| +prodserver | Top-level directory for prodserver.mcp namespace. Contains the bulk of the repo functions. |
+| +prodserver | Top-level directory for prodserver.mcp namespace. Contains the bulk of the functions. |
 | Documentation | Collection of Markdown reference pages documenting the public functions. |
 | Examples | Complete examples of MCP tools and the workflows to create, deploy and use them. |
 | Test | Unit and Integration tests. |
-| Utilities | Mostly standalone functions and scripts that make the repo easier to integrate with other environments. |
+| Utilities | Mostly standalone functions and scripts that simplify integration with other environments. |
 
 # License
-The license is available in the [license.txt](./license.txt) file in this GitHub repository.
+The license is available in the [license.txt](./license.txt) file.

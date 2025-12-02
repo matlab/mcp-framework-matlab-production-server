@@ -1,12 +1,19 @@
-function value = importVariable(uri, type, config, data)
+function value = importVariable(uri, type, config, opts)
 %importVariable Fetch data from the URI and convert to a MATLAB variable
 %using information in config. Imports variables from files, bytestreams
 %or Kafka topics (with scheme file://, bytestream:// or kafka://).
 
-% Copyright (c) 2022-2024, The MathWorks
+% Copyright (c) 2025, The MathWorks
+
+    arguments
+        uri { prodserver.mcp.validation.mustBeURI }
+        type string
+        config struct
+        opts.data struct = []
+        opts.import { prodserver.mcp.validation.mustBeImportOptions} = []
+    end
 
     import prodserver.mcp.internal.hasField
-    
     import prodserver.mcp.io.parseURI
     import prodserver.mcp.internal.Constants
 
@@ -112,21 +119,21 @@ function value = importVariable(uri, type, config, data)
 
                 case "readmatrix"
                     args = {};
-                    if isstring(type) == false
-                        args = {type};
+                    if isempty(opts.import) == false
+                        args = {opts.import};
                     end
                     value = readmatrix(pth, args{:});
 
                 case "readtable"
                     args = {};
-                    if isstring(type) == false
-                        args = {type};
+                    if isempty(opts.import) == false
+                        args = {opts.import};
                     end
                     value = readtable(pth, args{:});
             end
 
         case "bytestream"
-            value = getArrayFromByteStream(data.(u.path));
+            value = getArrayFromByteStream(opts.data.(u.path));
         otherwise
             value = [];
     end

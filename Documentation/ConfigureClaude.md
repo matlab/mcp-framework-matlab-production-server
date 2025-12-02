@@ -43,7 +43,7 @@ Note that Claude manages the name and location of the tools' outputs itself -- t
 
 Assumptions:
 * Python is available on your system path as the command "python".
-* The MCP Framwork (this repo) installed in a folder named /work.
+* The MCP Framwork (this package) installed in a folder named /work.
 * Log files should be written to `/work/logs/mcp/claude`.
 * The MATLAB Production Server hosting the MCP tools has the network address "http://localhost:9910".
 Modify the configuration file as necessary for your environment.

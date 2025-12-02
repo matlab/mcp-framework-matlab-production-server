@@ -13,7 +13,7 @@ classdef texamples < matlab.unittest.TestCase
 
     methods(Test)
 
-        function cleanSignal(test)
+        function periodicNoise(test)
             import matlab.unittest.fixtures.TemporaryFolderFixture
             import matlab.unittest.fixtures.PathFixture
 
@@ -29,9 +29,29 @@ classdef texamples < matlab.unittest.TestCase
             
             test.verifyTrue(startsWith(ctf,tempFolder.Folder));
 
+            % Run the original and output the data into the deployment
+            % folder.
+            frequency = 60;
+            noisyFile = fullfile(csFolder,"openloopVoltage.csv");
+            noisy = readmatrix(noisyFile);
+            clean = cleanSignal(noisy, frequency);
+
+            % Run the MCP tool and output the data into the deployment
+            % folder.
+
+            noisyURL = "file:" + noisyFile;
+            cleanFile = fullfile(tempFolder.Folder,"cleanLoopVoltage.csv");
+            cleanURL = "file:" + cleanFile;
+            cleanSignalMCP(noisyURL,frequency,cleanURL);
+            test.verifyEqual(exist(cleanFile,"file"),2,cleanFile);
+
+            % The output data must be identical, within tolerance --
+            % writing the data to CSV files entails some loss of precision.
+            mcpClean = readmatrix(cleanFile);
+            test.verifyEqual(clean,mcpClean,"Clean signal",AbsTol=1e-12);
         end
 
-        function primeSequence(test)
+        function somePrimes(test)
             import matlab.unittest.fixtures.TemporaryFolderFixture
             import matlab.unittest.fixtures.PathFixture
 

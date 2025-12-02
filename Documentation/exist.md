@@ -18,6 +18,14 @@ Tools, resouces and prompts are three of the _primitives_ potentially hosted by 
 | :---     | :--- | :---        | :---    |
 | tf | logical | Does the MCP primitive exist? | true |
 
+### Optional Inputs (Name/Value pairs)
+Pass optional arguments with *argument=value* syntax following required inputs. For example: `timeout=17`.
+| Argument | Type | Description | Default |
+| :---     | :--- | :---        | :---    |
+| delay | integer | Number of seconds pause between retries | 3 |
+| retry | integer | Number of times to retry on HTTP protocol errors (404, for example) | 2 | 
+| timeout | integer | Number of seconds to wait for a reply | 60 |
+
 # Examples
 
 Determine if the tool `primeSequenceMCP` exists on the server running at `http://localhost:9910/primeSequence/mcp`:

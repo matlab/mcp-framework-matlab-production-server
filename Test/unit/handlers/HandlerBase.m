@@ -32,18 +32,19 @@ classdef HandlerBase < matlab.unittest.TestCase
             test.applyFixture(test.tempFolder);
             test.applyFixture(PathFixture(test.tempFolder.Folder));
 
-            % Assume defineForMCP is working. It has its own tests. :-)
-            % Better decoupling requires a lot of (probably unnecessary)
-            % work.
-            test.fcnNames = ["plotTrajectoriesMCP","primeSequence"];
-            test.toolNames = ["plotTrajectories","primeSequence"];
+            test.request = struct(...
+                'ApiVersion',[1 0 0], ...
+                'Headers', {...
+                {'Server' 'MATLAB Production Server/Model Context Protocol (v1.0)';}}); 
+        end
+    end
+
+    methods
+        function defineTools(test,fcns,tools,dFiles)
+            import prodserver.mcp.MCPConstants
 
             % Definition generation support in 26a and later.
-            if isMATLABReleaseOlderThan("R2026a")
-                dFiles = [ ...
-                    fullfile(earthquakeFolder,"plotTrajectories.json"), ...
-                    fullfile(primeFolder,"primeSequence.json"), ...
-                    ];
+            if nargin > 3
                 dJSON = arrayfun(@(f)jsondecode(fileread(f)),dFiles, ...
                     UniformOutput=false);
                 definition.tools = cell(1,numel(dJSON));
@@ -56,7 +57,7 @@ classdef HandlerBase < matlab.unittest.TestCase
                 end
             else
                 definition = prodserver.mcp.internal.defineForMCP(...
-                    test.toolNames, test.fcnNames);
+                    tools, fcns);
             end
 
             test.definitionFile = fullfile(test.tempFolder.Folder,...
@@ -64,12 +65,6 @@ classdef HandlerBase < matlab.unittest.TestCase
             def.(MCPConstants.DefinitionVariable) = definition;
             save(test.definitionFile,"-struct","def");
 
-            test.request = struct(...
-                'ApiVersion',[1 0 0], ...
-                'Headers', {...
-                {'Server' 'MATLAB Production Server/Model Context Protocol (v1.0)';}}); ...
-
         end
-
     end
 end

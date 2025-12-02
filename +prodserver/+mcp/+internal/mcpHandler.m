@@ -57,7 +57,7 @@ function response = mcpHandler(request)
     catch me
         httpCode = 500;
         httpMsg = 'MATLAB Exception';
-        result = handleError(request,jrpc,httpCode,me.message);
+        result = handleError(request,jrpc,httpCode,me);
         data = jsonencode(result);
         msgHeaders = {MCPConstants.ContentType, 'application/json'};
     end
@@ -81,7 +81,7 @@ function response = mcpHandler(request)
         'Body', body);
 end
 
-function result = handleError(request,jrpc,code,msg)
+function result = handleError(request,jrpc,code,ex)
     if isfield(jrpc,"jsonrpc")
         result.jsonrpc = jrpc.jsonrpc;
     else
@@ -90,6 +90,10 @@ function result = handleError(request,jrpc,code,msg)
     if isfield(request,"id")
         result.id = request.id;
     end
+    % Rudimentary error location. May decide to add more detail.
+    location = ex.stack(1);
+    [~,file] = fileparts(location.file);
+    msg = sprintf("%s:%d : %s", file, location.line, ex.message);
     result.error.code = code;
     result.error.message = msg;
 end
@@ -178,18 +182,64 @@ function [result, httpCode, httpMsg, msgHeaders] = handlePost(jrpc)
 
         result.id = jrpc.id;
         d = load(MCPConstants.DefinitionFile);
-        % TODO: use for argument validation?
-        tools = d.(MCPConstants.DefinitionVariable).tools;
-        fcn = jrpc.params.name;
 
+        % Find tool definition
+        tools = d.(MCPConstants.DefinitionVariable).tools;
+        % Cast to string because sometimes the name may be a char, which
+        % don't count as uniform output.
+        tName = cellfun(@(t)string(t.name),tools);
+
+        fcn = jrpc.params.name;
+        k = strcmp(tName,fcn);
+        if nnz(k) > 1
+            error("prodserver:mcp:AmbiguousToolName", ...
+                "Multiple tools matching name '%s'. Rebuild server " + ...
+                "using unambigous names.", fcn);
+        end
+        if nnz(k) == 0
+            error("prodserver:mcp:ToolUnavailable", ...
+                "Tool '%s' not available on this MCP server.", fcn);
+        end
+
+        % Only one definition matching the tool name.
+        t = tools{k};
+        
         % JRPC in MCP does not define argument order. So we (cleverly!)
         % insert order information into the definition. Assemble a cell
         % array with the arguments in the right order.
         sig = d.(MCPConstants.DefinitionVariable).signatures;
         in = sig.(fcn).input.name;
-        inArgs = cell(1,numel(in));
+
+        % Separate optional from required arguments. First subtract ALL
+        % optional arguments from full list of inputs (in). Then set
+        % optional to the ACTUAL optional arguments in the tools/call
+        % message.
+        optional = setdiff(in,t.inputSchema.required);
+        in = setdiff(in,optional,'stable');
+        optional = setdiff(fieldnames(jrpc.params.arguments),...
+            t.inputSchema.required);
+
+        % All required arguments must be present.
+        if ~isempty(setxor(in,t.inputSchema.required))
+            error("prodserver:mcp:BadInputArguments", ...
+                "Tool '%s' requires inputs '%s', but received '%s'.", ...
+                fcn,strjoin(t.inputSchema.required,","), strjoin(in,","));
+        end
+
+        % Make space for all arguments
+        inArgs = cell(1,numel(in)+(numel(optional)*2));
         for n = 1:numel(in)
             inArgs{n} = jrpc.params.arguments.(in{n});
+        end
+
+        % Add optional arguments to the end of the argument list as 
+        % name-value pairs: use name of the argument as the name of the
+        % name-value pair.
+        k = numel(in) + 1;
+        for n = 1:numel(optional)
+            inArgs{k} = optional{n};
+            inArgs{k+1} = jrpc.params.arguments.(optional{n});
+            k = k + 2;
         end
 
         % Create a cell array large enough for all the outputs. TODO:
@@ -207,16 +257,13 @@ function [result, httpCode, httpMsg, msgHeaders] = handlePost(jrpc)
         r.content = cell(1,numel(out));
         for n = 1:numel(out)
             r.structuredContent.(out{n}) = outArgs{n};
+
+            % Should not be required but some clients require non-empty
+            % content, even when structuredContent has a value (looking at you,
+            % Claude).
             r.content{n}.type = "text";
             r.content{n}.text = jsonencode(outArgs{n});
         end
-
-        % Should not be required but some clients require non-empty
-        % content, even when structuredContent has a value (looking at you,
-        % Claude).
-        % indirection.type = "text";
-        % indirection.text = MCPConstants.IndirectionMsg;
-        % r.content = {indirection};
     end
 
     if ~isempty(result)

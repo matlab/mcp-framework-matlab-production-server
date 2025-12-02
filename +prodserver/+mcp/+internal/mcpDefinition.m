@@ -17,7 +17,7 @@ function definition = mcpDefinition(tool,fcn,typemap)
             "not found.", fcn);
     end
 
-    mf = metafunction(fcn);
+    mf = prodserver.mcp.internal.metafunction(fcn);
 
     if isempty(mf)
         error("prodserver:mcp:CannotParseToolFcn", "Cannot parse MCP " + ...
@@ -107,8 +107,11 @@ function definition = defineParameters(definition,tool,io,descriptions, ...
     
     % Description of parameters
     definition.tools.(schema).type = "object";
-    definition.tools.(schema).properties = parameters;
-    definition.tools.(schema).required = required;
+    if isempty(fieldnames(parameters)) == false
+        definition.tools.(schema).properties = parameters;
+        definition.tools.(schema).required = required;
+    end
+    definition.tools.(schema).additionalProperties = false;
 end
 
 

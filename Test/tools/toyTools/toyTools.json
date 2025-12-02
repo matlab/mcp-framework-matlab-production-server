@@ -18,7 +18,8 @@
         "required": [
           "a",
           "b"
-        ]
+        ],
+        "additionalProperties":false
       },
       "outputSchema": {
         "type": "object",
@@ -36,7 +37,8 @@
             "description": "Not quite so much"
           }
         },
-        "required": []
+        "required": [],
+        "additionalProperties":false
       }
     },
     {
@@ -57,7 +59,8 @@
         "required": [
           "object",
           "mirror"
-        ]
+        ],
+        "additionalProperties":false
       },
       "outputSchema": {
         "type": "object",
@@ -71,7 +74,8 @@
             "description": "The asymmetry number if not"
           }
         },
-        "required": []
+        "required": [],
+        "additionalProperties":false
       }
     },
     {
@@ -97,7 +101,8 @@
           "three",
           "two",
           "one"
-        ]
+        ],
+        "additionalProperties":false
       },
       "outputSchema": {
         "type": "object",
@@ -115,7 +120,8 @@
             "description": "Tripled in size and strength"
           }
         },
-        "required": []
+        "required": [],
+        "additionalProperties":false
       }
     }
   ],

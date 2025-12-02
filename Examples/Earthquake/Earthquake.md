@@ -43,7 +43,7 @@ Publish `plotTrajectories` as an MCP tool by building it into a deployable archi
 ctf = prodserver.mcp.build("plotTrajectories",wrapper="plotTrajectoriesMCP.m")
 endpoint = prodserver.mcp.deploy(ctf,"localhost",9910)
 ```
-The call to `prodserver.mcp.build` assumes that automatic MCP definition is available, which is currently only true for the [prerelease of MATLAB R2026a](https://www.mathworks.com/products/new_products/release-highlights.html). If you provide an MCP defintion via the `definition` optional argument, this example will work in MATLAB 2025b. The file `plotTrajectories.json` in the example folder contains the required MCP definition.
+The MCP tool definition is automatically generated from the handwritten wrapper function. The file `plotTrajectories.json` in the example folder contains the automatically generated MCP tool definition.
 
 # Verify Deployment
 To quickly verify that the MCP tool is available, use the `ping` or `exist` functions.

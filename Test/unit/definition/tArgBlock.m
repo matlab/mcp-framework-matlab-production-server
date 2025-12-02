@@ -25,10 +25,10 @@ classdef tArgBlock < matlab.unittest.TestCase
             % Put the toyTools folder on the path.
             import matlab.unittest.fixtures.PathFixture
             thisFolder = fileparts(mfilename("fullpath"));
-            test.applyFixture(PathFixture(fullfile(thisFolder,...
-                "toyTools")));
+            test.applyFixture(PathFixture(fullfile(thisFolder,"..",...
+                "..", "tools","toyTools")));
 
-            mf = metafunction("toyToolOne");
+            mf = prodserver.mcp.internal.metafunction("toyToolOne");
             [input, output] = prodserver.mcp.internal.parameterDescription(mf);
 
             test.verifyEqual(numEntries(input),nargin(mf.Name),"nargin");

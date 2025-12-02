@@ -2,6 +2,7 @@ classdef tDefinition < matlab.unittest.TestCase
 
     properties
         exampleFolder
+        toolsFolder
     end
 
     methods (TestClassSetup)
@@ -18,6 +19,8 @@ classdef tDefinition < matlab.unittest.TestCase
             testFolder = fileparts(mfilename("fullpath"));
             test.exampleFolder = fullfile(testFolder,"..","..","..", ...
                 "Examples");
+            test.toolsFolder = fullfile(testFolder,"..", "..", "tools", ...
+                "toyTools");
         end
 
     end
@@ -54,9 +57,7 @@ classdef tDefinition < matlab.unittest.TestCase
 
             % Put the toy tools on the path
             import matlab.unittest.fixtures.PathFixture
-            folder = fileparts(mfilename("fullpath"));
-            ttFolder = fullfile(folder,"toyTools");
-            test.applyFixture(PathFixture(ttFolder));
+            test.applyFixture(PathFixture(test.toolsFolder));
 
             % Generate definitions for  tools
             tool = "toyToolOne";
@@ -73,9 +74,7 @@ classdef tDefinition < matlab.unittest.TestCase
 
             % Put the toy tools on the path
             import matlab.unittest.fixtures.PathFixture
-            folder = fileparts(mfilename("fullpath"));
-            ttFolder = fullfile(folder,"toyTools");
-            test.applyFixture(PathFixture(ttFolder));
+            test.applyFixture(PathFixture(test.toolsFolder));
 
             % Generate definitions for three tools
             tools = ["toyToolOne", "toyToolTwo", "toyToolThree"];
@@ -91,7 +90,7 @@ classdef tDefinition < matlab.unittest.TestCase
             definition = jsondecode(jsonencode(definition));
 
             expectedDefinition = jsondecode(...
-                fileread(fullfile(ttFolder,"toyTools.json")));
+                fileread(fullfile(test.toolsFolder,"toyTools.json")));
 
             test.verifyEqual(definition,expectedDefinition);
         end

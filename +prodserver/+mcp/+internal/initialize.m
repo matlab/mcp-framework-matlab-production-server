@@ -6,6 +6,9 @@ function [session,id,capabilities] = initialize(endpoint, opts)
         endpoint string { prodserver.mcp.validation.mustBeMCPServer }
         opts.require prodserver.mcp.Primitive { mustBeVector } = "None"
         opts.id double { mustBePositive } = 1
+        opts.timeout double {mustBePositive} = 60
+        opts.retry double {mustBePositive} = 3
+        opts.delay double {mustBePositive} = 2
     end
 
     import prodserver.mcp.MCPConstants
@@ -29,10 +32,10 @@ function [session,id,capabilities] = initialize(endpoint, opts)
     request = matlab.net.http.RequestMessage('POST', headers, body);
     
     % Send the request and receive the response
-    response = request.send(uri);
-    prodserver.mcp.internal.requireSuccess(response,endpoint, ...
-        request=data.method); 
-
+    response = prodserver.mcp.internal.sendRequest(request,uri, ...
+        timeout=opts.timeout, retry=opts.retry, delay=opts.delay, ...
+        label=data.method);
+  
     % Server should have created a session ID
     session = getHeaderValue(MCPConstants.SessionId, response.Header);
     if isempty(session) || strlength(session) < 1
