@@ -130,7 +130,7 @@ function t = parameterTypeName(type)
     % type will be simple string for scalar parameters and a
     % structure for array parameters. Return the type name of the
     % elements of the array or the scalar type name.
-    if isstruct(type)
+    if strcmpi(type.type,MCPConstants.Array)
         t = type.items.type;
     else
         t = type;
@@ -139,7 +139,7 @@ end
 
 function [name,type] = mpsArguments(schema)
     name = string(fieldnames(schema));
-    type = arrayfun(@(i)string(parameterTypeName(schema.(i).type)), name);
+    type = arrayfun(@(i)string(parameterTypeName(schema.(i))), name);
 end
 
 function parameters = mcpArgumentTypes(parameters,typemap)
@@ -147,7 +147,7 @@ function parameters = mcpArgumentTypes(parameters,typemap)
 
     name = string(fieldnames(parameters));
     for n = 1:numel(name)
-        t = jsonParameterType(parameterTypeName(parameters.(name(n)).type), ...
+        t = jsonParameterType(parameterTypeName(parameters.(name(n))), ...
             typemap);
         if isempty(t)
             error("prodserver:mcp:IncompatibleArgumentType", ...
@@ -157,9 +157,9 @@ function parameters = mcpArgumentTypes(parameters,typemap)
         end
 
         % Array and scalar have different representation.
-        if isstruct(parameters.(name(n)).type)
+        if strcmpi(parameters.(name(n)).type, MCPConstants.Array)
             % Array
-            parameters.(name(n)).type.items.type = t;
+            parameters.(name(n)).items.type = t;
         else
             % Scalar
             parameters.(name(n)).type = t;
@@ -211,8 +211,8 @@ function [properties,required] = argumentDeclaration(args)
         % Some MCP hosts appear to validate against the schema. Others do
         % not. YMMV. Forthe ones that do, the schema must be correct.
 
-        type.type = "array";
-        type.items.type = t;
+        d.type = "array";
+        d.items.type = t;
         if hasField(args(i),"Validation.Size") && ...
             ~isempty(args(i).Validation.Size)
             % If any dimension is unrestricted, there is no size limit.
@@ -229,25 +229,24 @@ function [properties,required] = argumentDeclaration(args)
                 maxItems = maxItems * sz;
             end
             if ~isinf(maxItems) && maxItems > 1
-                type.maxItems = maxItems;
+                d.maxItems = maxItems;
             end
 
             % Check for scalar -- and undo all work above, if so. Create
             % the much simpler scalar declaration.
             if maxItems == 1
-                type = t;
+                d = [];
+                d.type = t;
             end
           
         end
-
-        d.type = type;
-        type = [];   % To allow it to be string or structure again.
 
         % No time-frame for mf.Signature.Inputs(i).Description, so
         % placeholder for now and fix-up later.
         d.description = t;
 
         decl{i} = d;
+        d = [];   % To allow it to be string or structure again.
     end
 
     % Structure with one field per argument. name -> (type, description)
