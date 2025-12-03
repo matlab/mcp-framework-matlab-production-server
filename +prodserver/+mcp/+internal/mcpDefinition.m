@@ -124,23 +124,47 @@ function parameters = addDescription(parameters,ad)
     end
 end
 
+function t = parameterTypeName(type)
+    import prodserver.mcp.MCPConstants
+
+    % type will be simple string for scalar parameters and a
+    % structure for array parameters. Return the type name of the
+    % elements of the array or the scalar type name.
+    if isstruct(type)
+        t = type.items.type;
+    else
+        t = type;
+    end
+end
+
 function [name,type] = mpsArguments(schema)
     name = string(fieldnames(schema));
-    type = arrayfun(@(i)string(schema.(i).type), name);
+    type = arrayfun(@(i)string(parameterTypeName(schema.(i).type)), name);
 end
 
 function parameters = mcpArgumentTypes(parameters,typemap)
+    import prodserver.mcp.MCPConstants
 
     name = string(fieldnames(parameters));
     for n = 1:numel(name)
-        t = jsonParameterType(parameters.(name(n)).type,typemap);
+        t = jsonParameterType(parameterTypeName(parameters.(name(n)).type), ...
+            typemap);
         if isempty(t)
             error("prodserver:mcp:IncompatibleArgumentType", ...
                 "Parameter '%s' has unsupported type '%s'. Valid types " + ...
                 "include numeric types, strings, cell arrays and " + ...
                 "structures.", name(n), parameters.(name(n)).type);
         end
-        parameters.(name(n)).type = t;
+
+        % Array and scalar have different representation.
+        if isstruct(parameters.(name(n)).type)
+            % Array
+            parameters.(name(n)).type.items.type = t;
+        else
+            % Scalar
+            parameters.(name(n)).type = t;
+        end
+
     end
 end
 
@@ -166,7 +190,59 @@ function [properties,required] = argumentDeclaration(args)
             end
         end
 
-        d.type = t;
+        % Array or scalar? Everything is an array (because MATLAB) unless 
+        % explicitly declared otherwise. Create a structure that will 
+        % result in one of two JSON encodings.
+        %
+        % For array parameters:
+        %   {
+        %       "type": "array",
+        %       "items": { "type": "<MATLAB type name>" }
+        %   }
+        % If the parameter has a size validation like (1,3,2), the
+        % structure will include the "maxItems" field (with value 6 in this
+        % case.)
+        %
+        % For scalar parameters (where the size is explicitly (1,1)):
+        %   {
+        %       "type": "<MATLAB type name>" 
+        %   }
+        %
+        % Some MCP hosts appear to validate against the schema. Others do
+        % not. YMMV. Forthe ones that do, the schema must be correct.
+
+        type.type = "array";
+        type.items.type = t;
+        if hasField(args(i),"Validation.Size") && ...
+            ~isempty(args(i).Validation.Size)
+            % If any dimension is unrestricted, there is no size limit.
+            % Otherwise, maxItems is the product of the dimensions.
+
+            dims = args(i).Validation.Size;
+            maxItems = 1;
+            for dI = 1:numel(dims)
+                if isa(dims(dI),'matlab.metadata.UnrestrictedDimension')
+                    sz = Inf;
+                elseif isa(dims(dI),'matlab.metadata.FixedDimension')
+                    sz = dims(dI).Length;
+                end
+                maxItems = maxItems * sz;
+            end
+            if ~isinf(maxItems) && maxItems > 1
+                type.maxItems = maxItems;
+            end
+
+            % Check for scalar -- and undo all work above, if so. Create
+            % the much simpler scalar declaration.
+            if maxItems == 1
+                type = t;
+            end
+          
+        end
+
+        d.type = type;
+        type = [];   % To allow it to be string or structure again.
+
         % No time-frame for mf.Signature.Inputs(i).Description, so
         % placeholder for now and fix-up later.
         d.description = t;

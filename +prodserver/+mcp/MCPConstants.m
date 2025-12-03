@@ -3,6 +3,7 @@ classdef MCPConstants
 % Copyright 2025, The MathWorks, Inc.
 
     properties (Constant)
+
         SessionId = 'Mcp-Session-Id'
         ProtocolVersion = 'MCP-Protocol-Version';
         DefinitionFile = "McpServices.mat";
@@ -21,6 +22,7 @@ classdef MCPConstants
         jrpcVersion = "2.0"
         protocolVersion = "2025-06-18";
 
+        Array = "array";   % JSONRPC array type
         DefaultArgType = "double";  
 
         IndirectionMsg = "Refer to structuredContent for tool results.";
