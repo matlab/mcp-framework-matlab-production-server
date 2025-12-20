@@ -133,7 +133,7 @@ function t = parameterTypeName(type)
     if strcmpi(type.type,MCPConstants.Array)
         t = type.items.type;
     else
-        t = type;
+        t = type.type;
     end
 end
 
