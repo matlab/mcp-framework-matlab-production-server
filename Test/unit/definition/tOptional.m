@@ -29,10 +29,26 @@ classdef tOptional < matlab.unittest.TestCase & ...
     methods (Test)
 
         function defineOptionalScalars(test)
-        % Generate definition for tool with optional scalar inputs.
+            % Generate definition for tool with optional scalar inputs.
 
             % Generate definitions for tools
             tool = "toyScalarOptions";
+
+            % Vanilla argument list -- tools only, no GenAI.
+            td = prodserver.mcp.internal.defineForMCP(tool,tool);
+
+            % Known result
+            expected = strtrim(fileread(fullfile(test.toolsFolder,tool+".json")));
+            actual = jsonencode(td.tools{1});
+            test.verifyEqual(actual,expected,"tool");
+
+        end
+
+        function defineOptionalNVScalars(test)
+        % Generate definition for tool with optional scalar inputs.
+
+            % Generate definitions for tools
+            tool = "toyScalarNVOptions";
 
             % Vanilla argument list -- tools only, no GenAI.
             td = prodserver.mcp.internal.defineForMCP(tool,tool);
@@ -150,7 +166,7 @@ classdef tOptional < matlab.unittest.TestCase & ...
 
         end
 
-        function wrapOptionalScalars(test)
+        function wrapOptionalNVScalars(test)
 
             import prodserver.mcp.MCPConstants
             import matlab.unittest.fixtures.TemporaryFolderFixture
@@ -161,7 +177,7 @@ classdef tOptional < matlab.unittest.TestCase & ...
             tfolder = tempDir.Folder;
 
             % Generate wrapper 
-            fcn = "toyScalarOptions"; 
+            fcn = "toyScalarNVOptions"; 
 
             wrap = prodserver.mcp.internal.wrapForMCP(fcn,"", tfolder);
 

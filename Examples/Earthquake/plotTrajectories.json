@@ -7,27 +7,45 @@
         "type": "object",
         "properties": {
           "quakeURL": {
-            "type": "string",
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
             "description": "file: URL containing a table of uncorrected 3-axis seismometer accelerations"
           },
           "sampleRate": {
-            "type": "number",
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
             "description": "Seismometer sample rate in Hertz"
           },
           "correction": {
-            "type": "number",
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
             "description": "Instrument correction: apply to quakeData"
           },
           "start": {
-            "type": "number",
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
             "description": "Start offset, in seconds, for trajectory data"
           },
           "stop": {
-            "type": "number",
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
             "description": "Stop offset, in seconds, for trajectory data"
           },
           "plotURL": {
-            "type": "string",
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
             "description": "file: URL to save the plot into."
           }
         },
@@ -45,11 +63,17 @@
         "type": "object",
         "properties": {
           "status": {
-            "type": "boolean",
+            "type": "array",
+            "items": {
+              "type": "boolean"
+            },
             "description": "True on success, false on error or failure."
           },
           "msg": {
-            "type": "string",
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
             "description": "Non-empty error message if status is false."
           }
         },
@@ -58,37 +82,39 @@
       }
     }
   ],
-  "signatures": {
-    "plotTrajectories": {
-      "function": "plotTrajectoriesMCP",
-      "input": {
-        "name": [
-          "quakeURL",
-          "sampleRate",
-          "correction",
-          "start",
-          "stop",
-          "plotURL"
-        ],
-        "type": [
-          "string",
-          "double",
-          "double",
-          "double",
-          "double",
-          "string"
-        ]
-      },
-      "output": {
-        "name": [
-          "status",
-          "msg"
-        ],
-        "type": [
-          "logical",
-          "string"
-        ]
+  "signatures": [
+    {
+      "plotTrajectories": {
+        "function": "plotTrajectoriesMCP",
+        "input": {
+          "name": [
+            "quakeURL",
+            "sampleRate",
+            "correction",
+            "start",
+            "stop",
+            "plotURL"
+          ],
+          "type": [
+            "string",
+            "double",
+            "double",
+            "double",
+            "double",
+            "string"
+          ]
+        },
+        "output": {
+          "name": [
+            "status",
+            "msg"
+          ],
+          "type": [
+            "logical",
+            "string"
+          ]
+        }
       }
     }
-  }
+  ]
 }
