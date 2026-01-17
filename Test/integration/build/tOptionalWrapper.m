@@ -1,4 +1,4 @@
-classdef tOptional < matlab.unittest.TestCase
+classdef tOptionalWrapper < matlab.unittest.TestCase
 
     properties
         toolFolder

@@ -1,4 +1,7 @@
 function sig = signature(tool,endpoint,session,opts)
+%signature Retrieve signature data for the tool from the server.
+
+% Copyright 2026, The MathWorks, Inc.
 
     arguments
         tool string
@@ -9,6 +12,7 @@ function sig = signature(tool,endpoint,session,opts)
     
     import prodserver.mcp.MCPConstants
     import prodserver.mcp.internal.hasField
+    import prodserver.mcp.internal.ParameterKind
     
     % Must send session ID with all messages post-initialization.
     headers = [
@@ -23,4 +27,21 @@ function sig = signature(tool,endpoint,session,opts)
     prodserver.mcp.internal.requireSuccess(response,endpoint, ...
         request=handler);
     sig = response.Body.Data;
+
+    % Restore fields from their JSON types to the expected MATLAB types.
+    tool = string(fieldnames(sig)');
+    io = ["input", "output"];
+    for t = tool
+        for i = io
+            sig.(t).(i).name = string(sig.(t).(i).name);
+            sig.(t).(i).type = string(sig.(t).(i).type);
+            sig.(t).(i).order = string(sig.(t).(i).order);
+            k = sig.(t).(i).kind;
+            if isempty(k)
+                sig.(t).(i).kind = ParameterKind.empty;
+            else
+                sig.(t).(i).kind = ParameterKind(k);
+            end
+        end
+    end
 end

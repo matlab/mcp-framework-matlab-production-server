@@ -1,6 +1,8 @@
 function response = prepareResponse(code, msg, opts)
 % Prepare response from custom web handler
 
+% Copyright 2025, The MathWorks, Inc.
+
     arguments
         code { mustBeNumeric }
         msg char
@@ -9,7 +11,6 @@ function response = prepareResponse(code, msg, opts)
         opts.sid string = string.empty
     end
 
-% Copyright 2025, The MathWorks, Inc.
 
     % All non-body text of any kind returned in this structure MUST be
     % char, not string. Header names and values, the HTTP message,

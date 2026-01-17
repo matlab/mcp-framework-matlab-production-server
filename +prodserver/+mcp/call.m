@@ -69,20 +69,35 @@ function [varargout] = call(endpoint, tool, varargin)
         error("prodserver:mcp:NoInputSchema", "Tool %s missing input " + ...
             "schema. Inform tool creator.", tool);
     end
+
+    % If maximum number of inputs specified, validate input count against it.
     N = numel(varargin);
-    tN = numel(fieldnames(t.inputSchema.properties));
+    if hasField(t.inputSchema,"maxProperties")
+        tN = t.inputSchema.maxProperties;
+    else
+        tN = N;
+    end
     if N > tN
         error("prodserver:mcp:TooManyInputs", "Maximum number of inputs " + ...
             "to tool %s is %d but %d provided.", tool, tN, N);
     end
-    tN = numel(t.inputSchema.required);
+
+    % If minimum number of inputs specified, validate input count against
+    % it.
+    if hasField(t.inputSchema,"minProperties")
+        tN = t.inputSchema.minProperties;
+    elseif hasField(t.inputSchema,"required")
+        tN = numel(t.inputSchema.required);
+    else
+        tN = 0;
+    end
     if N < tN
         error("prodserver:mcp:TooFewInputs", "Tool %s requires at " + ...
             "least %d inputs but only %d provided.", tool, tN, N);
     end
 
     %
-    % Fetch signature, required for output argument management
+    % Fetch signature, required for optional and output argument management
     % 
 
     sigEndpoint = replace(endpoint,MCPConstants.MCP,MCPConstants.Signature);
@@ -97,7 +112,7 @@ function [varargout] = call(endpoint, tool, varargin)
     % Invoke tool
     %
 
-    data = prodserver.mcp.jsonrpc.toolsCall(tool,id,t,varargin{:});
+    data = prodserver.mcp.jsonrpc.toolsCall(tool,id,t,sig,varargin{:});
 
     headers = [
         matlab.net.http.HeaderField('Content-Type', 'application/json'), ...
@@ -115,7 +130,7 @@ function [varargout] = call(endpoint, tool, varargin)
     % with required outputs.
     if hasField(t,"outputSchema.required") && ...
             hasField(response,"Body.Data.result.structuredContent") == false
-        error("prodserver:mcp:NoStructuredContent", "Tool %s has required" + ...
+        error("prodserver:mcp:NoStructuredContent", "Tool %s has required " + ...
             "outputs but did not produce structured content.", tool);
     end
 
@@ -136,6 +151,8 @@ function [varargout] = call(endpoint, tool, varargin)
             varargout = cell(1,nargout);
             for n=1:nargout
                 varargout{n} = result.(req(n));
+                type = sig.(tool).output.type(n);
+                varargout{n} = prodserver.mcp.io.cast(type,varargout{n});
             end
         elseif nargout > 0
             error("prodserver:mcp:TooFewOutputs",...

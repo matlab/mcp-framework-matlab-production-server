@@ -53,8 +53,7 @@ classdef ExternalData < handle
         end
 
         function x = fetch(mix,source,opts)
-        % fetch Deserialize data from source according to importer. Test
-        % helper function (hence 'h' prefix).
+        % fetch Deserialize data from source according to importer. 
 
             % Copyright 2025, The MathWorks, Inc.
 

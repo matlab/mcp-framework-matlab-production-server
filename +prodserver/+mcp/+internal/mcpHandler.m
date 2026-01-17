@@ -101,6 +101,7 @@ end
 function [result, httpCode, httpMsg, msgHeaders] = handlePost(jrpc)
 
     import prodserver.mcp.MCPConstants
+    import prodserver.mcp.internal.ParameterKind
 
     mth = lower(jrpc.method);
     result.jsonrpc = jrpc.jsonrpc;
@@ -208,38 +209,52 @@ function [result, httpCode, httpMsg, msgHeaders] = handlePost(jrpc)
         % insert order information into the definition. Assemble a cell
         % array with the arguments in the right order.
         sig = d.(MCPConstants.DefinitionVariable).signatures;
-        in = sig.(fcn).input.name;
+        actual = string(fieldnames(jrpc.params.arguments));
 
-        % Separate optional from required arguments. First subtract ALL
-        % optional arguments from full list of inputs (in). Then set
-        % optional to the ACTUAL optional arguments in the tools/call
-        % message.
-        optional = setdiff(in,t.inputSchema.required);
-        in = setdiff(in,optional,'stable');
-        optional = setdiff(fieldnames(jrpc.params.arguments),...
-            t.inputSchema.required);
-
+        % Separate optional from required arguments. 
+        %  1. Subtract required from all positional to yield max. optional.
+        %  2. Keep optional that appear in the tools/call body.
+        in = string(t.inputSchema.required);
+        kind = ParameterKind(sig.(fcn).input.kind);
+        optional = sig.(fcn).input.order(kind == ParameterKind.Optional);
+        optional = intersect(optional, actual, "stable");
+        nvp = setdiff(actual,[in; optional]);
+            
         % All required arguments must be present.
-        if ~isempty(setxor(in,t.inputSchema.required))
+        if isempty(intersect(in,actual))
             error("prodserver:mcp:BadInputArguments", ...
                 "Tool '%s' requires inputs '%s', but received '%s'.", ...
                 fcn,strjoin(t.inputSchema.required,","), strjoin(in,","));
         end
 
         % Make space for all arguments
-        inArgs = cell(1,numel(in)+(numel(optional)*2));
+        N = numel(in) + numel(optional) + (numel(nvp) * 2);
+        inArgs = cell(1,N);
+
+        % Required arguments
         for n = 1:numel(in)
             inArgs{n} = jrpc.params.arguments.(in{n});
         end
 
-        % Add optional arguments to the end of the argument list as 
-        % name-value pairs: use name of the argument as the name of the
-        % name-value pair.
-        k = numel(in) + 1;
-        for n = 1:numel(optional)
-            inArgs{k} = optional{n};
-            inArgs{k+1} = jrpc.params.arguments.(optional{n});
-            k = k + 2;
+        % n is the index of the last required argument.
+        if n < numel(actual)
+            n = n + 1;
+
+            % Optional positional arguments
+            for k = 1:numel(optional)
+                inArgs{n} = jrpc.params.arguments.(optional(k));
+                n = n + 1;
+            end
+
+            % TODO: Repeated arguments
+
+            % Add name-value pairs to the end of the argument list: use 
+            % name of the argument as the name of the name-value pair.
+            for k = 1:numel(nvp)
+                inArgs{n} = nvp(k);
+                inArgs{n+1} = jrpc.params.arguments.(nvp(k));
+                n = n + 2;
+            end
         end
 
         % Create a cell array large enough for all the outputs. TODO:

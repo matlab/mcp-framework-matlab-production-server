@@ -17,6 +17,7 @@ classdef MCPConstants
         SSE = "/sse";
         MCP = "/mcp";
         Signature = "/signature";
+        GroupName = "GroupName";
         WrapperFileSuffix = "MCP";
         ExternalParamSuffix = "URL";
         jrpcVersion = "2.0"
@@ -39,5 +40,9 @@ classdef MCPConstants
             prodserver.mcp.GenerativeAI.Ollama, "", ...
             prodserver.mcp.GenerativeAI.Internal, "", ...
             prodserver.mcp.GenerativeAI.None, "");
+
+        % Name of the environment variable containing the network address 
+        % of the test server
+        TestServerEnvVar = "MW_MCP_MPS_TEST_SERVER";
     end
 end

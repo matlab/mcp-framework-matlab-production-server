@@ -169,9 +169,10 @@ classdef tmultiTool < matlab.unittest.TestCase & ...
             bboxURL = locate(test,"bbox",test.tempFolder);
 
             t = findDefinition("snowflake",def);
+            s = def.signatures;
 
-            body = jsonToolCall(test,"snowflake",2,t,n,width,height, ...
-                vectorsURL,bboxURL);
+            body = jsonToolCall(test,"snowflake",2,t,s,n, ...
+                width,height, vectorsURL,bboxURL);
 
             req = mcpRequest(test,test.server,body=body);
             resp = handleRequest(test,req);
@@ -189,7 +190,7 @@ classdef tmultiTool < matlab.unittest.TestCase & ...
             t = findDefinition("turtleGraphic",def);
 
             jpg = fullfile(test.tempFolder,"snowflake.jpg");
-            body = jsonToolCall(test,"turtleGraphic",3,t,bboxURL,vectorsURL,...
+            body = jsonToolCall(test,"turtleGraphic",3,t,s,bboxURL,vectorsURL,...
                 width,height,jpg);
 
             req = mcpRequest(test,test.server,body=body);
@@ -236,8 +237,9 @@ classdef tmultiTool < matlab.unittest.TestCase & ...
             dragonURL = locate(test,"twinDragon",test.tempFolder);
 
             t = findDefinition("twinDragon",def);
+            s = def.signatures;
 
-            body = jsonToolCall(test,"twinDragon",2,t,n,dragonURL);
+            body = jsonToolCall(test,"twinDragon",2,t,s,n,dragonURL);
 
             % Reset seed to guarantee same sequence of random points.
             rng(8675309,"twister");
@@ -266,7 +268,7 @@ classdef tmultiTool < matlab.unittest.TestCase & ...
 
             t = findDefinition("dragonDraw",def);
 
-            body = jsonToolCall(test,"dragonDraw",2,t,dragonURL,color1,...
+            body = jsonToolCall(test,"dragonDraw",2,t,s,dragonURL,color1,...
                 color2,jpg,szURL);
 
             req = mcpRequest(test,test.server,body=body);
@@ -316,8 +318,9 @@ classdef tmultiTool < matlab.unittest.TestCase & ...
             hueURL = locate(test,"chaosHue",test.tempFolder);
 
             t = findDefinition("chaos",def);
+            s = def.signatures;
 
-            body = jsonToolCall(test,"chaos",2,t,n,sides,xyURL,hueURL);
+            body = jsonToolCall(test,"chaos",2,t,s,n,sides,xyURL,hueURL);
 
             % Reset seed to guarantee same sequence of random points.
             rng(4171961,"twister");
@@ -340,14 +343,16 @@ classdef tmultiTool < matlab.unittest.TestCase & ...
 
             t = findDefinition("renderPointCloud",def);
 
-            body = jsonToolCall(test,"renderPointCloud",2,t,xyURL,jpg, ...
+            body = jsonToolCall(test,"renderPointCloud",2,t,s,xyURL,jpg, ...
                 hueURL=hueURL);
 
             req = mcpRequest(test,test.server,body=body);
             resp = handleRequest(test,req);
 
             % Test for call success
-            test.verifyFalse(isfield(resp,'error'),"Error field present");
+            if isfield(resp,"error")
+                test.verifyTrue(false,resp.error.message);
+            end
             test.verifyTrue(isfield(resp,'result'),"Result field missing");
             test.verifyEqual(exist(jpg,"file"),2,jpg);
 
@@ -384,8 +389,9 @@ classdef tmultiTool < matlab.unittest.TestCase & ...
             mandelbrotSetURL = locate(test,"mandelbrotSet",test.tempFolder);
 
             t = findDefinition("mandelbrot",def);
+            s = def.signatures;
 
-            body = jsonToolCall(test,"mandelbrot",2,t,n,width,mandelbrotSetURL);
+            body = jsonToolCall(test,"mandelbrot",2,t,s,n,width,mandelbrotSetURL);
 
             req = mcpRequest(test,test.server,body=body);
             resp = handleRequest(test,req);

@@ -5,11 +5,15 @@
             "function": "cleanSignalMCP",
             "input": {
                 "name": ["noisy","frequency","clean"],
-                "type": ["string", "number", "string"]
+                "type": ["string", "number", "string"],
+                "order": ["noisy","frequency","clean"],
+                "kind": ["Required","Required","Required"]
             },
             "output": {
                 "name": ["status","msg"], 
-                "type": ["logical","string"]
+                "type": ["logical","string"],
+                "order": ["status","msg"], 
+                "kind": ["Optional","Optional"]
             }
         }
       }

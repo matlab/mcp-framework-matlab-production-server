@@ -80,6 +80,8 @@ function definition = defineParameters(definition,tool,io,descriptions, ...
 %  signature: metafunction data on the group of parameters.
 %  typemap: Maps "extra" MATLAB types to JSONRPC types. A structure.
 
+    import prodserver.mcp.internal.ParameterKind
+    
     % Set schema name based on parameter group -- input or output.
     if strcmp(io,"input")
         schema = "inputSchema";
@@ -88,7 +90,7 @@ function definition = defineParameters(definition,tool,io,descriptions, ...
     end
 
     % Collect input argument information from metafunction data.
-    [parameters,required] = argumentDeclaration(signature);
+    [parameters,required,kind,order] = argumentDeclaration(signature);
     
     % Update parameter structure with descriptions.
     if ~isempty(descriptions)
@@ -100,6 +102,8 @@ function definition = defineParameters(definition,tool,io,descriptions, ...
         [name,type] = mpsArguments(parameters);
         definition.signatures.(tool).(io).name = name;
         definition.signatures.(tool).(io).type = type;
+        definition.signatures.(tool).(io).kind = kind;
+        definition.signatures.(tool).(io).order = order;
     end
     
     % Convert MATLAB types to compatible JSON types
@@ -110,6 +114,9 @@ function definition = defineParameters(definition,tool,io,descriptions, ...
     if isempty(fieldnames(parameters)) == false
         definition.tools.(schema).properties = parameters;
         definition.tools.(schema).required = required;
+        [minArgs, maxArgs] = ParameterKind.NargRange(kind);
+        definition.tools.(schema).minProperties = minArgs;
+        definition.tools.(schema).maxProperties = maxArgs;
     end
     definition.tools.(schema).additionalProperties = false;
 end
@@ -168,21 +175,23 @@ function parameters = mcpArgumentTypes(parameters,typemap)
     end
 end
 
-
-function [properties,required] = argumentDeclaration(args)
+function [properties,required,kind,order] = argumentDeclaration(args)
 % Extract argument names and types, but not descriptions from an argument
 % block. Return an MCP properties structure and an array of the names of
 % the required arguments.
 
     import prodserver.mcp.MCPConstants
     import prodserver.mcp.internal.hasField
+    import prodserver.mcp.internal.ParameterKind
 
     names = cell(1,numel(args));
     decl = cell(size(names));
     required = false(size(names));
+    kind = repmat(ParameterKind.Unknown,size(names));
     for i = 1:numel(args)
         names{i} = args(i).Identifier.Name;
         required(i) = args(i).Required;
+        kind(i) = ParameterKind.FromMetaData(required(i),args(i).Identifier);
         t = MCPConstants.DefaultArgType;
         if hasField(args(i),"Validation.Class")
             if ~isempty(args(i).Validation.Class)
@@ -209,7 +218,7 @@ function [properties,required] = argumentDeclaration(args)
         %   }
         %
         % Some MCP hosts appear to validate against the schema. Others do
-        % not. YMMV. Forthe ones that do, the schema must be correct.
+        % not. YMMV. For the ones that do, the schema must be correct.
 
         d.type = "array";
         d.items.type = t;
@@ -254,6 +263,10 @@ function [properties,required] = argumentDeclaration(args)
     args = [ names; decl ];
     properties = struct(args{:});
     required = names(required);
+    count = ParameterKind.CountType(kind);
+    % How many positional arguments?
+    pN = count(ParameterKind.Required) + count(ParameterKind.Optional);
+    order = string(names(1:pN));
 end
 
 function jsonType = jsonParameterType(matlabType,typemap)

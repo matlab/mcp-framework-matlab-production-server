@@ -1,6 +1,22 @@
-classdef tmcpHandler < HandlerBase
+classdef tmcpHandler < MCPHandlerBase
 
     methods (TestClassSetup)
+
+        function useExamples(test)
+            testFolder = fileparts(mfilename("fullpath"));
+            test.toolsFolder = fullfile(testFolder,"..","..","..","Examples");
+
+            % Put the earthquake and signal example folders on the path.
+            import matlab.unittest.fixtures.PathFixture
+
+            earthquakeFolder = fullfile(test.toolsFolder,...
+                "Earthquake");
+            test.applyFixture(PathFixture(earthquakeFolder));
+
+            primeFolder = fullfile(test.toolsFolder,"Primes");
+            test.applyFixture(PathFixture(primeFolder));
+        end
+
         function prepareTools(test)
             % Assume defineForMCP is working. It has its own tests. :-)
             % Better decoupling requires a lot of (probably unnecessary)

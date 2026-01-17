@@ -22,6 +22,8 @@
           "a",
           "b"
         ],
+        "minProperties": 2,
+        "maxProperties": 2,
         "additionalProperties": false
       },
       "outputSchema": {
@@ -50,6 +52,8 @@
           }
         },
         "required": [],
+        "minProperties": 0,
+        "maxProperties": 3,
         "additionalProperties": false
       }
     },
@@ -78,6 +82,8 @@
           "object",
           "mirror"
         ],
+        "minProperties": 2,
+        "maxProperties": 2,
         "additionalProperties": false
       },
       "outputSchema": {
@@ -99,6 +105,8 @@
           }
         },
         "required": [],
+        "minProperties": 0,
+        "maxProperties": 2,
         "additionalProperties": false
       }
     },
@@ -135,6 +143,8 @@
           "two",
           "one"
         ],
+        "minProperties": 3,
+        "maxProperties": 3,
         "additionalProperties": false
       },
       "outputSchema": {
@@ -160,6 +170,8 @@
           }
         },
         "required": [],
+        "minProperties": 0,
+        "maxProperties": 3,
         "additionalProperties": false
       }
     }
@@ -175,6 +187,14 @@
         "type": [
           "double",
           "uint64"
+        ],
+        "kind": [
+          "Required",
+          "Required"
+        ],
+        "order": [
+          "a",
+          "b"
         ]
       },
       "output": {
@@ -187,6 +207,16 @@
           "double",
           "double",
           "double"
+        ],
+        "kind": [
+          "Optional",
+          "Optional",
+          "Optional"
+        ],
+        "order": [
+          "x",
+          "y",
+          "z"
         ]
       }
     },
@@ -200,6 +230,14 @@
         "type": [
           "geom",
           "geom"
+        ],
+        "kind": [
+          "Required",
+          "Required"
+        ],
+        "order": [
+          "object",
+          "mirror"
         ]
       },
       "output": {
@@ -210,6 +248,14 @@
         "type": [
           "logical",
           "double"
+        ],
+        "kind": [
+          "Optional",
+          "Optional"
+        ],
+        "order": [
+          "chiral",
+          "asymmetry"
         ]
       }
     },
@@ -225,6 +271,16 @@
           "string",
           "struct",
           "cell"
+        ],
+        "kind": [
+          "Required",
+          "Required",
+          "Required"
+        ],
+        "order": [
+          "three",
+          "two",
+          "one"
         ]
       },
       "output": {
@@ -237,6 +293,16 @@
           "double",
           "struct",
           "string"
+        ],
+        "kind": [
+          "Optional",
+          "Optional",
+          "Optional"
+        ],
+        "order": [
+          "one",
+          "two",
+          "three"
         ]
       }
     }

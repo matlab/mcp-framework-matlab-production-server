@@ -1,9 +1,10 @@
-function body = toolsCall(tool,id,def,varargin)
+function body = toolsCall(tool,id,def,sig,varargin)
 %toolsCall Create structure for JSONRPC MCP tools/call body.
 
 % Copyright 2025, The MathWorks, Inc.
 
     import prodserver.mcp.MCPConstants
+    import prodserver.mcp.internal.ParameterKind
     
     body.id = id;
     body.method = "tools/call";
@@ -24,16 +25,31 @@ function body = toolsCall(tool,id,def,varargin)
         body.params.arguments.(req(n)) = varargin{n};
     end
     if n < numel(varargin)
-        varargin = varargin(n+1:end);
-        if mod(numel(varargin),2) ~= 0
-            error("prodserver:mcp:UnevenOptionalArguments", ...
-                "Optional arguments must be name/value pairs, but " + ...
-                "only an uneven number (%d) of arguments remain after " + ...
-                "processing the required arguments.");
+        n = n + 1;
+        kind = ParameterKind(sig.(tool).input.kind);
+
+        % Optional positional
+        while n <= numel(varargin) && n <= numel(kind) && ...
+                kind(n) == ParameterKind.Optional
+            body.params.arguments.(sig.(tool).input.name{n}) = varargin{n};
+            n = n + 1;
         end
-        N = numel(varargin)/2;
-        for n = 1:N
-            body.params.arguments.(varargin{n*2-1}) = varargin{n*2};
+
+        % TODO: Repeating positional
+        
+        % Name/Value pairs
+        if n < numel(varargin)
+            varargin = varargin(n:end);
+            if mod(numel(varargin),2) ~= 0
+                error("prodserver:mcp:UnevenOptionalArguments", ...
+                    "Name/value arguments must appear in pairs, but " + ...
+                    "only an uneven number (%d) of arguments remain after " + ...
+                    "processing the required and optional positional arguments.");
+            end
+            N = numel(varargin)/2;
+            for n = 1:N
+                body.params.arguments.(varargin{n*2-1}) = varargin{n*2};
+            end
         end
     end
 end

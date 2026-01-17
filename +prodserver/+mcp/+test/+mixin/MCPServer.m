@@ -18,8 +18,8 @@ classdef MCPServer < handle
             response = prodserver.mcp.internal.decodeBody(response);
         end
 
-        function body = jsonToolCall(mcp,tool,id,def,varargin)
-            body = prodserver.mcp.jsonrpc.toolsCall(tool,id,def,varargin{:});
+        function body = jsonToolCall(mcp,tool,id,def,sig,varargin)
+            body = prodserver.mcp.jsonrpc.toolsCall(tool,id,def,sig,varargin{:});
             body = jsonencode(body);
         end
 

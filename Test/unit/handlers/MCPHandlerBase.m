@@ -1,36 +1,27 @@
-classdef HandlerBase < matlab.unittest.TestCase
+classdef MCPHandlerBase < matlab.unittest.TestCase
     properties
-        exampleFolder
+        toolsFolder
         request
         tempFolder
         definitionFile
         toolNames
         fcnNames
+        server
     end
 
     methods (TestClassSetup)
 
         function initTest(test)
-            import prodserver.mcp.MCPConstants
-
-            testFolder = fileparts(mfilename("fullpath"));
-            test.exampleFolder = fullfile(testFolder,"..","..","..","Examples");
-
-            % Put the earthquake and signal example folders on the path.
             import matlab.unittest.fixtures.PathFixture
-
-            earthquakeFolder = fullfile(test.exampleFolder,...
-                "Earthquake");
-            test.applyFixture(PathFixture(earthquakeFolder));
-
-            primeFolder = fullfile(test.exampleFolder,"Primes");
-            test.applyFixture(PathFixture(primeFolder));
+            import matlab.unittest.fixtures.TemporaryFolderFixture
 
             % Make a temporary folder for output and put it on the path
-            import matlab.unittest.fixtures.TemporaryFolderFixture
-            test.tempFolder = TemporaryFolderFixture;
-            test.applyFixture(test.tempFolder);
-            test.applyFixture(PathFixture(test.tempFolder.Folder));
+            tfolder = TemporaryFolderFixture;
+            test.applyFixture(tfolder);
+            test.tempFolder = tfolder.Folder;
+            test.applyFixture(PathFixture(test.tempFolder));
+
+            test.server = "http://localhost:9910/mcp";
 
             test.request = struct(...
                 'ApiVersion',[1 0 0], ...
@@ -40,6 +31,35 @@ classdef HandlerBase < matlab.unittest.TestCase
     end
 
     methods
+
+        function reqT = createRequest(test,fcn,endpoint,varargin)
+            import prodserver.mcp.MCPConstants
+
+            % Get base request structure
+            req = test.request;
+            req.Headers = [req.Headers; {MCPConstants.ContentType, ...
+                'application/json'}];
+
+            % Make up a session ID
+            id = matlab.lang.internal.uuid;
+            req.Headers = [req.Headers; { MCPConstants.SessionId id} ];
+
+            % Add arguments to request body. Expect varargin to be
+            % name/value pairs.
+            body.jsonrpc = "2.0";
+            body.id = 1;
+            body.method = "tools/call";
+            body.params.name = fcn;
+            body.params.arguments = struct(varargin{:});
+            body = jsonencode(body);
+
+            reqT = req;
+            reqT.Method = "POST";  % Because there's a body
+            reqT.Path = endpoint;
+            reqT.Headers = [reqT.Headers; {MCPConstants.ContentLength, numel(body)}];
+            reqT.Body = unicode2native(body,"UTF-8");
+        end
+
         function defineTools(test,fcns,tools,dFiles)
             import prodserver.mcp.MCPConstants
 
@@ -60,7 +80,7 @@ classdef HandlerBase < matlab.unittest.TestCase
                     tools, fcns);
             end
 
-            test.definitionFile = fullfile(test.tempFolder.Folder,...
+            test.definitionFile = fullfile(test.tempFolder,...
                 MCPConstants.DefinitionFile);
             def.(MCPConstants.DefinitionVariable) = definition;
             save(test.definitionFile,"-struct","def");
