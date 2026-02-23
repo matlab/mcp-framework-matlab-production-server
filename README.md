@@ -118,5 +118,9 @@ Set security parameters by configuration in MATLAB Production Server.
 | Test | Unit and Integration tests. |
 | Utilities | Mostly standalone functions and scripts that simplify integration with other environments. |
 
+# Have Questions?
+Contact us at <genai-support@mathworks.com>
+
 # License
+
 The license is available in the [license.txt](./license.txt) file.
