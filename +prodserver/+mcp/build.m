@@ -49,7 +49,7 @@ function [ctf,endpoint] = build(fcn, opts)
 
     % Might be zero-length strings, depending on final stage executed.
     ctf = "";
-    endopint = "";
+    endpoint = "";
 
     % Both wrapper and definition generation might use generative AI.
     if opts.genai == prodserver.mcp.GenerativeAI.None
