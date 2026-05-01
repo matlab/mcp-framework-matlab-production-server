@@ -18,6 +18,9 @@ function response = mcpHandler(request)
         protocolVersion = getHeaderValue(MCPConstants.ProtocolVersion, ...
             request.Headers);
 
+        % Count the number of times mcpHandler is called.
+        prodserver.metrics.incrementCounter(MCPConstants.MCPRequestMetric,1);
+
         jrpc = [];
         
         switch lower(request.Method)                

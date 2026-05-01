@@ -9,6 +9,10 @@
             "uint32", "int64", "uint64", "double", "single", "logical", ...
             "char"];
 
+        % Primitive (non-container) types
+        primitiveType = [prodserver.mcp.internal.Constants.castType, ...
+            "string"];
+
         % Structured-string syntax
         PathSep = "/";
         URISep = "/";
@@ -19,15 +23,33 @@
         ExtSep = ".";
         FragStart = "#";
 
+        % User specified schema data in comments starts with this string.
+        Schema = "#schema";
+        SchemaField = "schema";
+
         DefaultPersistVar = "xyzzy";
 
         HTTPClientError = 400;
         HTTPServerError = 500;
 
+        % MIME types
+        % Additional MIME types
+        MIMETypeJSON = "application/json";
+        MIMETypePlainText = "text/plain";
+
+        % Argument info syntax patterns and constants
+        ParameterSizePattern = textBoundary("start") + "(" + ...
+            asManyOfPattern(characterListPattern("1234567890,: "),1,Inf) + ")";
+        TypePattern = textBoundary("start") + lettersPattern + ...
+            asManyOfPattern(alphanumericsPattern(1) | "_", 1, Inf);
+        ValidationPattern = textBoundary("start") + "{" + wildcardPattern(Except="}") + "}";
+        DefaultPattern = lookBehindBoundary("=") + wildcardPattern + ...
+            textBoundary("end");
+
         % HTTP session ID - RFC 7329
         SessionIDPrefix = "SID";
         SessionIDSep = ":";
-        SessionIDType = "MathWorks-Data-Pipeline";
+        SessionIDType = "MathWorks-Production-MCP-Server";
         SessionIDHeader = "Session-ID";
         SessionIDPattern = ...
             prodserver.mcp.internal.Constants.SessionIDPrefix + ...
@@ -68,37 +90,17 @@
             prodserver.mcp.internal.Constants.SchemeName + ...
             prodserver.mcp.internal.Constants.SchemeSuffix;
 
-        % Port and component names are valid MATLAB identifiers - a letter
-        % followed by any number of letters, digits and underscores.
-        NamePattern = (lettersPattern(1) | "_" ) + ...
-            asManyOfPattern(alphanumericsPattern(1) | "_");
-
         % Match a file name extension
         ExtensionPattern = "." + wildcardPattern(Except=".");
 
-        % Match the base name in a path
-        BaseNamePattern = lookBehindBoundary(textBoundary("start") + ...
-            optionalPattern(...
-                asManyOfPattern(wildcardPattern) + ...
-                prodserver.mcp.internal.Constants.PathSep)) + ...
-            prodserver.mcp.internal.Constants.NamePattern + ...
-            lookAheadBoundary(...
-                optionalPattern(prodserver.mcp.internal.Constants.ExtensionPattern) + ...
-                textBoundary("end"));
-
-        % Match the last string in a qualified name.
-        EndOfNamePattern = optionalPattern(lookBehindBoundary( ...
-                prodserver.mcp.internal.Constants.PathSep)) + ...
-            prodserver.mcp.internal.Constants.NamePattern + ...
-            lookAheadBoundary(textBoundary("end"));
-
-        % Match a qualified name. Do not match if there are no occurrences
-        % of PathSep even though such names are valid. They are not
-        % "qualified". Match any string that ends with "/<NamePattern>".
-        QualifiedNamePattern = textBoundary("start") + wildcardPattern() + ...
-            prodserver.mcp.internal.Constants.PathSep + ...
-            prodserver.mcp.internal.Constants.NamePattern + ...
-            textBoundary("end");
+        % A directory segment: one or more valid chars (no extension)
+        PathSegment = asManyOfPattern(wildcardPattern(Except=characterListPattern("/"+newline)), 1);
+        
+        % Full path to a file.
+        PathPattern = optionalPattern("/") + ...
+            prodserver.mcp.internal.Constants.PathSegment + ...
+            asManyOfPattern("/" + prodserver.mcp.internal.Constants.PathSegment, 0) + ...
+            optionalPattern(prodserver.mcp.internal.Constants.ExtensionPattern);
 
     end
 end
