@@ -8,7 +8,7 @@ function u = parseURI(uri)
 %Assumes that URI is well-formatted. Does minimal checking for
 %syntax errors. 
 
-% Copyright (C) 2022-2024, The MathWorks, Inc.
+% Copyright (C) 2022-2026, The MathWorks, Inc.
 
     import prodserver.mcp.internal.Constants
     import prodserver.mcp.validation.istext
@@ -73,7 +73,7 @@ function u = parseURI(uri)
             uri(n) = strrep(uri(n),usr,""); 
         end
     
-        % Address is everything left between // and /. No ambiguity with
+        % Address is everything left between :/ and /. No ambiguity with
         % path components, because authority starts with // and path may
         % not.
         addressPattern = lookBehindBoundary("://") + ...
@@ -98,6 +98,11 @@ function u = parseURI(uri)
     
         % Strip off address, which may be empty. Remove leading : anyway.
         if ~isempty(address)
+            % Non-empty zero length address means we found ://<path>. So
+            % strip off ://.
+            if strlength(address) == 0
+                address = "://";
+            end
             uri(n) = extractAfter(uri(n),address); 
         else
             uri(n) = extractAfter(uri(n),":"); 

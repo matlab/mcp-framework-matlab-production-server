@@ -9,8 +9,6 @@ function tf = isuri(x,opts)
         opts.pathSep string = "/";
     end
 
-% Copyright 2025, The MathWorks, Inc.
-
     import prodserver.mcp.internal.Constants
 
     % URI object is trivially a URI.

@@ -14,65 +14,70 @@ function uri = normalizeURI(uri)
         return;
     end
 
-    persistent authorityPattern
-    if isempty(authorityPattern)
-        authorityPattern = "://"+asManyOfPattern( ...
-            wildcardPattern(1,Except=characterListPattern("?#/")))+"/";
-    end
-
     if istext(uri)
-        hasAuthority = contains(uri,authorityPattern);
-        uri = normalizePath(uri,hasAuthority);
+        uri = normalizePath(uri);
     elseif isa(uri,"dictionary")
         x = keys(uri)';
-        hasAuthority = contains(uri(x),authorityPattern);
-        uri(x) = normalizePath(uri(x),hasAuthority);
+        uri(x) = normalizePath(uri(x));
     elseif isstruct(uri)
         np = num2cell(normalizePath([uri.path]));
         [uri.path] = np{:};
-        hasAuthority = contains([uri.uri],authorityPattern);
-        np = num2cell(normalizePath([uri.uri],hasAuthority));
+        np = num2cell(normalizePath([uri.uri]));
         [uri.uri] = np{:};
     end
 end
 
-function np = normalizePath(p,hasAuthority)
-% Normalize only the path part of the URI. DO NOT modify the parameter
-% part. (This took a long time to find.)
-% 
-% Normalization means:
+function np = normalizePath(p)
+% Normalize only the path part of the URI. Do not modify query parameters.
 %
-%  * Turn all \ into /
-%  * Collapse empty segments // into /.
-%  * Never collapse authority-defining //
+%  * Convert all \ to /
+%  * Collapse // to / except in scheme authority :// and UNC prefix //
 
     import prodserver.mcp.internal.Constants
 
-    if nargin == 1
-        hasAuthority = false(size(p));
+    hasParams = contains(p,Constants.ParamStart);
+    pth = p;
+    param = repmat("",size(p));
+    if any(hasParams)
+        pth(hasParams) = extractBefore(p(hasParams),Constants.ParamStart);
+        param(hasParams) = extractAfter(p(hasParams),pth(hasParams));
     end
 
-    if contains(p,Constants.ParamStart)
-        pth = extractBefore(p,Constants.ParamStart);
-        param = extractAfter(p,pth);
-        pth = strrep(pth,"\","/");
-        pth = preventCollapseOfAuthority(pth,hasAuthority);
-        np = pth + param;
-    else
-        np = strrep(p,"\","/");
-        np = preventCollapseOfAuthority(np,hasAuthority);
-    end
+    pth = strrep(pth,"\","/");
+    pth = collapseSlashes(pth);
+    np = pth + param;
 end
 
-function pth = preventCollapseOfAuthority(pth,hasAuthority)
+function pth = collapseSlashes(pth)
+% Collapse runs of slashes to a single slash, preserving scheme authority
+% :// and UNC leading //.
 
-    persistent authorityToken
-    if isempty(authorityToken)
-        authorityToken = lookBehindBoundary(textBoundary("start") + ...
-            asManyOfPattern(wildcardPattern(1,Except=":"))) + "://";
+    AT = string(char(1));
+    UT = string(char(2));
+
+    persistent uncAtStart uncAfterAuth
+    if isempty(uncAtStart)
+        % Match // followed by a server name, not a drive letter like //C:
+        uncSuffix = wildcardPattern(1) + ...
+            (textBoundary("end") | wildcardPattern(1,Except=":"));
+        uncAtStart = textBoundary("start") + "//" + uncSuffix;
+        uncAfterAuth = AT + "//" + uncSuffix;
     end
 
-    pth(hasAuthority) = replace(pth(hasAuthority),authorityToken,":/:/");
-    pth = strrep(pth,"//","/");
-    pth = strrep(pth,":/:/","://");
+    pth = strrep(pth,"://",":"+AT);
+
+    isUNC = contains(pth,uncAtStart);
+    if any(isUNC)
+        pth(isUNC) = UT + extractAfter(pth(isUNC),2);
+    end
+
+    isAuthUNC = contains(pth,uncAfterAuth);
+    if any(isAuthUNC)
+        pth(isAuthUNC) = strrep(pth(isAuthUNC),AT+"//",AT+UT);
+    end
+
+    pth = regexprep(pth,'/{2,}','/');
+
+    pth = strrep(pth,AT,"//");
+    pth = strrep(pth,UT,"//");
 end
