@@ -141,8 +141,11 @@ classdef MCPConstants
             prodserver.mcp.GenerativeAI.Internal, "", ...
             prodserver.mcp.GenerativeAI.None, "");
 
-        % Name of the environment variable containing the network address 
-        % of the test server
+        % Names of the environment variables containing the network 
+        % address of the test server and the optional location of the test
+        % data folder -- a test data folder may be necessary if the
+        % server's file access is limited.
         TestServerEnvVar = "MW_MCP_MPS_TEST_SERVER";
+        TestDataFolderEnvVar = "MW_MCP_MPS_TEST_DATA_FOLDER";
     end
 end

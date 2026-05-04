@@ -1,8 +1,8 @@
-function status = uploadCTF(ctf, host, port, opts)
-%uploadCTF Upload a CTF to the active server at host:port.
+function status = uploadCTF(ctf, url, opts)
+%uploadCTF Upload a CTF to the active server at url.
 %
-%   status = uploadCTF(CTF, HOST, PORT) uploads the archive CTF to the
-%   active (running) MATLAB Production Server at network address host:port.
+%   status = uploadCTF(CTF, URL) uploads the archive CTF to the
+%   active (running) MATLAB Production Server at network address URL.
 %
 % Upload will fail if the server is not running or if the server does not
 % allow remote archive management. To allow remote archive management, 
@@ -14,8 +14,7 @@ function status = uploadCTF(ctf, host, port, opts)
 
     arguments
         ctf string { mustBeFile }
-        host string { prodserver.mcp.validation.mustBeHostName }
-        port double { prodserver.mcp.validation.mustBePortNumber }
+        url string { prodserver.mcp.validation.mustBeURI }
         opts.overwrite logical = true
         opts.scheme string = "http";
         opts.retry double = 2
@@ -32,7 +31,6 @@ function status = uploadCTF(ctf, host, port, opts)
             "File: %s", ctf)
     end
 
-    url = sprintf("%s://%s:%d",opts.scheme,host,port);
     [~,isActive] = prodserver.mcp.validation.isserver(url,...
         retry=opts.retry,timeout=opts.timeout);
     if isActive == false
@@ -42,21 +40,20 @@ function status = uploadCTF(ctf, host, port, opts)
     end
  
     % Remote archive management endpoint
-    url = sprintf("%s://%s:%d/api/archives?ctf=%s",opts.scheme,host,port, ...
-        ctfName);
+    archiveURL = sprintf("%s/api/archives?ctf=%s",url,ctfName);
 
     % List / Show
     webOpts = weboptions(Timeout=opts.timeout);
     n = 1;
     while n <= opts.retry
         try
-            list_response = webread(url,webOpts);
+            list_response = webread(archiveURL,webOpts);
         catch ex
             % No recovery from this failure, no sense in retrying.
             if contains(ex.message,"Archive Management Disabled")
                 error("prodserver:mcp:ArchiveManagementDisabled", ...
-    "Cannot upload to %s:%d because that server has archive management " + ...
-    "disabled. Enable archive management and try again.", host, port);
+    "Cannot upload to %s because that server has archive management " + ...
+    "disabled. Enable archive management and try again.", url);
             end
             % We've tried as many times as we're allowed.
             if n == opts.retry
@@ -86,8 +83,8 @@ function status = uploadCTF(ctf, host, port, opts)
     % Overwrite or error for pre-existing archives.
     if alreadyThere && opts.overwrite == false
         error("prodserver:mcp:ArchiveOverwriteDisabled", ...
-            "Archive %s already installed on %s:%d. Set overwrite to " + ...
-            "true to replace the existing archive.", ctfName, host, port);
+            "Archive %s already installed on %s. Set overwrite to " + ...
+            "true to replace the existing archive.", ctfName, url);
     end
 
     % If the archive is already present, we must use PUT to overwrite it.
@@ -100,9 +97,7 @@ function status = uploadCTF(ctf, host, port, opts)
         contentTypeField, data);
  
     % Create URI with query params:
-    mpsURI = matlab.net.URI(url);
-    params = struct('ctf', ctfName);
-    mpsURI.Query = params;
+    mpsURI = matlab.net.URI(archiveURL);
  
     % Upload -- only retry on timeout. No error retry.
     status = matlab.net.http.StatusCode.BadRequest;
@@ -122,5 +117,4 @@ function status = uploadCTF(ctf, host, port, opts)
         end
         n = n + 1;
     end
-
 end

@@ -1,14 +1,21 @@
 function endpoint = deploy(archive,host,port,opts)
 %deploy Upload an MCP-enabled CTF archive to a MATLAB Production Server
 %instance.
+%   endpoint = deploy(archive,host,opts) deploys ARCHIVE to the MATLAB 
+%       Production Server running on HOST using optional inputs OPTS.
+%       Returns the MCP URL in ENDPOINT.
 
-% Copyright 2025, The MathWorks, Inc.
+%   endpoint = deploy(archive,host,port,opts) deploys ARCHIVE to the MATLAB
+%       Production Server running at HOST:PORT using optional inputs OPTS.
+%       Returns the MCP URL in ENDPOINT.
+
+% Copyright 2025-2026, The MathWorks, Inc.
 
     arguments
         % Archive to upload to <scheme>://<host>:<port>. Must exist.
         archive string { mustBeFile }
         % Network address of machine host MATLAB Production Server
-        host string {prodserver.mcp.validation.mustBeHostName} = "localhost";
+        host string { prodserver.mcp.validation.mustBeHost } = "localhost";
         % Port number on host
         port double {prodserver.mcp.validation.mustBePortNumber} = 9910;
         % HTTP or HTTPS
@@ -25,20 +32,47 @@ function endpoint = deploy(archive,host,port,opts)
 
     webOpts = weboptions(Timeout=opts.timeout);
 
-    % host:port must be the address of an active MATLAB Production Server
+    % Allow server to be a complete URL, beginning with <scheme>://. In this
+    % case, ignore port.
+    url = host;
+    if prodserver.mcp.validation.isuri(url) == false
+        url = sprintf("%s://%s:%d",opts.scheme,host,port);
+    else
+        prodserver.mcp.validation.mustBeHostName(url);
+
+        % Make sure URL does not end with /
+        url = strtrim(url);
+        endSlash = "/"+textBoundary("end");
+        if endsWith(url,endSlash)
+            url = erase(url,endSlash);
+        end
+
+        % Also, don't allow port or scheme to have values other than the
+        % default.
+        if strcmp(opts.scheme,"http") == false
+            error("prodserver:mcp:AmbiguousScheme", "Cannot specify both " + ...
+                "URL and SCHEME.");
+        end
+        if port ~= 9910
+            error("prodserver:mcp:AmbiguousPort", "Cannot specify both " + ...
+                "URL and PORT.");
+        end
+    end
+
+    % url must be the address of an active MATLAB Production Server
     % instance.
-    healthURL = sprintf("%s://%s:%d/api/health", opts.scheme, host, port);
+    healthURL = sprintf("%s/api/health", url);
     status = webread(healthURL,webOpts);
     if ~isstruct(status) || isfield(status,"status") == false || ...
         strcmpi(status.status,"ok") == false
         error("prodserver:mcp:ServerUnresponsive", ...
-            "The server at %s:%d did not respond to a health check. " + ...
+            "The server at %s did not respond to a health check. " + ...
             "Check to be sure the server is running and that you have " + ...
-            "permissions to access it.",host,port);
+            "permissions to access it.",url);
     end
 
     % Upload!
-    prodserver.mcp.internal.uploadCTF(archive,host,port,...
+    prodserver.mcp.internal.uploadCTF(archive,url,...
         overwrite=opts.overwrite,retry=opts.retry,timeout=opts.timeout);
 
     if opts.verify
@@ -46,8 +80,7 @@ function endpoint = deploy(archive,host,port,opts)
         % Allow a few 404 responses to give the server time to unpack the 
         % archive, if necessary.
         [~,archiveName] = fileparts(archive);
-        prefix = sprintf('%s://%s:%d/%s', opts.scheme, host, port, ...
-            archiveName);
+        prefix = sprintf('%s/%s', url, archiveName);
         pingURL = sprintf("%s/ping",prefix);
     
         n = 1; pong = string.empty;
@@ -55,10 +88,11 @@ function endpoint = deploy(archive,host,port,opts)
             try
                 pong = webread(pingURL,webOpts);
             catch ex
-                % Retry on 404 only -- after a brief pause, to let the 
-                % server get its house in order.
-                if contains(ex.identifier,"HTTP404")
-                    % Server is likely unpacking new archive
+                % Retry on 404 and 500 with "end of file" only -- after 
+                % a brief pause, to let the server get its house in order.
+                if contains(ex.identifier,"HTTP404") || ...
+  (contains(ex.identifier,"HTTP500") && contains(ex.message,"End of file"))
+                    % Server is likely still unpacking new archive
                     pause(2);
                 else
                     rethrow(ex);
@@ -68,9 +102,9 @@ function endpoint = deploy(archive,host,port,opts)
         end
         if strcmpi(pong,prodserver.mcp.MCPConstants.Pong) == false
             error("prodserver:mvp:DeployedArchiveUnresponsive", ...
-    "Archive %s on server at %s:%d did not respond to ping request." + ...
+    "Archive %s on server at %s did not respond to ping request." + ...
     "Check server logs for errors or increase timeout and try " + ...
-    "again.", archiveName, host, port);
+    "again.", archiveName, url);
         end
     end
 

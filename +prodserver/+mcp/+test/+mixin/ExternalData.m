@@ -5,6 +5,7 @@ classdef ExternalData < handle
 % Copyright 2025, The MathWorks, Inc.
     properties
         marshaller
+        removeable
     end
 
     methods
@@ -21,12 +22,17 @@ classdef ExternalData < handle
                 prefix string 
                 opts.ext string = "mat"
                 opts.scheme string = "file";
+                opts.authority string = "//";
+                opts.remove = true;
             end
 
             pth = fullfile(prefix,name+"."+opts.ext);
             pth = replace(pth,filesep,"/");
-            url = opts.scheme+":"+pth;
+            url = opts.scheme+":"+opts.authority+pth;
             url = replace(url,filesep,"/");
+            if opts.remove
+                mix.removeable = unique([mix.removeable, url]);
+            end
         end
 
         function url = stow(mix,pth,name,data,opts)
@@ -37,8 +43,13 @@ classdef ExternalData < handle
                 data
                 opts.ext string = "mat"
                 opts.suffix = "Data"
+                opts.remove = true;
             end
             [url,file] = locate(mix,name+opts.suffix,pth);
+            % Possibly register file for removal when mixin is destroyed.
+            if opts.remove
+                mix.removeable = unique([mix.removeable, url]);
+            end
             
             switch(opts.ext)
                 case "mat"
@@ -65,6 +76,21 @@ classdef ExternalData < handle
 
             x = deserialize(mix.marshaller,source,import=opts.import);
             x = x{1};  % Always a cell array, actual value in element 1.
+        end
+
+        function delete(mix)
+            % Delete resources registered for removal.
+            for n = 1:numel(mix.removeable)
+                u = prodserver.mcp.io.parseURI(mix.removeable(n));
+                switch u.scheme
+                    case "file"
+                        if exist(u.path,"file") == 2
+                            delete(u.path);
+                        end
+                    case "http"
+                        % Send a DELETE to the resource
+                end
+            end
         end
 
     end

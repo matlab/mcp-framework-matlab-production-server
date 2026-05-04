@@ -7,7 +7,7 @@ classdef tWrapperCI < MCPCaller
             % Temporary folder for intermediate / generated artifacts
             tfolder = TemporaryFolderFixture;
             applyFixture(test,tfolder);
-            test.tempFolder = tfolder.Folder;
+            setFolders(test,temp=tfolder.Folder);
         end
     end
 
@@ -21,12 +21,14 @@ classdef tWrapperCI < MCPCaller
             ctf = prodserver.mcp.build(fcn, folder=test.tempFolder, ...
                 wrapper=wrapper);
 
-            % % Deploy
-            endpoint = prodserver.mcp.deploy(ctf,test.host,test.port);
+            % Deploy -- port is allowed to be empty.
+            port = {};
+            if ~isempty(port), port = { test.port }; end
+            endpoint = prodserver.mcp.deploy(ctf,test.host,port{:});
 
             % Validate
             for n = 1:numel(fcn)
-                tf = prodserver.mcp.exist(endpoint,fcn(n),"Tool");
+                tf = prodserver.mcp.exist(endpoint,fcn(n),"Tool",delay=10,retry=5);
                 test.verifyTrue(tf,fcn(n) + " is not a tool at " + endpoint);
             end
 
