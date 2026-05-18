@@ -119,7 +119,7 @@ Set security parameters by configuration in MATLAB Production Server.
 | Utilities | Mostly standalone functions and scripts that simplify integration with other environments. |
 
 # Have Questions?
-Contact us at <genai-support@mathworks.com>
+Contact us at <https://www.mathworks.com/support/contact_us.html>
 
 # License
 

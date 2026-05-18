@@ -38,7 +38,7 @@ function endpoint = deploy(archive,host,port,opts)
     if prodserver.mcp.validation.isuri(url) == false
         url = sprintf("%s://%s:%d",opts.scheme,host,port);
     else
-        prodserver.mcp.validation.mustBeHostName(url);
+        prodserver.mcp.validation.mustBeServer(url);
 
         % Make sure URL does not end with /
         url = strtrim(url);
