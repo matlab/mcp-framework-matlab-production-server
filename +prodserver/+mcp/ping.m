@@ -15,7 +15,7 @@ function tf = ping(endpoint,opts)
     arguments 
         endpoint (1,1) string { prodserver.mcp.validation.mustBeURI }
         opts.timeout double {mustBePositive} = 60
-        opts.retry double {mustBePositive} = 3
+        opts.retry double {mustBePositive} = 30
         opts.delay double {mustBePositive} = 2
     end
 
