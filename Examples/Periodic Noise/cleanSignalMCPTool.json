@@ -1,0 +1,59 @@
+{
+  "signatures": [
+      {
+        "cleanSignal": { 
+            "function": "cleanSignalMCP",
+            "input": {
+                "name": ["noisy","frequency","clean"],
+                "type": ["string", "number", "string"],
+                "order": ["noisy","frequency","clean"],
+                "kind": ["Required","Required","Required"]
+            },
+            "output": {
+                "name": ["status","msg"], 
+                "type": ["logical","string"],
+                "order": ["status","msg"], 
+                "kind": ["Optional","Optional"]
+            }
+        }
+      }
+  ],
+  "tools": [
+    {
+        "name": "cleanSignal",
+        "description": "Removes periodic noise from a signal using a Butterworth notch filter centered at the given frequency. Useful for cleaning signals contaminated with power line interference.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "noisy": {
+                    "type": "string",
+                    "description": "The noisy input signal specified as a file: URL. Prefix the full path to the file with 'file:'."
+                },
+                "frequency": {
+                    "type": "number",
+                    "description": "The frequency or period of the noise to remove."
+                },
+                "clean": {
+                    "type": "string",
+                    "description": "The filtered signal after removing the periodic noise, specified as a file: URL."
+                }
+            },
+            "required": ["noisy","frequency","clean"]
+        },
+        "outputSchema": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "Boolean",
+                    "description": "Status of the operation: true for success, false for failure"
+                },
+                "msg": {
+                    "type": "string",
+                    "description": "Message describing error if operation failed."
+                }
+            },
+            "required": ["status","msg"]
+        }
+    }
+  ]
+}

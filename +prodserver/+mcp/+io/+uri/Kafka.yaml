@@ -1,0 +1,8 @@
+# Marshalling configuration for kafka:// scheme.
+# Copyright (c) 2024, The MathWorks, Inc.
+defaults:
+  host: "localhost"
+  port: 9092
+  manager: $toolsRoot/kafka_persist
+  persist: external
+  

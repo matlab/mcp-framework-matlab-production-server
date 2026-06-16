@@ -1,0 +1,21 @@
+schema:
+    type: "persistence"
+    version: 0.1
+persistence:
+    defaults:
+        uriPrefix: file://$defaultPersist/$pipelineID/
+        read:
+            fcn: "pipeline.io.importVariable"
+            config:
+                 via: "load"
+        write:
+            fcn: "pipeline.io.exportVariable"
+            config:
+                  via: "save"
+    registry:
+         root: "$packageRoot/bin/$arch"
+         schemes:
+           - name: "file"
+             manager: "file_persist"
+           - name: "s3"
+             manager: "s3_persist"

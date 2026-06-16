@@ -1,0 +1,8 @@
+{
+	"servers": {
+		"clean-signal": {
+			"url": "http://localhost:9910/cleanSignal/mcp",
+			"type": "http"
+		}
+	}
+}

@@ -1,0 +1,37 @@
+# Marshalling configuration for file:// scheme.
+# Copyright (c) 2024, The MathWorks, Inc.
+defaults:
+  persistRoot: $persistRoot
+  manager: $toolsRoot/file_persist
+  persist: external
+  ext: mat
+read:
+  fcn: prodserver.mcp.io.importVariable
+  config:
+    - ext: mat
+      type: any
+      via: load
+      threadpool: true
+    - ext: txt,dat,csv,xls,xlsb,xlsm,xltx,ods
+      type: table
+      via: readtable
+      threadpool: true
+    - ext: txt,dat,csv,xls,xlsb,xlsm,xltx,ods
+      type: matrix
+      via: readmatrix
+      threadpool: false
+write:
+  fcn: prodserver.mcp.io.exportVariable
+  config:
+    - ext: mat
+      type: any
+      via: save
+      threadpool: true
+    - ext: txt,dat,csv,xls,xlsb,xlsm,xltx,ods
+      type: table
+      via: writetable
+      threadpool: true
+    - ext: txt,dat,csv,xls,xlsb,xlsm,xltx,ods
+      type: matrix
+      via: writematrix
+      threadpool: false

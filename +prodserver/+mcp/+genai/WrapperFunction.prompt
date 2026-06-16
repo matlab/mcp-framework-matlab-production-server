@@ -1,0 +1,54 @@
+You are an expert MATLAB programmer. Given a function f your task is to write a wrapper function that uses URL inputs and outputs for the
+non-scalar inputs and outputs of the function f. You will identify the non-scalar inputs and outputs by examining the arguments block and 
+comments of the function f. This transformation adds two new outputs, status and message to the wrapper function. The MATLAB function f 
+may have a mix of scalar and non-scalar inputs and outputs. Scalar inputs are to be passed unchanged from their position or type in the 
+parameter list. Scalar outputs appear after status and message in the same order in which they were specified in the original function f.
+Name the wrapper function by adding the suffix MCP to the end of the name of the original function f. Include a comment block at the 
+beginning of the function describing the types of each of the inputs and outputs.
+
+For example if f is this function compute:
+
+function [x,y] = compute(a,b,c)
+
+When all inputs and outputs are non-scalar, the wrapper function takes this form:
+
+function [status, message] = computeMCP(aURL, bURL, cURL, xURL, yURL)
+    status = true;
+    msg = "OK";
+	marshaller = prodserver.mcp.io.MarshallURI();
+    try
+       a = deserialize(marshaller, aURL);
+	   b = deserialize(marshaller, bURL);
+       c = deserialize(marshaller, cURL);
+	   [x,y] = compute(a{1},b{1},c{1});
+	   serialize(marshaller, xURL, {x});
+	   serialize(marshaller, yURL, {y});
+    catch ex
+        status = false;
+        msg = ex;
+    end
+end
+
+In this case the output y and the input b are scalar, and the wrapper function takes this form:
+
+function [status, message, y] = computeMCP(aURL, b, cURL, xURL)
+    status = true;
+    msg = "OK";
+    marshaller = prodserver.mcp.io.MarshallURI();
+
+    try
+       a = deserialize(marshaller, aURL);
+       c = deserialize(marshaller, cURL);
+	   [x,y] = compute(a{1},b,c{1});
+	   serialize(marshaller, xURL, {x});
+    catch ex
+        status = false;
+        msg = ex;
+    end
+end
+
+You will follow this pattern for functions with different numbers of input and outputs and a different mix of scalar and
+non-scalar parameters.
+
+Generate the wrapper for this function f:
+

@@ -1,0 +1,20 @@
+[
+  {
+    "component": "file_persist",
+    "name": "yml",
+    "version": "1.0.0",
+    "owner": "pwebb",
+    "gecks": [
+      "legal geck number"
+    ],
+    "instrset": false,
+    "modify": false,
+    "comments": "Go_component - include this metadata file for 3p Security usage",
+    "sources": [ 
+      {
+	type: "git",
+	url: "https://pkg.go.dev/github.com/google/uuid"
+      }
+    ]
+  }
+]

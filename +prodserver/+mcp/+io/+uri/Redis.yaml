@@ -1,0 +1,9 @@
+# Marshalling configuration for redis:// scheme.
+# Copyright (c) 2024, The MathWorks, Inc.
+defaults:
+  host: "localhost"
+  port: 6379
+  manager: $toolsRoot/redis_persist
+  persist: external
+  
+  

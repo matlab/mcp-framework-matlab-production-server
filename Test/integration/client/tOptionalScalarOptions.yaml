@@ -1,0 +1,112 @@
+routes:
+  - path: /mcp
+    methods:
+      - POST
+    request:
+      - jrpc: initialize
+        response:
+          status: 201
+          headers:
+            Content-Type: application/json
+            Mcp-Session-Id: alpha
+          body:
+            result:
+              capabilities:
+                tools: 
+                   listChanged: false
+      - jrpc: notifications/initialized
+        response:
+          status: 200
+          headers:
+            Mcp-Session-Id: alpha
+      - jrpc: tools/list
+        response:
+          status: 200
+          headers:
+            Content-Type: application/json
+            Mcp-Session-Id: alpha
+          body:
+            result:
+              tools: {"name":"toyScalarOptions","description":"All inputs scalars, most optional. The comments in this file are bad examples of descriptive comments. They are mostly just lorem ipsum.","inputSchema":{"type":"object","properties":{"year":{"type":"number","description":"The year of manufacture"},"mpg":{"type":"number","description":"Known miles per gallon"},"range":{"type":"number","description":"Effective total range"},"make":{"type":"string","description":"Manufacturer name"},"model":{"type":"string","description":"Model name"}},"required":["year"],"additionalProperties":false},"outputSchema":{"type":"object","properties":{"report":{"type":"string","description":"A well formatted and informative message regarding the item in question. Gripping reading. True literature."}},"required":[],"additionalProperties":false}}
+      - jrpc: tools/call
+        call:
+          name: "toyScalarOptions"
+          input:
+            year: 1999
+            mpg: 1001
+            range: 100000
+            make: Polaris
+            model: Zeta
+        response:
+          status: 200
+          headers: 
+            Content-Type: application/json
+            Mcp-Session-Id: alpha
+          body:
+            result: { "structuredContent": { "report": "Polaris Zeta (1999) gets 1001.00 miles per gallon and has a range of 100000 miles. Therefore it has a 100 gallon tank."}}
+      - jrpc: tools/call
+        call:
+          name: "toyScalarOptions"
+          input:
+            year: 1999
+            mpg: 1001
+            range: 100000
+            make: Polaris
+        response:
+          status: 200
+          headers: 
+            Content-Type: application/json
+            Mcp-Session-Id: alpha
+          body:
+            result: { "structuredContent": { "report": "Polaris Electra (1999) gets 1001.00 miles per gallon and has a range of 100000 miles. Therefore it has a 100 gallon tank."}}
+      - jrpc: tools/call
+        call:
+          name: "toyScalarOptions"
+          input:
+            year: 1999
+            mpg: 1001
+            range: 100000
+        response:
+          status: 200
+          headers: 
+            Content-Type: application/json
+            Mcp-Session-Id: alpha
+          body:
+            result: { "structuredContent": { "report": "Lockheed Electra (1999) gets 1001.00 miles per gallon and has a range of 100000 miles. Therefore it has a 100 gallon tank."}}
+      - jrpc: tools/call
+        call:
+          name: "toyScalarOptions"
+          input:
+            year: 1999
+            mpg: 1001
+        response:
+          status: 200
+          headers: 
+            Content-Type: application/json
+            Mcp-Session-Id: alpha
+          body:
+            result: { "structuredContent": { "report": "Lockheed Electra (1999) gets 1001.00 miles per gallon and has a range of 4000 miles. Therefore it has a 4 gallon tank."}}
+      - jrpc: tools/call
+        call:
+          name: "toyScalarOptions"
+          input:
+            year: 1999
+        response:
+          status: 200
+          headers: 
+            Content-Type: application/json
+            Mcp-Session-Id: alpha
+          body:
+            result: { "structuredContent": { "report": "Lockheed Electra (1999) gets 3.49 miles per gallon and has a range of 4000 miles. Therefore it has a 1146 gallon tank."}}
+  - path: /signature
+    methods:
+      # /signature is a POST method because it has a body.
+      - POST
+    request: 
+      - body: "toyScalarOptions"
+        response:
+          status: 200
+          headers:
+            Content-Type: application/json
+            Mcp-Session-Id: alpha
+          body: {"toyScalarOptions":{"function":"toyScalarOptions","input":{"name":["year","mpg","range","make","model"],"type":["double","double","double","string","string"],"kind":["Required","Optional","Optional","Optional","Optional"],"order":["year","mpg","range","make","model"]},"output":{"name":"report","type":"string","kind":"Optional","order":"report"}}}

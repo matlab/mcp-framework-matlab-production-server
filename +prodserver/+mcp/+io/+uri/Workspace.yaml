@@ -1,0 +1,9 @@
+# Marshalling configuration for workspace:// scheme.
+# Copyright (c) 2025, The MathWorks, Inc.
+defaults:
+  persist: self
+read:
+  fcn: matlab.internal.pipeline.data.io.uri.workspace.identity
+write:
+  fcn: matlab.internal.pipeline.data.io.uri.workspace.identity
+  

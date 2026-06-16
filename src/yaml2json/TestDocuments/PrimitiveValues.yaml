@@ -1,0 +1,14 @@
+# PrimitiveValues.yaml: A YAML file with simple primitives -- strings and
+# numbers.
+
+# Closest approach to the sun, in millon km.
+
+Mercury: 46
+Venus: 107
+Earth: 147
+Mars: 205
+Jupiter: 741
+Saturn: 1035
+Neptune: 2750
+Uranus: 4450
+Pluto: 4440 # Totally still a planet.
