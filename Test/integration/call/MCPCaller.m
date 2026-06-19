@@ -1,4 +1,4 @@
-classdef MCPCaller < matlab.unittest.TestCase
+classdef MCPCaller < matlab.unittest.TestCase 
 % Base class for tests that invoke deployed MCP tools
 
     properties
@@ -17,7 +17,6 @@ classdef MCPCaller < matlab.unittest.TestCase
                 opt.temp string = string.empty
                 opt.data string = string.empty
             end
-            import prodserver.mcp.MCPConstants
             
             % Only set the temp folder if it was provided as input
             if ~isempty(opt.temp)
@@ -26,7 +25,7 @@ classdef MCPCaller < matlab.unittest.TestCase
 
             % The data folder may be set by an environment variable.
             if isempty(opt.data)
-                dataF = getenv(MCPConstants.TestDataFolderEnvVar);
+                dataF = getenv(prodserver.mcp.MCPConstants.TestDataFolderEnvVar);
                 if isempty(dataF) 
                     if ~isempty(opt.temp)
                         test.dataFolder = opt.temp;
@@ -46,13 +45,27 @@ classdef MCPCaller < matlab.unittest.TestCase
         function requireActiveServer(test)
             % The environment variable MW_MCP_MPS_TEST_SERVER must be set
             % to a valid, active MPS server instance endpoint.
-            import prodserver.mcp.MCPConstants
 
-            test.server = getenv(MCPConstants.TestServerEnvVar);
+            test.server = getenv(prodserver.mcp.MCPConstants.TestServerEnvVar);
 
             test.assertTrue(~isempty(test.server), ...
-      "Set environment variable " + MCPConstants.TestServerEnvVar + ...
-      " to network address of MPS instance to be used for testing.");
+  "Set environment variable " + prodserver.mcp.MCPConstants.TestServerEnvVar + ...
+  " to network address of MPS instance to be used for testing.");
+
+            % Setting the MW_MULTIMCOS_MODE environment variable to true
+            % makes it much more likely that all these test will pass.
+            
+            % No way to make this check yet -- should be able to ask MPS
+            % what mode the workers are running in.
+
+            % mode = getenv(prodserver.mcp.internal.Constants.MultiMCOSEnvVar);
+            % if isempty(mode) || strlength(mode) == 0 || (mode ~= "1" && mode ~= "true")
+            %     warning("Set " + prodserver.mcp.internal.Constants.MultiMCOSEnvVar + ...
+            %         " to ""true"" for more reliable testing. Tests may " +...
+            %         " spuriously fail otherwise. After setting the " + ...
+            %         "variable restart MATLB Production Server for the " + ...
+            %         "changes to take effect.");
+            % end
 
             healthQuery = test.server + "/api/health";
             response = webread(healthQuery);

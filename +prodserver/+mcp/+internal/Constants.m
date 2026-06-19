@@ -32,6 +32,8 @@
         HTTPClientError = 400;
         HTTPServerError = 500;
 
+        MultiMCOSEnvVar = "MW_MULTIMCOS_MODE";
+
         % MIME types
         % Additional MIME types
         MIMETypeJSON = "application/json";

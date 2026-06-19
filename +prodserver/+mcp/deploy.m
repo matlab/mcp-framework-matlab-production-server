@@ -25,7 +25,7 @@ function endpoint = deploy(archive,host,port,opts)
         % Number of seconds to wait for HTTP requests to complete.
         opts.timeout double {prodserver.mcp.validation.mustBePositiveInteger} = 180;
         % How many times to retry HTTP requests.
-        opts.retry double = 2
+        opts.retry double = 30
         % How many times to retry installation verification.
         opts.verify double = 5
     end
@@ -84,19 +84,30 @@ function endpoint = deploy(archive,host,port,opts)
         pingURL = sprintf("%s/ping",prefix);
     
         n = 1; pong = string.empty;
-        while n <= opts.retry && isempty(pong)
-            try
-                pong = webread(pingURL,webOpts);
-            catch ex
-                % Retry on 404 and 500 with "end of file" only -- after 
-                % a brief pause, to let the server get its house in order.
-                if contains(ex.identifier,"HTTP404") || ...
-  (contains(ex.identifier,"HTTP500") && contains(ex.message,"End of file"))
-                    % Server is likely still unpacking new archive
-                    pause(2);
-                else
-                    rethrow(ex);
+        while n <= opts.verify && isempty(pong)
+            k = 1;
+            while k <= opts.retry && isempty(pong)
+                try
+                    pong = webread(pingURL,webOpts);
+                catch ex
+                    % Retry on 404 and 500 with "end of file" only -- after 
+                    % a brief pause, to let the server get its house in order.
+                    if contains(ex.identifier,"HTTP404") || ...
+      (contains(ex.identifier,"HTTP500") && contains(ex.message,"End of file"))
+                        % Server is likely still unpacking new archive
+                        pause(2);
+                    elseif contains(ex.identifier,"HTTP500") && ...
+                            contains(ex.message,"pipe") && contains(ex.message,"ended")
+                        error("prodserver:mcp:NeedMultiMCOSMode", ...
+                            "Internal error loading archive. Restart server in " + ...
+                            "multi-MCOS mode: set environment variable " + ...
+                            prodserver.mcp.internal.Constants.MultiMCOSEnvVar + ...
+                            " to ""true"" on server machine and restart server.");
+                    else
+                        rethrow(ex);
+                    end
                 end
+                k = k + 1;
             end
             n = n + 1;
         end

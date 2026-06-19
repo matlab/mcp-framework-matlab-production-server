@@ -17,13 +17,20 @@ function [ctf,endpoint] = build(fcn, opts)
         % Base name of generated deployable archive.
         opts.archive string = basename(fcn(1))
 
-        % Name of MCP tool on server. May differ from FCN.
+        % Name of MCP tool on server. May differ from FCN. But must always
+        % be the same size as FCN.
         opts.tool string = basename(fcn)
 
         % Folder in which to generate deployable archive and other files.
         opts.folder (1,1) string = "./deploy"
 
-        % MCP tool definition. Generated if not provided.
+        % List of files to add to the generated CTF archive. Independent of
+        % the length of FCN -- all files are accessible to every tool in 
+        % the archive.
+        opts.files string {mustBeVectorOrEmpty} = string.empty
+
+        % MCP tool definition. Generated if not provided. If provided, must
+        % be the same size as FCN.
         opts.definition {prodserver.mcp.validation.mustBeToolDefinition} = string.empty
 
         % Embed routes in archive or use MPS instance-global routes?
@@ -49,7 +56,7 @@ function [ctf,endpoint] = build(fcn, opts)
 
     % Might be zero-length strings, depending on final stage executed.
     ctf = "";
-    endopint = "";
+    endpoint = "";
 
     % Both wrapper and definition generation might use generative AI.
     if opts.genai == prodserver.mcp.GenerativeAI.None
@@ -62,11 +69,29 @@ function [ctf,endpoint] = build(fcn, opts)
     files = arrayfun(@(f)string(which(f)),fcn);
     notFound = strlength(files) == 0;
     if any(notFound)
-        nope = first(notFound);
+        nope = find(notFound,1);
         error("prodserver:mcp:ToolNotFound", ...
             "Could not locate file for function '%s'.", fcn(nope));
     end
 
+    % Make sure all additional files exist.
+    notFound = arrayfun(@(af)exist(af,"file") == 0,opts.files);
+    if any(notFound)
+        nope = find(notFound,1);
+        error("prodserver:mcp:AdditionalFileNotFound", ...
+            "Could not locate file '%s'.", opts.files(nope));
+    else
+        % Force opts.files into a vector with the same non-scalar dimension
+        % as fcn.
+        if isrow(files)
+            extra = opts.files(:)';
+            files = [files,extra];
+        else
+            extra = opts.files(:);
+            files = [files;extra];
+        end
+    end
+    
     % Make opts.folder directory if necessary.
     if exist(opts.folder,"file") == false
         [ok,msg] = mkdir(opts.folder);
