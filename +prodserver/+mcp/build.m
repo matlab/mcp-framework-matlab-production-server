@@ -2,7 +2,7 @@ function [ctf,endpoint] = build(fcn, opts)
 %build Create an MCP tool from fcn. Optionally deploy the tool to
 %MATLAB Production Server.
 
-% Copyright 2025, The MathWorks.
+% Copyright 2025-2026 The MathWorks, Inc.
 
     arguments
         % Name of the function to be built into a tool.

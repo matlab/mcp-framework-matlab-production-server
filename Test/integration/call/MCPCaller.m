@@ -1,6 +1,7 @@
 classdef MCPCaller < matlab.unittest.TestCase 
 % Base class for tests that invoke deployed MCP tools
 
+% Copyright 2025-2026 The MathWorks, Inc.
     properties
         server       % Full address of the server
         host         % Host name extracted from server

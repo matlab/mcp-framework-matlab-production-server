@@ -2,6 +2,8 @@ function answer = toySummary(data)
 % Add the contents of the input files in DATA, producing ANSWER. DATA is 
 % a list of loadable files.
 
+% Copyright 2026 The MathWorks, Inc.
+
     arguments(Input)
         % The list of data files
         data string {mustBeVector}

@@ -9,7 +9,7 @@ function endpoint = deploy(archive,host,port,opts)
 %       Production Server running at HOST:PORT using optional inputs OPTS.
 %       Returns the MCP URL in ENDPOINT.
 
-% Copyright 2025-2026, The MathWorks, Inc.
+% Copyright 2025-2026 The MathWorks, Inc.
 
     arguments
         % Archive to upload to <scheme>://<host>:<port>. Must exist.

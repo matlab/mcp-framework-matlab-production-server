@@ -1,6 +1,8 @@
 classdef tAdditionalFilesCI < MCPCaller & ...
         prodserver.mcp.test.mixin.ExternalData 
 
+% Copyright 2026 The MathWorks, Inc.
+
     methods (TestMethodSetup)
         function scratchSpace(test)
             import matlab.unittest.fixtures.TemporaryFolderFixture

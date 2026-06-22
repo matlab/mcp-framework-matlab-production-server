@@ -1,5 +1,7 @@
 classdef tAdditionalFiles < matlab.unittest.TestCase 
 
+% Copyright 2026 The MathWorks, Inc.
+
     properties
         toolFolder
     end
