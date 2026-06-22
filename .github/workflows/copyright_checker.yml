@@ -1,0 +1,17 @@
+name: Copyright checker for all relevant files in repo.
+on:
+  pull_request:
+jobs:
+  copyright-checker:
+    runs-on: [self-hosted, runner-source=AWS]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Run copyright checker in docker
+        uses: mw-actions/mw-copyright-checker@v1
+        with:
+          base-branch: "origin/${{ github.event.pull_request.base.ref }}"
+          custom-exclusions: '\.yml$|deploy-coverage-to-gitlab\.sh$'

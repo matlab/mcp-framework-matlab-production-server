@@ -1,0 +1,170 @@
+name: Coverage
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+env:
+  MATLAB_PATH: /mathworks/devel/bat/Bps/perfect/matlab
+  GITLAB_PAGES_REPO: "insidelabs-git.mathworks.com/blowenka/mcp-framework-mps-codecoverage"
+  GITLAB_PAGES_URL: "https://blowenka.insidelabspages.mathworks.com/mcp-framework-mps-codecoverage"
+jobs:
+  unit-coverage:
+    if: github.event_name == 'pull_request'
+    runs-on: [self-hosted, hasSFSAccess, glnxa64]
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Add MATLAB to PATH
+        run: echo "${{ env.MATLAB_PATH }}/bin" >> $GITHUB_PATH
+
+      - name: Run unit tests with coverage
+        uses: mw-actions/matlab-actions-run-tests@v3
+        with:
+          source-folder: .
+          select-by-folder: Test/unit
+          test-results-junit: coverage-results/unit/test-results.xml
+          code-coverage-cobertura: coverage-results/unit/coverage.xml
+          code-coverage-html: coverage-results/unit/html
+          generate-summary: true
+
+      - name: Post coverage summary
+        if: always()
+        run: |
+          rate=$(grep -oP 'line-rate="\K[^"]+' coverage-results/unit/coverage.xml | head -1)
+          pct=$(echo "$rate * 100" | bc -l | xargs printf "%.1f")
+          echo "### Unit Line Coverage: ${pct}%" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Download the **unit-coverage** artifact for the full HTML report." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload unit coverage
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: unit-coverage
+          path: coverage-results/unit/
+
+  integration-coverage:
+    if: github.event_name == 'pull_request'
+    runs-on: [self-hosted, hasSFSAccess, glnxa64]
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Add MATLAB to PATH
+        run: echo "${{ env.MATLAB_PATH }}/bin" >> $GITHUB_PATH
+
+      - name: Run integration tests with coverage
+        uses: mw-actions/matlab-actions-run-tests@v3
+        with:
+          source-folder: .
+          select-by-folder: Test/integration/build;Test/integration/client
+          test-results-junit: coverage-results/integration/test-results.xml
+          code-coverage-cobertura: coverage-results/integration/coverage.xml
+          code-coverage-html: coverage-results/integration/html
+          generate-summary: true
+
+      - name: Post coverage summary
+        if: always()
+        run: |
+          rate=$(grep -oP 'line-rate="\K[^"]+' coverage-results/integration/coverage.xml | head -1)
+          pct=$(echo "$rate * 100" | bc -l | xargs printf "%.1f")
+          echo "### Integration Line Coverage: ${pct}%" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Download the **integration-coverage** artifact for the full HTML report." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload integration coverage
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: integration-coverage
+          path: coverage-results/integration/
+
+  e2e-coverage:
+    if: github.event_name == 'pull_request'
+    runs-on: [self-hosted, hasSFSAccess, glnxa64]
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Add MATLAB to PATH
+        run: echo "${{ env.MATLAB_PATH }}/bin" >> $GITHUB_PATH
+
+      - name: Start MPS and run call tests with coverage
+        uses: mw-actions/matlab-actions-run-command@v3
+        with:
+          command: addpath(pwd); addpath('.github/workflows/scripts'); runCoverage("call", "e2e")
+
+      - name: Upload e2e coverage
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: e2e-coverage
+          path: coverage-results/e2e/
+
+  combined-coverage:
+    runs-on: [self-hosted, hasSFSAccess, glnxa64]
+    if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || github.event_name == 'workflow_dispatch'
+    timeout-minutes: 45
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Add MATLAB to PATH
+        run: echo "${{ env.MATLAB_PATH }}/bin" >> $GITHUB_PATH
+
+      - name: Run all tests with coverage
+        continue-on-error: true
+        uses: mw-actions/matlab-actions-run-command@v3
+        with:
+          command: addpath(pwd); addpath('.github/workflows/scripts'); runCoverage(["unit","integration","call"], "combined")
+
+      - name: Post coverage summary
+        if: always()
+        run: |
+          rate=$(grep -oP 'line-rate="\K[^"]+' coverage-results/combined/coverage.xml | head -1)
+          pct=$(echo "$rate * 100" | bc -l | xargs printf "%.1f")
+          echo "### Combined Line Coverage: ${pct}%" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Download the **combined-coverage** artifact for the full HTML report." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload combined coverage
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: combined-coverage
+          path: coverage-results/combined/
+
+  publish:
+    needs: combined-coverage
+    if: always() && needs.combined-coverage.result != 'skipped'
+    runs-on: [self-hosted, hasSFSAccess, glnxa64]
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Download combined coverage artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: combined-coverage
+          path: coverage-results/combined/
+
+      - name: Deploy coverage to GitLab Pages
+        env:
+          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+          GITLAB_HOST: insidelabs-git.mathworks.com
+          GITLAB_PROJECT: blowenka/mcp-framework-mps-codecoverage
+          COVERAGE_SOURCE: coverage-results/combined/html
+          COVERAGE_PCT_FILE: .coverage-pct
+          COVERAGE_PCT_VALUE: ${{ env.COVERAGE_PCT }}
+        run: |
+          rate=$(grep -oP 'line-rate="\K[^"]+' coverage-results/combined/coverage.xml | head -1)
+          export COVERAGE_PCT_VALUE=$(echo "$rate * 100" | bc -l | xargs printf "%.1f%%")
+          .github/scripts/deploy-coverage-to-gitlab.sh
