@@ -29,7 +29,7 @@ classdef tAdditionalFiles < matlab.unittest.TestCase
 
         function validateFileCapture(test,archive,files)
 
-            [~,listOutput] = system("unzip -l """"" + archive + """");
+            [~,listOutput] = system("unzip -l """ + archive + """");
             % Extract file entries beginning with "fsroot"
             fileList = regexp(listOutput, 'fsroot[\S ]*\n', 'match');
 

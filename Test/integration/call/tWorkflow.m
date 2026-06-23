@@ -18,7 +18,6 @@ classdef tWorkflow < MCPCaller & ...
 
         function vanilla(test)
         % Main line, ordinary workflow. Deploy and call a simple tool.
-            test.assumeFail("Skipped: MPS returns 500 during CTF loading (retry logic does not cover 5xx)");
 
             fcn = "toyToolOne";
             test.applyFixture(prodserver.mcp.test.mixin.RemoveArchive(...

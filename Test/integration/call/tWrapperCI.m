@@ -15,7 +15,6 @@ classdef tWrapperCI < MCPCaller
 
     methods (Test)
         function multiNone(test)
-            test.assumeFail("Skipped: MPS returns 500 during CTF loading (retry logic does not cover 5xx)");
 
             fcn = ["toyScalarOne", "toyScalarTwo", "toyScalarFour"];
             wrapper = ["None", "None", "None"];

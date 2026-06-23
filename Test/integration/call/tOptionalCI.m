@@ -55,8 +55,6 @@ classdef tOptionalCI < MCPCaller
         end
 
         function scalarOptions(test)
-            % Skip until sendRequest retries on 5xx (separate PR)
-            test.assumeFail("Blocked by sendRequest 5xx retry fix");
 
             import prodserver.mcp.MCPConstants
 
