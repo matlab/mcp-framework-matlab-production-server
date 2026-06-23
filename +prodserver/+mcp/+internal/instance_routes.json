@@ -2,27 +2,28 @@
     "version": "1.0.0",
     "pathmap": [
       {
-        "match": "^/mcp$",
+        "match": "^/<Archive>/mcp$",
             "webhandler": {
                 "component": "<Archive>",
                 "function": "prodserver.mcp.internal.mcpHandler"
             }
       },
       {
-          "match": "^/sse$",
+          "match": "^/<Archive>/sse$",
           "webhandler": {
               "component": "<Archive>",
               "function": "prodserver.mcp.internal.mcpHandler"
           }
       },
       {
-          "match": "^/signature$",
+          "match": "^/<Archive>/signature$",
           "webhandler": {
+              "component": "<Archive>",
               "function": "prodserver.mcp.internal.signatureHandler"
           }
       },
       {
-        "match": "^/ping$",
+        "match": "^/<Archive>/ping$",
             "webhandler": {
                 "component": "<Archive>",
                 "function": "prodserver.mcp.internal.pingHandler"

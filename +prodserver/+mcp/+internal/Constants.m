@@ -1,6 +1,6 @@
- classdef Constants
+classdef Constants
 
- % Copyright 2025, The MathWorks, Inc.
+% Copyright 2025-2026 The MathWorks, Inc.
 
      properties (Constant)
 
@@ -31,6 +31,8 @@
 
         HTTPClientError = 400;
         HTTPServerError = 500;
+
+        MultiMCOSEnvVar = "MW_MULTIMCOS_MODE";
 
         % MIME types
         % Additional MIME types

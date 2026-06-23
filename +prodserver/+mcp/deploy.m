@@ -9,7 +9,7 @@ function endpoint = deploy(archive,host,port,opts)
 %       Production Server running at HOST:PORT using optional inputs OPTS.
 %       Returns the MCP URL in ENDPOINT.
 
-% Copyright 2025-2026, The MathWorks, Inc.
+% Copyright 2025-2026 The MathWorks, Inc.
 
     arguments
         % Archive to upload to <scheme>://<host>:<port>. Must exist.
@@ -25,9 +25,11 @@ function endpoint = deploy(archive,host,port,opts)
         % Number of seconds to wait for HTTP requests to complete.
         opts.timeout double {prodserver.mcp.validation.mustBePositiveInteger} = 180;
         % How many times to retry HTTP requests.
-        opts.retry double = 2
+        opts.retry double = 30
         % How many times to retry installation verification.
         opts.verify double = 5
+        % How long to wait between retries
+        opts.delay double = 2
     end
 
     webOpts = weboptions(Timeout=opts.timeout);
@@ -60,9 +62,26 @@ function endpoint = deploy(archive,host,port,opts)
     end
 
     % url must be the address of an active MATLAB Production Server
-    % instance.
+    % instance. Allow the server some grace period in case it is still
+    % starting up.
     healthURL = sprintf("%s/api/health", url);
-    status = webread(healthURL,webOpts);
+    n = 1;
+    while n <= opts.retry
+        try
+            status = webread(healthURL,webOpts);
+        catch me
+            % Often occurs because server still starting up.
+            if contains(me.identifier,"ConnectionRefused") || ...
+                    contains(me.message,"could not connect to server",IgnoreCase=true) || ...
+                    contains(me.message,"connection refused",IgnoreCase=true)
+                pause(opts.delay);
+            else
+                rethrow(me);
+            end
+        end
+        n = n + 1;
+    end
+
     if ~isstruct(status) || isfield(status,"status") == false || ...
         strcmpi(status.status,"ok") == false
         error("prodserver:mcp:ServerUnresponsive", ...
@@ -84,19 +103,30 @@ function endpoint = deploy(archive,host,port,opts)
         pingURL = sprintf("%s/ping",prefix);
     
         n = 1; pong = string.empty;
-        while n <= opts.retry && isempty(pong)
-            try
-                pong = webread(pingURL,webOpts);
-            catch ex
-                % Retry on 404 and 500 with "end of file" only -- after 
-                % a brief pause, to let the server get its house in order.
-                if contains(ex.identifier,"HTTP404") || ...
-  (contains(ex.identifier,"HTTP500") && contains(ex.message,"End of file"))
-                    % Server is likely still unpacking new archive
-                    pause(2);
-                else
-                    rethrow(ex);
+        while n <= opts.verify && isempty(pong)
+            k = 1;
+            while k <= opts.retry && isempty(pong)
+                try
+                    pong = webread(pingURL,webOpts);
+                catch ex
+                    % Retry on 404 and 500 with "end of file" only -- after 
+                    % a brief pause, to let the server get its house in order.
+                    if contains(ex.identifier,"HTTP404") || ...
+      (contains(ex.identifier,"HTTP500") && contains(ex.message,"End of file"))
+                        % Server is likely still unpacking new archive
+                        pause(opts.delay);
+                    elseif contains(ex.identifier,"HTTP500") && ...
+                            contains(ex.message,"pipe") && contains(ex.message,"ended")
+                        error("prodserver:mcp:NeedMultiMCOSMode", ...
+                            "Internal error loading archive. Restart server in " + ...
+                            "multi-MCOS mode: set environment variable " + ...
+                            prodserver.mcp.internal.Constants.MultiMCOSEnvVar + ...
+                            " to ""true"" on server machine and restart server.");
+                    else
+                        rethrow(ex);
+                    end
                 end
+                k = k + 1;
             end
             n = n + 1;
         end
