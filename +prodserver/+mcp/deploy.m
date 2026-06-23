@@ -28,6 +28,8 @@ function endpoint = deploy(archive,host,port,opts)
         opts.retry double = 30
         % How many times to retry installation verification.
         opts.verify double = 5
+        % How long to wait between retries
+        opts.delay double = 2
     end
 
     webOpts = weboptions(Timeout=opts.timeout);
@@ -60,9 +62,24 @@ function endpoint = deploy(archive,host,port,opts)
     end
 
     % url must be the address of an active MATLAB Production Server
-    % instance.
+    % instance. Allow the server some grace period in case it is still
+    % starting up.
     healthURL = sprintf("%s/api/health", url);
-    status = webread(healthURL,webOpts);
+    n = 1;
+    while n <= opts.retry
+        try
+            status = webread(healthURL,webOpts);
+        catch me
+            % Often occurs because server still starting up.
+            if contains(me.message,"connection refused",IgnoreCase=true)
+                pause(opts.delay);
+            else
+                rethrow(me);
+            end
+        end
+        n = n + 1;
+    end
+
     if ~isstruct(status) || isfield(status,"status") == false || ...
         strcmpi(status.status,"ok") == false
         error("prodserver:mcp:ServerUnresponsive", ...
@@ -95,7 +112,7 @@ function endpoint = deploy(archive,host,port,opts)
                     if contains(ex.identifier,"HTTP404") || ...
       (contains(ex.identifier,"HTTP500") && contains(ex.message,"End of file"))
                         % Server is likely still unpacking new archive
-                        pause(2);
+                        pause(opts.delay);
                     elseif contains(ex.identifier,"HTTP500") && ...
                             contains(ex.message,"pipe") && contains(ex.message,"ended")
                         error("prodserver:mcp:NeedMultiMCOSMode", ...
