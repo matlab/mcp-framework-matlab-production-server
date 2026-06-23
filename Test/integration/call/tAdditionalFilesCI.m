@@ -50,10 +50,8 @@ classdef tAdditionalFilesCI < MCPCaller & ...
                 files=dataFile,archive=archiveName);
             test.verifyEqual(exist(ctf,"file"),2,ctf);
 
-            % Deploy -- port is allowed to be empty.
-            port = {};
-            if ~isempty(port), port = { test.port }; end
-            endpoint = prodserver.mcp.deploy(ctf,test.host,port{:});
+            % Deploy 
+            endpoint = prodserver.mcp.deploy(ctf,test.server);
 
             for k=1:numel(fcn)
                 tf = prodserver.mcp.exist(endpoint,fcn(k),"Tool",delay=10,retry=5);

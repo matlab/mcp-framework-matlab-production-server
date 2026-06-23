@@ -71,8 +71,8 @@ function endpoint = deploy(archive,host,port,opts)
             status = webread(healthURL,webOpts);
         catch me
             % Often occurs because server still starting up.
-            disp(me)
-            if contains(me.message,"could not connect to server",IgnoreCase=true) || ...
+            if contains(me.identifier,"ConnectionRefused") || ...
+                    contains(me.message,"could not connect to server",IgnoreCase=true) || ...
                     contains(me.message,"connection refused",IgnoreCase=true)
                 pause(opts.delay);
             else
