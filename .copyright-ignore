@@ -1,0 +1,8 @@
+Documentation/**/*.md
+licenses/**
+mocks/**
+go.sum
+SECURITY.md
+*.pem
+*.mltbx
+*.sources-hash
