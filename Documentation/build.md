@@ -30,6 +30,7 @@ Pass optional arguments with *argument=value* syntax following required inputs. 
 | :---     | :--- | :---        | :---    |:---     |
 | archive | string | Base name of deployable archive. | Base name of fcn. | "primeMCP" | 
 | definition | string, struct or file | Complete and correct MCP tool definition. | Empty struct | "primeMCP.json" |
+| files | string vector | Full path(s) to one or more files to add to the deployable archive. | "" | "/sandbox/data/weather/anomaly.mat" |
 | folder | string | Full or relative path to folder in which to write deployable archive. | "./deploy" | "/sandbox/work/mcp/archives" |
 | import | struct | ImportOptions for tool arguments | [] | delimitedTextImportOptions |
 | retry | integer | Number of times to retry network operations that have timed out. Total attempts will be retry + 1. | 2 | 0 |
