@@ -4,7 +4,7 @@ classdef MCPConstants
 %internal.Constants is a bit fuzzy, but generally internal.Constants is for
 %values that the user never sees.
 
-% Copyright 2025, The MathWorks, Inc.
+% Copyright 2025-2026 The MathWorks, Inc.
 
     properties (Constant)
 

@@ -8,7 +8,7 @@ function data = decodeBody(msg)
 % the first two have a "Header" field, while the third has a "Headers" 
 % field.
 
-% Copyright (c) 2025, The MathWorks, Inc.
+% Copyright (c) 2025-2026 The MathWorks, Inc.
 
     import prodserver.mcp.internal.hasField
     import prodserver.mcp.MCPConstants

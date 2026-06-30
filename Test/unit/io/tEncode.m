@@ -1,6 +1,8 @@
 classdef tEncode < matlab.unittest.TestCase
 % Test encode / decode of HTTP message body.
 
+% Copyright 2025-2026 The MathWorks, Inc.
+
     properties
         tempDir
     end

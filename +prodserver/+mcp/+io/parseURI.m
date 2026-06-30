@@ -8,7 +8,7 @@ function u = parseURI(uri)
 %Assumes that URI is well-formatted. Does minimal checking for
 %syntax errors. 
 
-% Copyright 2022-2026, The MathWorks, Inc.
+% Copyright 2022-2026 The MathWorks, Inc.
 
     import prodserver.mcp.internal.Constants
     import prodserver.mcp.validation.istext

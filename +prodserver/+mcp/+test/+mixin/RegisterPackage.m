@@ -1,7 +1,7 @@
 classdef RegisterPackage < matlab.unittest.fixtures.Fixture
 % Make sure the prodserver package is on the path.
 
-% Copyright 2026, The MathWorks, Inc.
+% Copyright 2026 The MathWorks, Inc.
 
     properties
         root 

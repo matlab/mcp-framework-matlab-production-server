@@ -1,5 +1,11 @@
-function metrics = metrics(uri,scope,opts)
-% metrics 
+function measurements = metrics(uri,scope,opts)
+% metrics Retrieve metrics from MATLAB Production Server instance at URI.
+% 
+%    measurements = metrics(URI,SCOPE) returns the metrics recorded by the
+%    MATLAB Production Server at URI, filtered by SCOPE.
+
+% Copyright 2026 The MathWorks, Inc.
+
     arguments(Input)
         % Server address or MCP tool endpoint
         uri (1,1) string { prodserver.mcp.validation.mustBeURI }
@@ -79,7 +85,7 @@ function metrics = metrics(uri,scope,opts)
             "has %d which is not an even number.", numel(result));
     end
 
-    %    % Parse result into a structure. Each metric consists of two lines:
+    %   % Parse result into a structure. Each metric consists of two lines:
     %   # TYPE matlabprodserver_up_time_seconds counter
     %   matlabprodserver_up_time_seconds 46.0555
     %
@@ -106,17 +112,17 @@ function metrics = metrics(uri,scope,opts)
         value = nvp(2);
         type = split(result(n)); 
         type = type(end);
-        metrics.(name).type = type;
+        measurements.(name).type = type;
         if strcmpi(type,"counter") || strcmpi(type,"gauge")
             value = double(value);
         end
-        metrics.(name).value = value;
-        metrics.(name).archive = archive;
+        measurements.(name).value = value;
+        measurements.(name).archive = archive;
     end
 
     % Filter metrics by name
 
-    fields = fieldnames(metrics);
+    fields = fieldnames(measurements);
 
     switch scope
         case MetricsScope.All
@@ -129,7 +135,7 @@ function metrics = metrics(uri,scope,opts)
                 IgnoreCase=true);
             remove = instanceFields == false;
             if nnz(remove) > 0
-                metrics = rmfield(metrics,fields(remove));
+                measurements = rmfield(measurements,fields(remove));
             end
 
         case MetricsScope.MCP
@@ -137,7 +143,7 @@ function metrics = metrics(uri,scope,opts)
             mcpFields = startsWith(fields,"mcp_",IgnoreCase=true);
             remove = mcpFields == false;
             if nnz(remove) > 0
-                metrics = rmfield(metrics,fields(remove));
+                measurements = rmfield(measurements,fields(remove));
             end
 
         case MetricsScope.Server
@@ -150,7 +156,7 @@ function metrics = metrics(uri,scope,opts)
             serverFields = contains(fields,"_" + serverName + "_");
             remove = serverFields == false;
             if nnz(remove) > 0
-                metrics = rmfield(metrics,fields(remove));
+                measurements = rmfield(measurements,fields(remove));
             end
 
         otherwise

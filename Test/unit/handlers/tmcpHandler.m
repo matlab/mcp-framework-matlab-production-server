@@ -1,4 +1,7 @@
 classdef tmcpHandler < MCPHandlerBase
+% MCPHandlerBase Base class for tests of MCP message handlers.
+
+% Copyright 2025-2026 The MathWorks, Inc.
 
     methods (TestClassSetup)
 

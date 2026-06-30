@@ -1,7 +1,7 @@
 function mustBeHostName(str)
-%mustBeHostName Error if str is a syntatically invalid host name.
+%mustBeHostName Error if str is a syntactically invalid host name.
 
-% Copyright 2025, The MathWorks, Inc.
+% Copyright 2025-2026 The MathWorks, Inc.
 
     % First gate.
     mustBeTextScalar(str);
