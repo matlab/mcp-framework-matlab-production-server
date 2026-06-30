@@ -25,12 +25,19 @@ function msg = encodeBody(msg)
     if ~isempty(data)
         bodyCT = string.empty;
         if hasField(msg,"Headers")
+            hName = "Headers";
             bodyCT = prodserver.mcp.internal.getHeaderValue(...
                 prodserver.mcp.MCPConstants.ContentType, msg.Headers);
         elseif hasField(msg,"Header")
-            contentPos = matches([msg.Header.Name], ...
+            hName = "Header";
+            if ischar(msg.Header(1).Name)
+                hNameList = {msg.Header.Name};
+            elseif isstring(msg.Header(1).Name)
+                hNameList = [msg.Header.Name];
+            end
+            contentPos = matches(hNameList, ...
                 prodserver.mcp.MCPConstants.ContentType);
-            if ~isempty(contentPos)
+            if ~isempty(contentPos) && nnz(contentPos) > 0
                 bodyCT = msg.Header(contentPos).Value;
             end
         end
@@ -44,6 +51,9 @@ function msg = encodeBody(msg)
             data = getByteStreamFromArray(data);
         elseif startsWith(bodyCT,"text/")
             data = unicode2native(data,"UTF-8");
+        else
+            error("prodserver:mcp:ContentTypeRequired", ...
+                "Cannot encode message body without Content-Type header.");
         end
         if iscolumn(data), data = data'; end
         if mps
@@ -52,5 +62,10 @@ function msg = encodeBody(msg)
             msg.Body.Data = [];
             msg.Body.Payload = data;
         end   
+
+        w = whos("data");
+        len = w.bytes;
+        msg.(hName) = prodserver.mcp.internal.setHeaderValue(msg.(hName),...
+            prodserver.mcp.MCPConstants.ContentLength,{len});
     end
 end

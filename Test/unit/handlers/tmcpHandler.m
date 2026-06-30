@@ -51,7 +51,7 @@ classdef tmcpHandler < MCPHandlerBase
 
             reqT = req;
             reqT.Method = "POST";  % Because there's a body
-            reqT.Path = "http://localhost:9910/prime/mcp";
+            reqT.Path = "/prime/mcp";
             reqT.Headers = [reqT.Headers; {MCPConstants.ContentLength, numel(body)}];
             reqT.Body = unicode2native(body,"UTF-8");
             response = prodserver.mcp.internal.mcpHandler(reqT);
@@ -78,7 +78,7 @@ classdef tmcpHandler < MCPHandlerBase
             % Streamable HTTP not support. This is part of the protocol.
             reqT = req;
             reqT.Method = "GET";  % Expecting an error
-            reqT.Path = "http://localhost:9910/prime/mcp";
+            reqT.Path = "/prime/mcp";
             reqT.Headers = [reqT.Headers; {MCPConstants.ContentLength, 0}];
             response = prodserver.mcp.internal.mcpHandler(reqT);
             test.verifyEqual(response.HttpCode,405);
@@ -118,7 +118,7 @@ classdef tmcpHandler < MCPHandlerBase
 ];
             reqT = req;
             reqT.Method = "POST";  % Because there's a body
-            reqT.Path = "http://localhost:9910/prime/mcp";
+            reqT.Path = "/prime/mcp";
             reqT.Headers = [reqT.Headers; {MCPConstants.ContentLength, numel(body)}];
             reqT.Body = unicode2native(body,"UTF-8");
             response = prodserver.mcp.internal.mcpHandler(reqT);

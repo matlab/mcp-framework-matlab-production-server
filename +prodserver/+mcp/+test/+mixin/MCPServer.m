@@ -38,7 +38,7 @@ classdef MCPServer < handle
             req.Headers = [req.Headers; ...
                 { MCPConstants.SessionId opts.sessionID} ];
 
-            req.Path = "http://localhost:9910/"+server+"/mcp";
+            req.Path = "/"+server+"/mcp";
 
             if ~isempty(opts.body)
                 req.Headers = [req.Headers; {MCPConstants.ContentType, ...

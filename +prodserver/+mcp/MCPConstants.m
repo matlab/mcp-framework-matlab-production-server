@@ -80,7 +80,11 @@ classdef MCPConstants
         % Metrics
         %
 
-        MCPRequestMetric = "MCP_Framework_Request";
+        MCPMetricPrefix = "MCP_";
+        MCPMetricSuffix = "_Request";
+        MCPRequestMetric = prodserver.mcp.MCPConstants.MCPMetricPrefix + ...
+            "Framework" + prodserver.mcp.MCPConstants.MCPMetricSuffix;
+        MCPToolCallSuffix = "_Call";
 
         %
         % Function argument comments for the LLM

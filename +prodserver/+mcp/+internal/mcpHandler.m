@@ -4,10 +4,13 @@ function response = mcpHandler(request)
 % Copyright 2025, The MathWorks, Inc.
 
     import prodserver.mcp.MCPConstants
+    import prodserver.mcp.internal.Constants
     import prodserver.mcp.internal.getHeaderValue
 
     try
         data = [];
+        jrpc = [];
+
         headers = {};
         session = getHeaderValue(MCPConstants.SessionId, request.Headers);
         if ~isempty(session)
@@ -21,7 +24,25 @@ function response = mcpHandler(request)
         % Count the number of times mcpHandler is called.
         prodserver.metrics.incrementCounter(MCPConstants.MCPRequestMetric,1);
 
-        jrpc = [];
+        % Count the number of times each MCP tool server is called.
+        % Expecting URLs to look like this:
+        %   /<server>/mcp
+        % Trying to extract <server> from that string. Since split will add
+        % "" for /, <server> should the the 2nd element in the return
+        % value from split.
+        serverName = split(request.Path,Constants.URISep);
+        if numel(serverName) >= 2
+            serverName = serverName(2);
+        else
+            serverName = "";
+        end
+        if isempty(serverName) || strlength(serverName) == 0
+            error("prodserver:mcp:InvalidServerURL", ...
+                "Cannot determine server name from request URL '%s'.", ...
+                request.Path);
+        end
+        serverMetric = MCPConstants.MCPMetricPrefix + serverName + "_Request";
+        prodserver.metrics.incrementCounter(serverMetric,1)
         
         switch lower(request.Method)                
             case "get"
@@ -207,6 +228,10 @@ function [result, httpCode, httpMsg, msgHeaders] = handlePost(jrpc)
 
         % Only one definition matching the tool name.
         t = tools{k};
+
+        toolCallMetric = prodserver.mcp.MCPConstants.MCPMetricPrefix + ...
+            fcn + prodserver.mcp.MCPConstants.MCPToolCallSuffix;
+        prodserver.metrics.incrementCounter(toolCallMetric,1)
         
         % JRPC in MCP does not define argument order. So we (cleverly!)
         % insert order information into the definition. Assemble a cell

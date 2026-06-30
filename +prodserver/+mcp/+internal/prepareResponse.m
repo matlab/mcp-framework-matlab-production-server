@@ -20,7 +20,7 @@ function response = prepareResponse(code, msg, opts)
         'HttpCode',code, ...
         'HttpMessage',msg, ...
         'Headers', {{'Server' 'MATLAB Production Server/Model Context Protocol (v1.0)'; ...
-        'Content-Length' numel(opts.body); ...
+        'Content-Length' '0'; ...
         'Content-Type' opts.ct;}});
 
     if ~isempty(opts.body)
@@ -32,5 +32,7 @@ function response = prepareResponse(code, msg, opts)
             {prodserver.mcp.MCPConstants.SessionId, char(opts.sid)} ];
     end
 
+    % Also sets Content-Length correctly
     response = prodserver.mcp.internal.encodeBody(response);
+
 end

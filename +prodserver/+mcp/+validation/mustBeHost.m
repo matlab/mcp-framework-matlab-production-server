@@ -9,7 +9,7 @@ function mustBeHost(x)
         if strcmpi(me.identifier,"prodserver:mcp:BadHostName")
             prodserver.mcp.validation.mustBeServer(x);
         else
-            rethrow(me);
+            throwAsCaller(me);
         end
     end
 

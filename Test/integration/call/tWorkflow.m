@@ -20,15 +20,17 @@ classdef tWorkflow < MCPCaller & ...
         % Main line, ordinary workflow. Deploy and call a simple tool.
 
             fcn = "toyToolOne";
+            archive = "worflow";
             test.applyFixture(prodserver.mcp.test.mixin.RemoveArchive(...
-                test.server,fcn));
+                test.server,archive));
 
             % Expected result
             a = 3; b = 17;
             [eX,eY,eZ] = feval(fcn,a,b);
 
             % Build tool
-            ctf = prodserver.mcp.build(fcn, folder=test.tempFolder);
+            ctf = prodserver.mcp.build(fcn, folder=test.tempFolder,...
+                archive=archive);
             test.verifyEqual(exist(ctf,"file"),2,ctf);
 
             % Deploy using the full server URL (includes dynamic port)
@@ -55,6 +57,28 @@ classdef tWorkflow < MCPCaller & ...
             test.verifyEqual(aX,eX,"x");
             test.verifyEqual(aY,eY,"y");
             test.verifyEqual(aZ,eZ,"z");
+
+            % Validate metrics
+            serverMetrics = prodserver.mcp.MCPConstants.MCPMetricPrefix + ...
+                archive + prodserver.mcp.MCPConstants.MCPMetricSuffix;
+            metrics = prodserver.mcp.metrics(endpoint,...
+                prodserver.mcp.MetricsScope.MCP);
+
+            % Non-zero server request count
+            test.verifyGreaterThan(metrics.(serverMetrics).value,0);
+
+            % Server request count less than or equal to framework request
+            % count.
+            test.verifyTrue(metrics.(serverMetrics).value <= ...
+                metrics.(prodserver.mcp.MCPConstants.MCPRequestMetric).value, ...
+                "Server metric > Request metric");
+
+            % Tools call count exactly equal to 1
+            toolCallMetric = prodserver.mcp.MCPConstants.MCPMetricPrefix + ...
+                fcn + prodserver.mcp.MCPConstants.MCPToolCallSuffix;
+            test.verifyEqual(metrics.(toolCallMetric).value, 1);
+
+
         end
 
     end

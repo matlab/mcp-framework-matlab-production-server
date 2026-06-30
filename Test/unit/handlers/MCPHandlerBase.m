@@ -21,7 +21,7 @@ classdef MCPHandlerBase < matlab.unittest.TestCase
             test.tempFolder = tfolder.Folder;
             test.applyFixture(PathFixture(test.tempFolder));
 
-            test.server = "http://localhost:9910/mcp";
+            test.server = "http://localhost:9910/AnExcellentServer/mcp";
 
             test.request = struct(...
                 'ApiVersion',[1 0 0], ...
@@ -55,7 +55,9 @@ classdef MCPHandlerBase < matlab.unittest.TestCase
 
             reqT = req;
             reqT.Method = "POST";  % Because there's a body
-            reqT.Path = endpoint;
+            % Extract path from endpoint
+            u = prodserver.mcp.io.parseURI(endpoint); 
+            reqT.Path = u.path;
             reqT.Headers = [reqT.Headers; {MCPConstants.ContentLength, numel(body)}];
             reqT.Body = unicode2native(body,"UTF-8");
         end

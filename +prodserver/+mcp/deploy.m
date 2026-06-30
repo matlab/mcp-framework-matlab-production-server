@@ -66,7 +66,8 @@ function endpoint = deploy(archive,host,port,opts)
     % starting up.
     healthURL = sprintf("%s/api/health", url);
     n = 1;
-    while n <= opts.retry
+    status = [];
+    while n <= opts.retry && isempty(status)
         try
             status = webread(healthURL,webOpts);
         catch me
