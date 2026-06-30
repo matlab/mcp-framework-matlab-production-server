@@ -1,7 +1,7 @@
 function response = mcpHandler(request)
 %mcpHandler Custom web handler for MCP JSON RPC protocol.
 
-% Copyright (c) 2025-2026 The MathWorks, Inc.
+% Copyright 2025-2026 The MathWorks, Inc.
 
     import prodserver.mcp.MCPConstants
     import prodserver.mcp.internal.Constants

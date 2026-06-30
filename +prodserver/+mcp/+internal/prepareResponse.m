@@ -1,7 +1,7 @@
 function response = prepareResponse(code, msg, opts)
 % Prepare response from custom web handler
 
-% Copyright (c) 2025-2026 The MathWorks, Inc.
+% Copyright 2025-2026 The MathWorks, Inc.
 
     arguments
         code { mustBeNumeric }
