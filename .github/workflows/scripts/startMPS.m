@@ -31,6 +31,7 @@ function [cleanupMPS, cleanupDir, mps] = startMPS(options)
     mps.mcrRoot = {matlabroot};
     mps.start();
     mps.updateConfigFile(mps.configFile,'enable-archive-management',true);
+	mps.updateConfigFile(mps.configFile,'enable-metrics',true);
     mps.restart();
 
     serverUrl = regexprep(mps.getBrowserUrl(), '/$', '');
