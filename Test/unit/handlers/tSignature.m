@@ -1,6 +1,8 @@
 classdef tSignature < MCPHandlerBase
 % Test signature handler
 
+% Copyright 2025-2026 The MathWorks, Inc.
+
     methods (TestClassSetup)
         
         function useExamples(test)
@@ -85,7 +87,8 @@ classdef tSignature < MCPHandlerBase
             import prodserver.mcp.MCPConstants
 
             req = test.request;
-            req.Headers = [req.Headers; {MCPConstants.ContentType, 'application/json'}];
+            req.Headers = [req.Headers; {MCPConstants.ContentType, 'application/json'};
+                {MCPConstants.ContentLength, '0'}];
 
             body = { 17, { struct.empty }, struct('x',21), 867.5309 };
             for b = body

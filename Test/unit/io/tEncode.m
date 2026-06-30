@@ -1,6 +1,8 @@
 classdef tEncode < matlab.unittest.TestCase
 % Test encode / decode of HTTP message body.
 
+% Copyright 2025-2026 The MathWorks, Inc.
+
     properties
         tempDir
     end
@@ -18,6 +20,7 @@ classdef tEncode < matlab.unittest.TestCase
         function msgBody(test)
 
             import matlab.net.http.field.ContentTypeField
+            import matlab.net.http.field.ContentLengthField
             import prodserver.mcp.internal.hasField
             import prodserver.mcp.MCPConstants
 
@@ -55,11 +58,16 @@ classdef tEncode < matlab.unittest.TestCase
                 for c = 1:numel(contentType)
                     % Set content type and content
                     if strcmpi(headers(h),"Headers")
-                        msg.(headers(h)) = ContentTypeField(contentType(c));
+                        % Vector of matlab.net.http.HeaderField
+                        msg.(headers(h)) = [ ...
+                            ContentTypeField(contentType(c)),
+                            ContentLengthField(0) ];
                         msg.Body.Data = actual{c};
                     else
-                        hdr.Name = prodserver.mcp.MCPConstants.ContentType;
-                        hdr.Value = contentType(c);
+                        hdr(1).Name = prodserver.mcp.MCPConstants.ContentType;
+                        hdr(1).Value = contentType(c);
+                        hdr(2).Name = prodserver.mcp.MCPConstants.ContentLength;
+                        hdr(2).Value = '0';
 
                         msg.(headers(h)) = hdr;
                         msg.Body = actual{c};
@@ -94,8 +102,5 @@ classdef tEncode < matlab.unittest.TestCase
                 end
             end
         end
-
     end
-
-
 end

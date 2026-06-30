@@ -18,10 +18,13 @@ classdef tWrapperCI < MCPCaller
 
             fcn = ["toyScalarOne", "toyScalarTwo", "toyScalarFour"];
             wrapper = ["None", "None", "None"];
+            archive = "wrapperCI";
+            test.applyFixture(prodserver.mcp.test.mixin.RemoveArchive(...
+                test.server,archive));
             
             % Build multi-tool application with no wrappers.
             ctf = prodserver.mcp.build(fcn, folder=test.tempFolder, ...
-                wrapper=wrapper);
+                wrapper=wrapper,archive=archive);
 
             % Deploy using the full server URL (includes dynamic port)
             endpoint = prodserver.mcp.deploy(ctf,test.server);

@@ -27,7 +27,7 @@ function [ctf,endpoint] = build(fcn, opts)
         % List of files to add to the generated CTF archive. Independent of
         % the length of FCN -- all files are accessible to every tool in 
         % the archive.
-        opts.files string {mustBeVectorOrEmpty} = string.empty
+        opts.files string {prodserver.mcp.validation.mustBeVectorOrEmpty} = string.empty
 
         % MCP tool definition. Generated if not provided. If provided, must
         % be the same size as FCN.
@@ -278,6 +278,17 @@ function ctf = buildMCP(files, folder, archive, definition, routesType, stop)
     end
 
     if stop < prodserver.mcp.BuildStage.Archive, return; end
+
+    % This is a terrible, temporary, solution to a complex problem. It must
+    % be removed when the schema management change is integrated with the
+    % main release branch.last
+    excludeState = warning('off','Compiler:compiler:COM_WARN_EXCLUDED_FILE');
+    restoreWarning = onCleanup(@()warning(excludeState));
+
+    % Can't suppress the text emitted by MATLAB Compiler, since 
+    % ProductionServerArchiveOptions has no way to suppress a warning. 
+    % This is the way to suppress it when calling MCC directly: 
+    %      -w disable:Compiler:compiler:COM_WARN_EXCLUDED_FILE 
 
     hFiles = arrayfun(@(fcn)string(which(fcn)),handlers);
     opts = compiler.build.ProductionServerArchiveOptions(hFiles, ...

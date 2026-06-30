@@ -1,7 +1,7 @@
 function response = prepareResponse(code, msg, opts)
 % Prepare response from custom web handler
 
-% Copyright 2025, The MathWorks, Inc.
+% Copyright 2025-2026 The MathWorks, Inc.
 
     arguments
         code { mustBeNumeric }
@@ -20,7 +20,7 @@ function response = prepareResponse(code, msg, opts)
         'HttpCode',code, ...
         'HttpMessage',msg, ...
         'Headers', {{'Server' 'MATLAB Production Server/Model Context Protocol (v1.0)'; ...
-        'Content-Length' numel(opts.body); ...
+        'Content-Length' '0'; ...
         'Content-Type' opts.ct;}});
 
     if ~isempty(opts.body)
@@ -32,5 +32,7 @@ function response = prepareResponse(code, msg, opts)
             {prodserver.mcp.MCPConstants.SessionId, char(opts.sid)} ];
     end
 
+    % Also sets Content-Length correctly
     response = prodserver.mcp.internal.encodeBody(response);
+
 end

@@ -19,7 +19,9 @@ classdef Constants
         ParamStart = "?";
         ParamSep = "&";
         SchemeSuffix = ":";
+        UserInfoSuffix = "@";
         AuthorityPrefix = "//";
+        PortPrefix = ":"
         ExtSep = ".";
         FragStart = "#";
 

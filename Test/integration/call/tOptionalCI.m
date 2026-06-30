@@ -20,11 +20,13 @@ classdef tOptionalCI < MCPCaller
 
             % Many optional arguments
             fcn = "toyScalarNVOptions";
+            archive = "optionalCINVP";
             test.applyFixture(prodserver.mcp.test.mixin.RemoveArchive(...
-                test.server,fcn));
+                test.server,archive));
 
             % Build
-            ctf = prodserver.mcp.build(fcn, folder=test.tempFolder);
+            ctf = prodserver.mcp.build(fcn, folder=test.tempFolder,...
+                archive=archive);
             test.verifyEqual(exist(ctf,"file"),2,ctf);
 
             % Deploy using the full server URL (includes dynamic port)
@@ -60,11 +62,13 @@ classdef tOptionalCI < MCPCaller
 
             % Many optional arguments
             fcn = "toyScalarOptions";
+            archive = "optionalCIOptions";
             test.applyFixture(prodserver.mcp.test.mixin.RemoveArchive(...
-                test.server,fcn));
+                test.server,archive));
             
             % Build
-            ctf = prodserver.mcp.build(fcn, folder=test.tempFolder);
+            ctf = prodserver.mcp.build(fcn, folder=test.tempFolder, ...
+                archive=archive);
             test.verifyEqual(exist(ctf,"file"),2,ctf);
 
             % Deploy using the full server URL (includes dynamic port)

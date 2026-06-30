@@ -2,7 +2,7 @@ function mustBeFunction(x)
 %mustBeFunction Argument validation function for arguments that must be
 %functions. 
 
-% Copyright 2025, The MathWorks, Inc.
+% Copyright 2025-2026 The MathWorks, Inc.
 
     % Must be a function that exists.
     tf = prodserver.mcp.validation.isfcn(x, true);
@@ -12,7 +12,7 @@ function mustBeFunction(x)
         if isa(x,"function_handle")
             x = string(func2str(x));
         end
-        error("prodserver:mcp:FunctionNotFound", ...
-           "Cannot find function '%s'.",x(nope));
+        throwAsCaller(MException("prodserver:mcp:FunctionNotFound", ...
+           "Cannot find function '%s'.",x(nope)));
     end
 end

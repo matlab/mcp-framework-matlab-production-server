@@ -1,5 +1,9 @@
 classdef MCPServer < handle
-%MCPServer
+%MCPServer Mock MCP Server mix-in for test classes. Calls handlers and
+%encoders directly. Allows testing without starting MPS instance (and
+%direct debugging of tested code).
+
+% Copyright 2026 The MathWorks, Inc.
 
     properties
         baseRequest
@@ -38,7 +42,7 @@ classdef MCPServer < handle
             req.Headers = [req.Headers; ...
                 { MCPConstants.SessionId opts.sessionID} ];
 
-            req.Path = "http://localhost:9910/"+server+"/mcp";
+            req.Path = "/"+server+"/mcp";
 
             if ~isempty(opts.body)
                 req.Headers = [req.Headers; {MCPConstants.ContentType, ...

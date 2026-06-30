@@ -4,7 +4,7 @@ classdef MCPConstants
 %internal.Constants is a bit fuzzy, but generally internal.Constants is for
 %values that the user never sees.
 
-% Copyright 2025, The MathWorks, Inc.
+% Copyright 2025-2026 The MathWorks, Inc.
 
     properties (Constant)
 
@@ -80,7 +80,11 @@ classdef MCPConstants
         % Metrics
         %
 
-        MCPRequestMetric = "MCP_Framework_Request";
+        MCPMetricPrefix = "MCP_";
+        MCPMetricSuffix = "_Request";
+        MCPRequestMetric = prodserver.mcp.MCPConstants.MCPMetricPrefix + ...
+            "Framework" + prodserver.mcp.MCPConstants.MCPMetricSuffix;
+        MCPToolCallSuffix = "_Call";
 
         %
         % Function argument comments for the LLM

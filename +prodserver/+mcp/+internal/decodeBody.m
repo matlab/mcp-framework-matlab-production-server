@@ -8,7 +8,7 @@ function data = decodeBody(msg)
 % the first two have a "Header" field, while the third has a "Headers" 
 % field.
 
-% Copyright (c) 2025, The MathWorks, Inc.
+% Copyright 2025-2026 The MathWorks, Inc.
 
     import prodserver.mcp.internal.hasField
     import prodserver.mcp.MCPConstants
@@ -32,9 +32,13 @@ function data = decodeBody(msg)
             bodyCT = prodserver.mcp.internal.getHeaderValue(...
                 MCPConstants.ContentType,msg.Headers);
         elseif hasField(msg,"Header")
-            contentPos = matches([msg.Header.Name], ...
-                MCPConstants.ContentType);
-            if ~isempty(contentPos) 
+            if ischar(msg.Header(1).Name)
+                hNameList = {msg.Header.Name};
+            elseif isstring(msg.Header(1).Name)
+                hNameList = [msg.Header.Name];
+            end
+            contentPos = matches(hNameList, MCPConstants.ContentType);
+            if ~isempty(contentPos) && nnz(contentPos) > 0
                 bodyCT = msg.Header(contentPos).Value;
             end
         end
