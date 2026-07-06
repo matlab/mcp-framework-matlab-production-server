@@ -7,6 +7,7 @@ classdef MCPCaller < matlab.unittest.TestCase
         port
         toolFolder
         tempFolder
+        archiveName
     end
 
     methods(TestClassSetup)
@@ -22,7 +23,9 @@ classdef MCPCaller < matlab.unittest.TestCase
                 " to network address of MPS instance to be used for testing.");
 
             healthQuery = test.server + "/api/health";
-            response = webread(healthQuery);
+            opts = weboptions(Timeout=60);
+            
+            response = webread(healthQuery,opts);
             test.assertTrue(strcmp(response.status,"ok"), ...
                 "Invalid response to health query " + healthQuery + ": " + ...
                 response.status);
@@ -33,7 +36,9 @@ classdef MCPCaller < matlab.unittest.TestCase
             test.host = string(extract(test.server,hostPattern));
             portPattern = lookBehindBoundary(wildcardPattern + test.host + ":") + ...
                 wildcardPattern + textBoundary("end");
-            test.port = string(extract(test.server,portPattern));
+            if ~isempty(portPattern)
+                test.port = string(extract(test.server,portPattern));
+            end
         end
 
         function managePath(test)
@@ -48,5 +53,4 @@ classdef MCPCaller < matlab.unittest.TestCase
         end
 
     end
-
 end

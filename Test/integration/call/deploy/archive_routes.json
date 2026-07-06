@@ -1,0 +1,29 @@
+{
+    "version": "1.0.0",
+    "pathmap": [
+      {
+        "match": "^/mcp$",
+            "webhandler": {
+                "function": "prodserver.mcp.internal.mcpHandler"
+            }
+      },
+      {
+          "match": "^/sse$",
+          "webhandler": {
+              "function": "prodserver.mcp.internal.mcpHandler"
+          }
+      },
+      {
+          "match": "^/signature$",
+          "webhandler": {
+              "function": "prodserver.mcp.internal.signatureHandler"
+          }
+      },
+      {
+        "match": "^/ping$",
+            "webhandler": {
+                "function": "prodserver.mcp.internal.pingHandler"
+            }
+      }      
+    ]
+}

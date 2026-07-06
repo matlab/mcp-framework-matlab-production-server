@@ -1,0 +1,90 @@
+{
+  "routes": [
+    {
+      "path": "/api/users",
+      "methods": ["GET"],
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "users": [
+            {"id": 1, "name": "Alice", "email": "alice@example.com"},
+            {"id": 2, "name": "Bob", "email": "bob@example.com"}
+          ]
+        }
+      }
+    },
+    {
+      "path": "/api/users",
+      "methods": ["POST"],
+      "response": {
+        "status": 201,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "id": 3,
+          "name": "New User",
+          "message": "User created successfully"
+        }
+      }
+    },
+    {
+      "path": "/api/users/1",
+      "methods": ["GET"],
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "id": 1,
+          "name": "Alice",
+          "email": "alice@example.com",
+          "role": "admin"
+        }
+      }
+    },
+    {
+      "path": "/api/error",
+      "methods": ["GET"],
+      "response": {
+        "status": 500,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "error": "Internal Server Error",
+          "message": "Something went wrong"
+        }
+      }
+    },
+    {
+      "path": "/api/slow",
+      "methods": ["GET"],
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "message": "This response was delayed"
+        },
+        "delay": 2
+      }
+    },
+    {
+      "path": "/health",
+      "methods": ["GET"],
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "text/plain"
+        },
+        "body": "OK"
+      }
+    }
+  ]
+}

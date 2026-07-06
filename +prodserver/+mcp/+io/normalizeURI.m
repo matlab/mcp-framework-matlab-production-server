@@ -43,7 +43,7 @@ function np = normalizePath(p,hasAuthority)
 % Normalization means:
 %
 %  * Turn all \ into /
-%  * Collapse empty segments // into /.
+%  * Collapse empty segments // into /, except at the beginning.
 %  * Never collapse authority-defining //
 
     import prodserver.mcp.internal.Constants
@@ -67,12 +67,35 @@ end
 function pth = preventCollapseOfAuthority(pth,hasAuthority)
 
     persistent authorityToken
+    persistent uncToken
+    persistent authorityProtector
     if isempty(authorityToken)
+        authorityProtector =  ":/:/";
         authorityToken = lookBehindBoundary(textBoundary("start") + ...
             asManyOfPattern(wildcardPattern(1,Except=":"))) + "://";
+        % All that wildcarding is for drive letters. //a is a UNC path,
+        % but //a: is not.
+        uncToken = (lookBehindBoundary(textBoundary("start")) | ...
+            lookBehindBoundary(authorityProtector))+"//"+...
+            wildcardPattern(1)+(textBoundary("end") | wildcardPattern(1,Except=":"));
     end
 
+    % Replace the authority with text that won't be collapsed.
     pth(hasAuthority) = replace(pth(hasAuthority),authorityToken,":/:/");
+
+    % Find any UNC paths, which will start with :/:///.
+    isUNC = startsWith(pth,uncToken);
+
+    % Too aggressive for UNC paths, but let it be for now, and fix later.
     pth = strrep(pth,"//","/");
     pth = strrep(pth,":/:/","://");
+    if any(isUNC)
+        % Re-establish UNC paths. (Add one / to the front of those paths.)
+        % Only one of these patterns will match each UNC path.
+        pth(isUNC) = replace(pth(isUNC),lookBehindBoundary(...
+            textBoundary("start"))+"/","//");
+
+        pth(isUNC) = replace(pth(isUNC),lookBehindBoundary(...
+            textBoundary("start"))+":",":/");
+    end
 end

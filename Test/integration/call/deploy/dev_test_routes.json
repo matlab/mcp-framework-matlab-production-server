@@ -1,0 +1,33 @@
+{
+    "version": "1.0.0",
+    "pathmap": [
+      {
+        "match": "^/orderMatters/mcp$",
+            "webhandler": {
+                "component": "orderMatters",
+                "function": "mcpHandler"
+            }
+      },
+      {
+          "match": "^/orderMatters/sse$",
+          "webhandler": {
+              "component": "orderMatters",
+              "function": "mcpHandler"
+          }
+      },
+      {
+          "match": "^/orderMatters/signature$",
+          "webhandler": {
+              "component": "orderMatters",
+              "function": "signatureHandler"
+          }
+      },
+      {
+        "match": "^/orderMatters/ping$",
+            "webhandler": {
+                "component": "orderMatters",
+                "function": "pingHandler"
+            }
+      }      
+    ]
+}

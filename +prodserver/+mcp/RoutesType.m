@@ -5,6 +5,7 @@ classdef RoutesType
 
     enumeration
         Archive    % Place routes file in archive
+        DevAndTest % Routes file for MATLAB-hosted Production Server
         Instance   % Generate global routes for the given archive
     end
 end

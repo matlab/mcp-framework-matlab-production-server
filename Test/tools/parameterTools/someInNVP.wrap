@@ -1,0 +1,34 @@
+function [x,y,z] = someInNVPMCP(a,b,opts)
+% Three output, four input test function.  Last two inputs optional. 
+% Outputs are always optional in MATLAB. You must read the MCP resource 
+% mcp://protocol/tools/wire-format/parameters/encoding_rules in full and 
+% completely understand it before making any call to this tool.
+    arguments(Input)
+        % Required A
+        % You must encode data as described by this MCP resource: mcp://protocol/tools/wire-format/parameters/encoding_rules
+        a (1,1) double
+        % Required B
+        % You must encode data as described by this MCP resource: mcp://protocol/tools/wire-format/parameters/encoding_rules
+        b (1,1) double
+        % Optional C
+        % You must encode data as described by this MCP resource: mcp://protocol/tools/wire-format/parameters/encoding_rules
+        opts.c (1,1) double = 4
+        % Optional D
+        % You must encode data as described by this MCP resource: mcp://protocol/tools/wire-format/parameters/encoding_rules
+        opts.d (1,1) double = 5
+    end
+    arguments(Output)
+        % Value X
+        % You must decode data as described by this MCP resource: mcp://protocol/tools/wire-format/parameters/encoding_rules
+        x (1,1) double
+        % Value Y
+        % You must decode data as described by this MCP resource: mcp://protocol/tools/wire-format/parameters/encoding_rules
+        y (1,1) double
+        % Value Z
+        % You must decode data as described by this MCP resource: mcp://protocol/tools/wire-format/parameters/encoding_rules
+        z (1,1) double
+    end
+    c = opts.c;
+    d = opts.d;
+    [x,y,z] = someInNVP(a,b,c=c,d=d);
+end

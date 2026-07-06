@@ -22,7 +22,8 @@ function body = toolsCall(tool,id,def,sig,varargin)
     end
 
     for n = 1:numel(req)
-        body.params.arguments.(req(n)) = varargin{n};
+        body.params.arguments.(req(n)) = ...
+            prodserver.mcp.jsonrpc.mcpWireEncodeValue(varargin{n});
     end
     if n < numel(varargin)
         n = n + 1;
@@ -31,7 +32,8 @@ function body = toolsCall(tool,id,def,sig,varargin)
         % Optional positional
         while n <= numel(varargin) && n <= numel(kind) && ...
                 kind(n) == ParameterKind.Optional
-            body.params.arguments.(sig.(tool).input.name{n}) = varargin{n};
+            body.params.arguments.(sig.(tool).input.name{n}) = ...
+                prodserver.mcp.jsonrpc.mcpWireEncodeValue(varargin{n});
             n = n + 1;
         end
 
@@ -48,7 +50,8 @@ function body = toolsCall(tool,id,def,sig,varargin)
             end
             N = numel(varargin)/2;
             for n = 1:N
-                body.params.arguments.(varargin{n*2-1}) = varargin{n*2};
+                body.params.arguments.(varargin{n*2-1}) = ...
+                    prodserver.mcp.jsonrpc.mcpWireEncodeValue(varargin{n*2});
             end
         end
     end

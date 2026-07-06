@@ -1,0 +1,35 @@
+function [q] = toyFileSchemaMCP(m,rURL,out)
+% Allocate result You must read the MCP resource 
+% mcp://protocol/tools/wire-format/parameters/encoding_rules in full and 
+% completely understand it before making any call to this tool.
+% This tool has optional inputs, some of which may be pass-by-reference
+% output locations.
+    arguments(Input)
+        % Increase the size of each side of each triangle by this amount.
+        % You must encode data as described by this MCP resource: mcp://protocol/tools/wire-format/parameters/encoding_rules
+        m (1,1) double
+        % An array of triangles.
+        % URL from which input is read.
+        % Write input to URL using  "$ref": "#/$defs/inputSchema/rURL"
+        rURL (1,1) string 
+        % The new triangles, after adding m to each side.
+        % Pass-by-reference output location. Provide a writeable URL. This output
+        % never returned inline.
+        % Read result from URL using schema-appropriate method: file system read
+        % for file: URLs, HTTP GET for http:// URLs and so on. Data at the URL
+        % formatted as  "$ref": "#/$defs/outputSchema/zURL"
+        out.zURL (1,1) string 
+    end
+    arguments(Output)
+        % Area of each of the new triangles
+        % #schema +{ "maxItems": 39 }
+        % You must decode data as described by this MCP resource: mcp://protocol/tools/wire-format/parameters/encoding_rules
+        q (1,:) double
+    end
+    !marshalVar = prodserver.mcp.io.MarshallURI();
+    % deserialize always returns a cell array.
+    r = deserialize(!marshalVar,rURL);
+    r = r{1};
+    [z,q] = toyFileSchema(m,r);
+    serialize(!marshalVar, out.zURL, {z});
+end

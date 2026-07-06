@@ -1,7 +1,9 @@
 function [items,id] = list(endpoint, session, resource, opts)
-% list Return the server's list of one or more primitive resources.
+% list Return the server's list of one or more primitive resources. Convert
+% the list into a cell array of structures if it is returned as a struct
+% array. 
 
-% Copyright 2025, The MathWorks, Inc.
+% Copyright 2025-2026, The MathWorks, Inc.
 
     arguments
         endpoint string { prodserver.mcp.validation.mustBeMCPServer }
@@ -36,7 +38,13 @@ function [items,id] = list(endpoint, session, resource, opts)
         % Expect information about the primitive. 
         pfield = mcpName(resource(n));
         if hasField(response,"Body.Data.result."+pfield) == false
+            error("prodserver:mcp:BadListResponse", ...
+                "List %s returned successfully but " + ...
+                "without expected result field.", pfield);
         end
         items.(pfield) = response.Body.Data.result.(pfield);
+        if iscell(items.(pfield)) == false
+            items.(pfield) = num2cell(items.(pfield));
+        end
     end
 end

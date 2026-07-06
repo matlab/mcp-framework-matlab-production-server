@@ -1,0 +1,17 @@
+{ 
+    "type": "array",
+    "items": {
+        "type": "object",
+        "properties": {
+            "r": {
+                "type": "number",
+                "description": "Radius"
+            },
+            "theta": {
+                "type": "number",
+                "description": "Angle, in radians"
+            }
+        }
+    }
+}
+

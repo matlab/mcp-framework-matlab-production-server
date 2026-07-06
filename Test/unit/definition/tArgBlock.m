@@ -7,12 +7,12 @@ classdef tArgBlock < matlab.unittest.TestCase
     end
 
     methods (TestClassSetup)
-    
-        function initTest(test)
-            testFolder = fileparts(mfilename("fullpath"));
-            test.exampleFolder = fullfile(testFolder,"..","..","..","Examples");
+
+        function requireToyTools(test)
+            rtt = test.applyFixture(prodserver.mcp.test.mixin.RequireToyTools());
+            test.exampleFolder = fullfile(rtt.pkgFolder,"Examples");
         end
-    
+
     end
     
     methods (Test)

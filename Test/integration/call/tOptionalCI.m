@@ -18,6 +18,8 @@ classdef tOptionalCI < MCPCaller
 
             % Many optional arguments
             fcn = "toyScalarNVOptions";
+            test.applyFixture(prodserver.mcp.test.mixin.RemoveArchive(...
+                test.server,fcn));
 
             % Build
             ctf = prodserver.mcp.build(fcn, folder=test.tempFolder);
@@ -52,9 +54,11 @@ classdef tOptionalCI < MCPCaller
 
         function scalarOptions(test)
             import prodserver.mcp.MCPConstants
-
+            
             % Many optional arguments
             fcn = "toyScalarOptions";
+            test.applyFixture(prodserver.mcp.test.mixin.RemoveArchive(...
+                test.server,fcn));
 
             % Build
             ctf = prodserver.mcp.build(fcn, folder=test.tempFolder);

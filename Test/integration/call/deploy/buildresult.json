@@ -1,0 +1,8 @@
+{
+	"RuntimeDependencies": [
+		{"ID":35002, "DisplayName":"MATLAB Graphics Runtime Addon", "Optional":"no"},
+		{"ID":35003, "DisplayName":"MATLAB Standard Runtime Addon", "Optional":"no"},
+		{"ID":35010, "DisplayName":"MATLAB Base Runtime", "Optional":"no"},
+		{"ID":35054, "DisplayName":"MATLAB Production Server Runtime Addon", "Optional":"no"}
+	]
+}

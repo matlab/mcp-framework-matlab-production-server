@@ -15,7 +15,7 @@ function tf = exist(endpoint, name, type, opts)
         name string { mustBeTextScalar }
         type prodserver.mcp.Primitive { prodserver.mcp.validation.mustBeSameSize(2,name,type) }
         opts.timeout double {mustBePositive} = 60
-        opts.retry double {mustBePositive} = 3
+        opts.retry double {mustBePositive} = 30
         opts.delay double {mustBePositive} = 2
     end
 
@@ -50,7 +50,15 @@ function tf = exist(endpoint, name, type, opts)
             % Names of all the <type> primitives on the server.
     
             % Out, out, damn char!
-            names = arrayfun(@(r)string(r.name),p);
+            if iscell(p)
+                names = cellfun(@(r)string(r.name),p);
+            elseif isstruct(p)
+                if isempty(p) == false
+                    names = string({p.name});
+                else 
+                    names = {};
+                end
+            end
         
             % If we find exactly one primitive with the requested name,
             % the primitive "exists".

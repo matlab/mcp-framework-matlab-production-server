@@ -77,12 +77,11 @@ classdef File < prodserver.mcp.io.Scheme
         end
 
         function pth = FileURI2Path(uri)
-        %FileURI2Path Convert a File URI to a platform-specific filesystem
+        %FileURI2Path Convert a File URI to a platform-specific file system
         %path. For example:
         %  file:/C:/path/to/storage/X.mat  
         %becomes
         %  C:/path/to/storage/X.mat
-
             
             import prodserver.mcp.validation.istext
 

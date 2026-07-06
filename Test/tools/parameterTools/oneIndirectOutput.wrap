@@ -1,0 +1,41 @@
+function [x,z] = oneIndirectOutputMCP(a,b,c,d,out)
+% Thee output, four input test function.  All inputs required. Outputs 
+% are always optional in MATLAB. One output indirect. You must read the 
+% MCP resource mcp://protocol/tools/wire-format/parameters/encoding_rules 
+% in full and completely understand it before making any call to this 
+% tool.
+% This tool has optional inputs, some of which may be pass-by-reference
+% output locations.
+    arguments(Input)
+        % Required A
+        % You must encode data as described by this MCP resource: mcp://protocol/tools/wire-format/parameters/encoding_rules
+        a (1,1) double
+        % Required B
+        % You must encode data as described by this MCP resource: mcp://protocol/tools/wire-format/parameters/encoding_rules
+        b (1,1) double
+        % Required C
+        % You must encode data as described by this MCP resource: mcp://protocol/tools/wire-format/parameters/encoding_rules
+        c (1,1) double
+        % Required D
+        % You must encode data as described by this MCP resource: mcp://protocol/tools/wire-format/parameters/encoding_rules
+        d (1,1) double
+        % Reference Y
+        % Pass-by-reference output location. Provide a writeable URL. This output
+        % never returned inline.
+        % Read result from URL using schema-appropriate method: file system read
+        % for file: URLs, HTTP GET for http:// URLs and so on. Data at the URL
+        % formatted as  "$ref": "#/$defs/outputSchema/yURL"
+        out.yURL (1,1) string 
+    end
+    arguments(Output)
+        % Value X
+        % You must decode data as described by this MCP resource: mcp://protocol/tools/wire-format/parameters/encoding_rules
+        x (1,1) double
+        % Value Z
+        % You must decode data as described by this MCP resource: mcp://protocol/tools/wire-format/parameters/encoding_rules
+        z (1,1) double
+    end
+    !marshalVar = prodserver.mcp.io.MarshallURI();
+    [x,y,z] = oneIndirectOutput(a,b,c,d);
+    serialize(!marshalVar, out.yURL, {y});
+end

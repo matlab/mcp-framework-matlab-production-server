@@ -1,0 +1,27 @@
+{ 
+    "type": "array",
+    "x-call-by": "reference",
+    "items": {
+        "type": "object",
+        "properties": {
+            "radius": {
+                "type": "number",
+                "description": "Radius"
+            },
+            "origin": {
+                "description": "Center of the cicle",
+                "type": "object",
+                "properties": {
+                    "x": {
+                        "type": "number",
+                        "description": "X coordinate of the center of the circle"
+                    },
+                    "y": {
+                        "type": "number",
+                        "description": "Y coordinate of the center of the circle"
+                    }
+                }
+            }
+        }
+    }
+}

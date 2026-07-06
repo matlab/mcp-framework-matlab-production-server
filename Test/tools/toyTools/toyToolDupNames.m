@@ -1,4 +1,6 @@
 function [a,b,c] = toyToolDupNames(a,x,b,n)
+% This is a tool in which some inputs have the same name as some outputs.
+% Or is it the outputs that have the same name as the inputs? 
     arguments(Input)
         % A collection of data
         a cell

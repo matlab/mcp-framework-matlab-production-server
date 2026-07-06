@@ -1,27 +1,13 @@
-classdef tOptionalHandlers < MCPHandlerBase
+classdef tOptionalHandlers < MCPHandlerBase 
 % Call the mcpHandler to invoke a function that has optional inputs.
-
-    methods (TestClassSetup)
-
-        function useToyTools(test)
-
-            % Path to the test tools
-            testFolder = fileparts(mfilename("fullpath"));
-            test.toolsFolder = fullfile(testFolder,"..","..","tools", ...
-                "toyTools");
-        
-            % Put the test tools folder on the path.
-            import matlab.unittest.fixtures.PathFixture
-       
-            test.applyFixture(PathFixture(test.toolsFolder));
-        end
-    end
     
     methods(Test)
 
         function optionalScalarInputs(test)
 
             import prodserver.mcp.internal.hasField
+            import prodserver.mcp.test.mixin.RequireToyTools
+            test.applyFixture(RequireToyTools);
 
             % Generate definitions required by the mcpHandler
 
