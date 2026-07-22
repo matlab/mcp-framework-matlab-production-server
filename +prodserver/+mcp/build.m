@@ -33,6 +33,19 @@ function [ctf,endpoint] = build(fcn, opts)
         % be the same size as FCN.
         opts.definition {prodserver.mcp.validation.mustBeToolDefinition} = string.empty
 
+        % Maximum number of elements in a literal variable. Variables
+        % larger than this are passed by reference via URLs.
+        opts.maxLiteralSize (1,1) double = prodserver.mcp.MCPConstants.MaxLiteralSize;
+
+        % Wire encoding. A scalar applies to all tools, or specify a vector
+        % the same length as the number of tools to give each tool its own
+        % encoding strategy. Default: precise, invertible encoding.
+        opts.encoding prodserver.mcp.WireEncoding = "Invertible";
+
+        % MCP server resources. A structure with at least two fields: uri
+        % and contents. Allow a struct array or a cell array.
+        opts.resource (1,:) struct {prodserver.mcp.validation.mustBeResource} = []
+
         % Embed routes in archive or use MPS instance-global routes?
         opts.routes prodserver.mcp.RoutesType = prodserver.mcp.RoutesType.Archive
 
@@ -41,6 +54,11 @@ function [ctf,endpoint] = build(fcn, opts)
 
         % Wrapper function for marshaling large data as files.
         opts.wrapper string {prodserver.mcp.validation.mustBeWrapper} = strings(1,numel(fcn))
+
+        % Map of MATLAB to JSON types used in description generation. A
+        % scalar struct. Fieldnames are MATLAB type names, values are JSON
+        % type names. Applies to all generated descriptions.
+        opts.typemap struct {mustBeScalarOrEmpty} = []
 
         % Timeout, in seconds, for server interactions.
         opts.timeout (1,1) double = 30
@@ -108,9 +126,11 @@ function [ctf,endpoint] = build(fcn, opts)
     % Generate or copy wrappers for each MCP tool. fcn MUST NOT be a file
     % path, because wrapForMCP requires MATLAB-callable identifiers -- just
     % the function name in this case.
-    wrapper = prodserver.mcp.internal.wrapForMCP(fcn, ...
+    [wrapper,defs] = prodserver.mcp.internal.wrapForMCP(fcn, ...
         opts.wrapper, opts.folder, AI=availableAI, timeout=opts.timeout, ...
-        retry=opts.retry,import=fieldnames(opts.import));
+        maxLiteralSize=opts.maxLiteralSize, retry=opts.retry,...
+        import=fieldnames(opts.import),typemap=opts.typemap);
+
     if ~isempty(wrapper)
         files = [files, wrapper];
     end
@@ -128,7 +148,7 @@ function [ctf,endpoint] = build(fcn, opts)
     % wrapper function.
     if prodserver.mcp.internal.isOnPath(opts.folder) == false
         addpath(opts.folder);
-        restorePath = onCleanup(@()rmpath(opts.folder));
+        cleanUpUserFolderPath = onCleanup(@()rmpath(opts.folder));
     end
 
     % If no wrapper, tool calls fcn
@@ -138,11 +158,64 @@ function [ctf,endpoint] = build(fcn, opts)
         [~,wrapperFcn] = fileparts(wrapper);
     end
 
-    % Only generate definition if stop-stage permits it.
+    % Only generate definition if stop-stage permits it. Definition
+    % includes both tools and resources. There's no way to generate only
+    % tools or only resources.
     if opts.stop < prodserver.mcp.BuildStage.Definition, return; end
 
-    definition = prodserver.mcp.internal.defineForMCP(opts.tool, ...
-        wrapperFcn,AI=availableAI,definition=opts.definition,folder=opts.folder);
+    % All servers have a tool that reads resources because some agent
+    % environments (Claude desktop and Claude Code as of April 2026) cannot
+    % actually retrieve bare resources. 
+
+    toolList = [opts.tool, MCPConstants.ReadResourceTool];
+    wrapperFcn = [wrapperFcn, MCPConstants.ReadResourceTool];
+    enc = opts.encoding;
+    if isscalar(enc)
+        enc = repmat(enc,size(opts.tool));
+    end
+    wireEncoding = [enc, "JSON"];
+    builtin_tools_folder = fullfile(...
+        prodserver.mcp.internal.packageFolder(),"server","tools");
+    addpath(builtin_tools_folder);
+    cleanUpBuiltinFolderPath = onCleanup(@()rmpath(builtin_tools_folder));
+    % Empty defs for resource reader, since no wrapper.
+    if ~isempty(defs)
+        defs = [defs {[]}];
+    end
+
+    % Add full path to the tool to the list of files built into the CTF
+    files = [files, which(MCPConstants.ReadResourceTool)];  
+
+    defArgs = {};
+    % defineForMCP expects opts.definition to provide a COMPLETE definition
+    % of each tool. The definition must be a file, JSON string or a
+    % structure.
+    if ~isempty(opts.definition)
+        definition = num2cell(opts.definition);
+        definition{end+1} = [];
+        defArgs = {"definition", definition};
+    elseif ~isempty(defs)
+        defArgs = {"defs", defs};
+    end
+    definition = prodserver.mcp.internal.defineForMCP(toolList, ...
+        wrapperFcn,defArgs{:},AI=availableAI,encoding=wireEncoding, ...
+        stage=prodserver.mcp.BuildStage.Definition);
+
+    % All servers have a resource that describes the wire-encoding used for
+    % tool parameters.
+    resourceList = MCPConstants.WireEncodingResource;
+
+    % Default resource value struct.empty(1,0) won't concatenate with any
+    % structure, so test required. Cell array because fields of each
+    % resource structure may vary.
+    if ~isempty(opts.resource)
+        resourceList = { resourceList, opts.resource };
+    end
+    
+    % Generate resource definitions and add them to the structure saved
+    % into the MCP definition file.
+    resources = prodserver.mcp.internal.resourceDefinition(resourceList);
+    def.(MCPConstants.ResourceVariable) = resources;
 
     % Save the definition to deploy with the MCP tool. -struct saves the
     % fields of the structure as named variables. "def" itself does not
@@ -211,9 +284,14 @@ function ctf = buildMCP(files, folder, archive, definition, routesType, stop)
     prodserver.mcp.internal.replaceStringsInFile(grFile,"<Archive>", ...
         archive);
 
+    % Edit the Dev and Test routes file to set the archive name.
+    dtrFile = fullfile(folder,"dev_test_routes.json");
+    prodserver.mcp.internal.replaceStringsInFile(dtrFile,"<Archive>", ...
+        archive);
+
     % No error checking here, because the only caller is build, whom we
     % assume makes no mistakes.
-    if routesType == prodserver.mcp.RoutesType.Archive
+    if ismember(prodserver.mcp.RoutesType.Archive,routesType)
         args = { "RoutesFile", fullfile(folder,"archive_routes.json") };
     else
         args = {};

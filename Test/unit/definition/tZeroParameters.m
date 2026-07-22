@@ -15,13 +15,9 @@ classdef tZeroParameters < matlab.unittest.TestCase & ...
             test.applyFixture(PathFixture(pkgFolder));
         end
 
-        function managePath(test)
-            % Put the toy tools on the path
-            import matlab.unittest.fixtures.PathFixture
-            folder = fileparts(mfilename("fullpath"));
-            test.toolsFolder = fullfile(folder,"..", "..", "tools", ...
-                "toyTools");
-            test.applyFixture(PathFixture(test.toolsFolder));
+        function requireToyTools(test)
+            rtt = test.applyFixture(prodserver.mcp.test.mixin.RequireToyTools());
+            test.toolsFolder = rtt.toolFolder;
         end
 
     end
@@ -83,7 +79,7 @@ classdef tZeroParameters < matlab.unittest.TestCase & ...
             % reproducible results for this tool.
             rng(39,"multFibonacci");
             [~,fcn] = fileparts(wrap);
-            [extent,cover] = feval(fcn,nURL,heroURL,areaURL);
+            [extent,cover] = feval(fcn,n=nURL,hero=heroURL,area=areaURL);
 
             % Expected result with this random seed.
             x = {12, 10, 7};

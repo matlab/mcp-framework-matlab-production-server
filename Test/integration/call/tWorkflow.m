@@ -29,25 +29,58 @@ classdef tWorkflow < MCPCaller & ...
             [eX,eY,eZ] = feval(fcn,a,b);
 
             % Build tool
-            ctf = prodserver.mcp.build(fcn, folder=test.tempFolder,...
+            ctf = prodserver.mcp.build(fcn, folder=test.tempFolder, ...
                 archive=archive);
             test.verifyEqual(exist(ctf,"file"),2,ctf);
 
-            % Deploy using the full server URL (includes dynamic port)
-            endpoint = prodserver.mcp.deploy(ctf,test.server);
+            % Deploy
+            endpoint = prodserver.mcp.deploy(ctf,test.host,test.port);
 
             % Validate
-            tf = prodserver.mcp.exist(endpoint,fcn,"Tool",delay=10,retry=5);
-            test.verifyTrue(tf,fcn + " is not a tool at " + endpoint)
+            tf = prodserver.mcp.exist(endpoint,fcn,"Tool");
+            test.verifyTrue(tf,fcn + " is not a tool at " + endpoint);
+
+            % Read the default resource
+            resource = prodserver.mcp.list(endpoint,"Resource");
+            test.verifyFalse(isempty(resource),"No resources!");
+            test.verifyEqual(numel(resource),1,"Wrong number of resources");
+            test.verifyTrue(iscell(resource),"Not a cell array");
+            resource = resource{1};
+            test.verifyTrue(isstruct(resource),"Not a structure");
+            rName = [resource.name];
+            encoding_rules = prodserver.mcp.read(endpoint,rName);
+            test.verifyEqual(numel(encoding_rules),1,"Number of encoding documents");
+            resourceTextFile = fullfile(fileparts(mfilename("fullpath")),...
+                "..","..","..", "+prodserver","+mcp","+jsonrpc",...
+                "wire_encoding_rules.txt");
+            resourceText = string(fileread(resourceTextFile));
+            test.verifyEqual(encoding_rules,resourceText);
+
+            % Use the built-in resource-reading tool to read the resource.
+            % (Ensures the tool was packaged with the vanilla server.)
+            encoding_rules_resource = prodserver.mcp.call(endpoint,...
+                prodserver.mcp.MCPConstants.ReadResourceTool, ...
+                prodserver.mcp.MCPConstants.WireEncodingResourceURI);
+
+            test.verifyTrue(prodserver.mcp.internal.hasField(...
+                encoding_rules_resource,"mimeType"));
+            test.verifyTrue(prodserver.mcp.jsonrpc.isMIMETypeText(...
+                encoding_rules_resource.mimeType),"MIME type");
+
+            test.verifyTrue(prodserver.mcp.internal.hasField(...
+                encoding_rules_resource,"text"), "text field");
+            test.verifyEqual(encoding_rules_resource.text, char(resourceText), ...
+                "MCP resource reading tool");
 
             % Create the file URL inputs in the temporary folder.
-            xURL = locate(test,"x",test.dataFolder);
-            yURL = locate(test,"y",test.dataFolder);
-            zURL = locate(test,"z",test.dataFolder);
-            bURL = stow(test,test.dataFolder,"b",b);
+            xURL = locate(test,"x",test.tempFolder);
+            yURL = locate(test,"y",test.tempFolder);
+            zURL = locate(test,"z",test.tempFolder);
+            bURL = stow(test,test.tempFolder,"b",b);
 
             % Invoke - x,y,z and b are externalized.
-            prodserver.mcp.call(endpoint,fcn,a,bURL,xURL,yURL,zURL);
+            prodserver.mcp.call(endpoint,fcn,a,bURL,xURL=xURL,...
+                yURL=yURL,zURL=zURL);
             
             % Fetch outputs from their URLs.
             aX = fetch(test,xURL);

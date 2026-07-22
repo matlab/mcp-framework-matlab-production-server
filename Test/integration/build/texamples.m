@@ -1,5 +1,7 @@
 classdef texamples < matlab.unittest.TestCase
 
+% Copyright 2026 The MathWorks, Inc.
+
     properties
         exampleFolder
     end
@@ -24,7 +26,7 @@ classdef texamples < matlab.unittest.TestCase
 
             ctf = prodserver.mcp.build("cleanSignal", ...
                 folder=tempFolder.Folder,...
-                wrapper=fullfile(csFolder,"cleanSignalMCP.m"), ...
+                wrapper=fullfile(csFolder,"cleanSignalMCPEx.m"), ...
                 definition=fullfile(csFolder,"cleanSignalMCPTool.json"));
             
             test.verifyTrue(startsWith(ctf,tempFolder.Folder));
@@ -42,7 +44,7 @@ classdef texamples < matlab.unittest.TestCase
             noisyURL = "file:" + noisyFile;
             cleanFile = fullfile(tempFolder.Folder,"cleanLoopVoltage.csv");
             cleanURL = "file:" + cleanFile;
-            cleanSignalMCP(noisyURL,frequency,cleanURL);
+            cleanSignalMCPEx(noisyURL,frequency,cleanURL);
             test.verifyEqual(exist(cleanFile,"file"),2,cleanFile);
 
             % The output data must be identical, within tolerance --

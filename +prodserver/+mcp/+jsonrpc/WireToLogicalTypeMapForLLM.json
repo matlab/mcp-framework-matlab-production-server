@@ -1,0 +1,79 @@
+{
+  "id": "matlab-mps-type-mapping-llm",
+  "title": "MATLAB Production Server — Logical to Physical Type Mapping (LLM Version)",
+  "description": "Maps logical schema declarations (x-matlab-* vocabulary, Document 3) to physical schema types (MatlabXxx $defs, Document 2). x-matlab-class is always the literal return value of class() in MATLAB.",
+
+  "general-rules": {
+    "rule-1": "x-matlab-class is the return value of class(x) in MATLAB. For all non-enumeration types this value equals mwtype in the physical encoding.",
+    "rule-2": "x-matlab-shape maps directly to mwsize in the physical encoding. Named free dimensions (e.g. 'N', 'M') are replaced by concrete positive integers at call time. 'scalar' is shorthand for [1,1]. ':' maps to any positive integer value.",
+    "rule-3": "When any dimension in x-matlab-shape is 0, or the array has no elements, the physical encoding is MatlabEmpty regardless of x-matlab-class. struct is excluded — empty struct arrays are not permitted.",
+    "rule-4": "x-matlab-complex:true is only valid for x-matlab-class 'double' or 'single'. All integer classes do not support complex values.",
+    "rule-5": "For enumeration types, class(x) returns the specific enumeration class name (e.g. 'Colors'), not a generic string. This class name becomes mwtype in the physical encoding and is used directly as x-matlab-class in the logical schema.",
+    "rule-6": "x-matlab-fields maps to the keys of mwdata in MatlabStruct. Each field value is a logical type declaration that maps recursively through this table to a physical MatlabValue.",
+    "rule-7": "x-matlab-element-type constrains the type of each element in MatlabCell.mwdata. If absent, elements are unconstrained MatlabValues.",
+    "rule-8": "x-matlab-constraints are semantic constraints applied after type and shape validation. They have no direct physical encoding representation — they are enforced by the server on decoded MATLAB values."
+  },
+
+  "numeric-mapping-rule": {
+    "description": "All numeric classes follow a single parameterized rule. Look up x-matlab-class in the numeric-types table to find the base-type, value range, and physical refs. Then apply the rule below.",
+    "rule": "Given a row in numeric-types with class C: if x-matlab-complex is false, use the real-physical-ref with mwtype C and mwdata containing plain JSON numbers (or NaN/Inf/-Inf for float base-type only). If x-matlab-complex is true and base-type is float, use the complex-physical-ref with mwcomplex:true and mwdata containing [re,im] pairs in column-major order. x-matlab-complex:true is not valid for integer base-type.",
+
+    "numeric-types": [
+      { "x-matlab-class": "double",  "base-type": "float",   "value-range": "IEEE 754 double precision",          "real-physical-ref": "MatlabDouble",  "complex-physical-ref": "MatlabComplexDouble", "nan-inf-permitted": true,  "precision-note": null },
+      { "x-matlab-class": "single",  "base-type": "float",   "value-range": "IEEE 754 single precision",          "real-physical-ref": "MatlabSingle",  "complex-physical-ref": "MatlabComplexSingle", "nan-inf-permitted": true,  "precision-note": null },
+      { "x-matlab-class": "int8",    "base-type": "integer", "value-range": "[-128, 127]",                        "real-physical-ref": "MatlabInt8",    "complex-physical-ref": null,                  "nan-inf-permitted": false, "precision-note": null },
+      { "x-matlab-class": "uint8",   "base-type": "integer", "value-range": "[0, 255]",                           "real-physical-ref": "MatlabUInt8",   "complex-physical-ref": null,                  "nan-inf-permitted": false, "precision-note": null },
+      { "x-matlab-class": "int16",   "base-type": "integer", "value-range": "[-32768, 32767]",                    "real-physical-ref": "MatlabInt16",   "complex-physical-ref": null,                  "nan-inf-permitted": false, "precision-note": null },
+      { "x-matlab-class": "uint16",  "base-type": "integer", "value-range": "[0, 65535]",                         "real-physical-ref": "MatlabUInt16",  "complex-physical-ref": null,                  "nan-inf-permitted": false, "precision-note": null },
+      { "x-matlab-class": "int32",   "base-type": "integer", "value-range": "[-2147483648, 2147483647]",          "real-physical-ref": "MatlabInt32",   "complex-physical-ref": null,                  "nan-inf-permitted": false, "precision-note": null },
+      { "x-matlab-class": "uint32",  "base-type": "integer", "value-range": "[0, 4294967295]",                    "real-physical-ref": "MatlabUInt32",  "complex-physical-ref": null,                  "nan-inf-permitted": false, "precision-note": null },
+      { "x-matlab-class": "int64",   "base-type": "integer", "value-range": "[-9223372036854775808, 9223372036854775807]",  "real-physical-ref": "MatlabInt64",   "complex-physical-ref": null,          "nan-inf-permitted": false, "precision-note": "Full 64-bit precision preserved — not converted to double." },
+      { "x-matlab-class": "uint64",  "base-type": "integer", "value-range": "[0, 18446744073709551615]",          "real-physical-ref": "MatlabUInt64",  "complex-physical-ref": null,                  "nan-inf-permitted": false, "precision-note": "Full 64-bit precision preserved — not converted to double." }
+    ]
+  },
+
+  "non-numeric-mapping": [
+    { "x-matlab-class": "logical",          "physical-ref": "MatlabLogical",  "mwtype": "logical",          "notes": "mwdata elements must be JSON true or false only — no numeric 0/1." },
+    { "x-matlab-class": "char",             "physical-ref": "MatlabChar",     "mwtype": "char",             "notes": "mwdata is a single-element JSON array containing one string. For M-by-N char arrays the string contains all M*N characters in column-major order." },
+    { "x-matlab-class": "string",           "physical-ref": "MatlabString",   "mwtype": "string",           "notes": "MATLAB string array (not char). Each element is a JSON string. Missing values encoded as {\"mwdata\":\"missing\"}." },
+    { "x-matlab-class": "cell",             "physical-ref": "MatlabCell",     "mwtype": "cell",             "notes": "mwdata is a flat column-major array of MatlabValue elements, each independently typed." },
+    { "x-matlab-class": "struct",           "physical-ref": "MatlabStruct",   "mwtype": "struct",           "notes": "mwdata is a JSON object mapping field names to column-major arrays of MatlabValue. Empty struct arrays are not permitted." },
+    { "x-matlab-class": "datetime",         "physical-ref": "MatlabDatetime", "mwtype": "datetime",         "notes": "TimeStamp values are POSIX milliseconds since 1970-01-01T00:00:00 UTC. NaT encodes as NaN. Requires mwmetadata with TimeZone and Format." },
+    { "x-matlab-class": "<EnumClassName>",  "physical-ref": "MatlabEnum",     "mwtype": "<EnumClassName>",  "notes": "x-matlab-class is the specific MATLAB enumeration class name as returned by class() — e.g. 'Colors'. This passes through directly as mwtype. Detected by: class name not present in any other row of this table." }
+  ],
+
+  "empty-array-override": {
+    "description": "When x-matlab-shape contains a 0 dimension, or the array is otherwise empty, the physical encoding is always MatlabEmpty regardless of x-matlab-class.",
+    "physical-ref": "MatlabEmpty",
+    "mwdata": [],
+    "mwsize": [0, 0],
+    "excluded-classes": ["struct"],
+    "notes": "struct is excluded — empty struct arrays are not permitted in MPS JSON encoding."
+  },
+
+  "shape-mapping": {
+    "description": "How x-matlab-shape dimension descriptors map to concrete mwsize values at call time.",
+    "rules": [
+      { "logical": "scalar",                        "physical": "[1, 1]",                               "notes": "Shorthand for a 1-by-1 array." },
+      { "logical": "any",                           "physical": "Any valid mwsize with >= 2 elements",  "notes": "Fully unconstrained shape." },
+      { "logical": "positive integer N",            "physical": "N",                                    "notes": "Fixed dimension — mwsize value must equal N exactly." },
+      { "logical": "named letter (e.g. 'N')",       "physical": "Any positive integer, consistent",     "notes": "Same letter in multiple positions means equal dimensions. E.g. ['N','N'] = square." },
+      { "logical": "':' (anonymous)",               "physical": "Any positive integer",                 "notes": "No consistency requirement with other ':' dimensions." },
+      { "logical": "0 in any dimension",            "physical": "[0, 0]",                               "notes": "Empty array. Physical encoding is MatlabEmpty. mwsize is always [0,0]." }
+    ]
+  },
+
+  "column-major-rule": {
+    "description": "The single most important encoding rule. Applies to all physical array types. MATLAB stores arrays in column-major order — column 1 first, then column 2, and so on. This is the opposite of C and Python/NumPy which use row-major order.",
+    "rule": "mwdata is a flat array in column-major order. For an M-by-N array, the element at row r (0-based), column c (0-based) is at mwdata index r + c*M.",
+    "example": {
+      "matlab": "[1 2 3; 4 5 6]",
+      "description": "2 rows, 3 columns",
+      "correct-mwdata": [1, 4, 2, 5, 3, 6],
+      "correct-mwsize": [2, 3],
+      "wrong-mwdata": [1, 2, 3, 4, 5, 6],
+      "wrong-reason": "Row-major order — this is the C/Python/NumPy convention and is WRONG for MPS encoding"
+    },
+    "higher-dimensional": "For arrays with more than 2 dimensions, element at indices (i, j, k, ...) (all 0-based) is at mwdata index i + j*dim[0] + k*dim[0]*dim[1] + ... where dim[0], dim[1], ... are the values from mwsize in order."
+  }
+}

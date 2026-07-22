@@ -48,6 +48,34 @@ function data = decodeBody(msg)
                 data = native2unicode(data,"UTF-8");
             end
             data = jsondecode(data);
+            if isstruct(data)
+                % For tools/call requests, wire-decode MATLAB values in
+                % params.arguments.
+                if isfield(data,'method') && strcmp(data.method,'tools/call') && ...
+                        isfield(data,'params') && isfield(data.params,'arguments')
+                    args = data.params.arguments;
+                    flds = fieldnames(args);
+                    for k = 1:numel(flds)
+                        args.(flds{k}) = prodserver.mcp.jsonrpc.mcpWireDecodeValue( ...
+                            args.(flds{k}));
+                    end
+                    data.params.arguments = args;
+                end
+                % For tools/call responses, wire-decode MATLAB values in
+                % structuredContent.
+                if isfield(data,'result')
+                    r = data.result;
+                    if isfield(r,'structuredContent')
+                        flds = fieldnames(r.structuredContent);
+                        for k = 1:numel(flds)
+                            r.structuredContent.(flds{k}) = ...
+                                prodserver.mcp.jsonrpc.mcpWireDecodeValue( ...
+                                    r.structuredContent.(flds{k}));
+                        end
+                    end
+                    data.result = r;
+                end
+            end
         elseif bodyCT == "application/octet-stream"
             data = getArrayFromByteStream(data);
         elseif startsWith(bodyCT,"text/")

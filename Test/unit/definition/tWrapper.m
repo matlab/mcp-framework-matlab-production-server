@@ -1,8 +1,8 @@
 classdef tWrapper < matlab.unittest.TestCase & ...
-        prodserver.mcp.test.mixin.ExternalData
+        prodserver.mcp.test.mixin.ExternalData 
 
     properties
-        toolFolder
+        toolsFolder
     end
 
     methods (TestClassSetup)
@@ -14,21 +14,19 @@ classdef tWrapper < matlab.unittest.TestCase & ...
             pkgFolder = fullfile(testFolder,"../../..");
             test.applyFixture(PathFixture(pkgFolder));
         end
-
-        function initPath(test)
-            % Put the toyTools folder on the path.
-            import matlab.unittest.fixtures.PathFixture
-            test.toolFolder = fullfile(fileparts(mfilename("fullpath")),...
-                "..", "..", "tools","toyTools");
-            test.applyFixture(PathFixture(test.toolFolder));
+        
+        function requireToyTools(test)
+            rtt = test.applyFixture(prodserver.mcp.test.mixin.RequireToyTools());
+            test.toolsFolder = rtt.toolFolder;
         end
+
     end
 
     methods
         function validateWrapperText(test,tool,code)
             % Grab the known-good wrapper (which "code" should match
             % exactly).
-            wrapFile = fullfile(test.toolFolder,tool+".wrap");
+            wrapFile = fullfile(test.toolsFolder,tool+".wrap");
             wrap = readlines(wrapFile);
 
             % The generated code contains a unique UUID-named variable. In
@@ -36,8 +34,10 @@ classdef tWrapper < matlab.unittest.TestCase & ...
             % be injected into the .wrap file.
             varPattern = "v" + alphanumericsPattern + asManyOfPattern("_"+alphanumericsPattern,4,4);
             marshalVar = unique(extract(code,varPattern));
-            test.verifyEqual(numel(marshalVar),1,"Unique UUID variables.")
-            wrap = replace(wrap,"!marshalVar",marshalVar);
+            if ~isempty(marshalVar)
+                test.verifyEqual(numel(marshalVar),1,"Unique UUID variables.")
+                wrap = replace(wrap,"!marshalVar",marshalVar);
+            end
             wrap = strjoin(wrap,newline);
 
             % Generated wrapper should be identical to "golden file".
@@ -67,7 +67,34 @@ classdef tWrapper < matlab.unittest.TestCase & ...
 
     methods(Test)
 
+        function wrapExternalWithSchema(test)
+        % Externalized variables that specify an external schema.
+
+            % Temporary folder to contain wrappers
+            import matlab.unittest.fixtures.TemporaryFolderFixture
+            tFolder = TemporaryFolderFixture;
+            test.applyFixture(tFolder);
+            wrapFolder = tFolder.Folder;
+
+            % Generate wrapper for function with externalized parameters
+            fcn = "toyFileSchema"; 
+            [wrap,def] = prodserver.mcp.internal.wrapForMCP(fcn,"",...
+                wrapFolder);
+
+            % Expect the definition to use $defs to capture the schemas of
+            % the externalized variables r and z. 
+            test.verifyTrue(iscell(def),"Defs not a cell array");
+            actualDefs = def{1};
+            test.verifyEqual(numel(wrap),numel(def),"wrap count ~= def count");
+
+            defFile = fullfile(test.toolsFolder,fcn+"Defs.json");
+            expectedDefs = strtrim(fileread(defFile));
+            actualDefs = jsonencode(actualDefs);
+            test.verifyEqual(actualDefs,expectedDefs,"Schemas of externalized variables");
+        end
+
         function wrapMyriad(test)
+        % Generate many wrappers with a single call.
 
             % Temporary folder to contain wrappers
             import matlab.unittest.fixtures.TemporaryFolderFixture
@@ -79,8 +106,9 @@ classdef tWrapper < matlab.unittest.TestCase & ...
             fcn = ["toyToolOne", "toyToolTwo", "toyToolThree"];
 
             % Vanilla argument list -- tools only, no GenAI.
+            typemap.geom = "float";
             wrap = prodserver.mcp.internal.wrapForMCP(fcn,["","",""], ...
-                wrapFolder);
+                wrapFolder,typemap=typemap);
 
             test.verifyEqual(numel(wrap),numel(fcn),"Wrapper count");
 
@@ -95,6 +123,9 @@ classdef tWrapper < matlab.unittest.TestCase & ...
         end
 
         function wrapLongComments(test)
+        % Some of the descriptive comments span multiple lines. Don't miss
+        % any.
+
             % Temporary folder to contain wrappers -- put it on the path so
             % feval can find the wrapper.
             import matlab.unittest.fixtures.TemporaryFolderFixture
@@ -132,8 +163,8 @@ classdef tWrapper < matlab.unittest.TestCase & ...
             oneOutURL = locate(test,"oneOut",wrapFolder);
             threeOutURL = locate(test,"threeOut",wrapFolder);
 
-            two_w = feval(wrapper,threeURL,twoURL,oneURL,oneOutURL, ...
-                threeOutURL);
+            two_w = feval(wrapper,threeURL,twoURL,oneURL,oneURL=oneOutURL, ...
+                threeURL=threeOutURL);
             test.verifyEqual(two_w,two_out,"two_w");
 
             one_w = fetch(test,oneOutURL);
@@ -145,6 +176,8 @@ classdef tWrapper < matlab.unittest.TestCase & ...
 
 
         function wrapDupNames(test)
+        % Duplicate names in the parameter lists (some inputs have the same
+        % names as some outputs).
 
             % Temporary folder to contain wrappers -- put it on the path so
             % feval can find the wrapper.
@@ -185,7 +218,7 @@ classdef tWrapper < matlab.unittest.TestCase & ...
 
             % Call the generated wrapper; test to be sure generated code
             % will actually run.
-            [aMCP,cMCP] = feval(wrapper,aURL,xURL,bURL,10,out_bURL);
+            [aMCP,cMCP] = feval(wrapper,aURL,xURL,bURL,10,bURL=out_bURL);
 
             % Check results against expected -- those generated by running
             % the original, unwrapped, function.
@@ -193,7 +226,6 @@ classdef tWrapper < matlab.unittest.TestCase & ...
             test.verifyEqual(cMCP,c,"c");
             bData = fetch(test,out_bURL);
             test.verifyEqual(bData,out_b,out_bURL);
-
         end
 
         function wrapOne(test)
@@ -234,7 +266,7 @@ classdef tWrapper < matlab.unittest.TestCase & ...
             yURL = locate(test,"Y",urlFolder);
             zURL = locate(test,"Z",urlFolder);
 
-            feval(tool+"MCP",a,bURL,xURL,yURL,zURL);
+            feval(tool+"MCP",a,bURL,xURL=xURL,yURL=yURL,zURL=zURL);
 
             x = fetch(test,xURL);
             y = fetch(test,yURL);
@@ -247,13 +279,18 @@ classdef tWrapper < matlab.unittest.TestCase & ...
         end
 
         function wrapArgOrder(test)
-        % Wrap a function whose arguments are not in alphabetical order.
+        % Wrap a function whose arguments are not in alphabetical order to
+        % be sure parameter name does not affect argument's location in
+        % argument list.
+
             import prodserver.mcp.internal.Constants
     
             % Generate a wrapper for toyToolTwo
             tool = "toyToolTwo";
             wrapper = tool+"MCP";
-            code = prodserver.mcp.internal.mcpWrapper(tool,wrapper);
+            types.geom = "double";
+            code = prodserver.mcp.internal.mcpWrapper(tool,wrapper,...
+                typemap=types);
     
             validateWrapperText(test,tool,code);
     
@@ -283,7 +320,7 @@ classdef tWrapper < matlab.unittest.TestCase & ...
             aURL = locate(test,"A",urlFolder);
 
             % Invoke wrapper
-            feval(wrapper,oURL,mURL,cURL,aURL);
+            feval(wrapper,oURL,mURL,chiralURL=cURL,asymmetryURL=aURL);
 
             cw = fetch(test,cURL); 
             aw = fetch(test,aURL);

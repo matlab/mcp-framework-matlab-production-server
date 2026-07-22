@@ -29,7 +29,15 @@ classdef tAdditionalFiles < matlab.unittest.TestCase
 
         function validateFileCapture(test,archive,files)
 
-            [~,listOutput] = system("unzip -l """ + archive + """");
+            % If we can't open the archive, we can't do any validation.
+            if ispc
+                inspector = "tar -tf """ + archive + """";
+            else
+                inspector = "unzip -l """ + archive + """";
+            end
+            [ok,listOutput] = system(inspector);
+            test.assertEqual(ok,0,listOutput);
+
             % Extract file entries beginning with "fsroot"
             fileList = regexp(listOutput, 'fsroot[\S ]*\n', 'match');
 

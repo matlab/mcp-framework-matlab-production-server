@@ -1,12 +1,13 @@
 function items = list(endpoint, type, opts)
 % List all of the MCP primitives of TYPE available at ENDPOINT.
-% Returns a MATLAB structure corresponding to the MCP protocol JSON 
-% description of the available primitives, or empty if none exist.
+% Returns a cell array of MATLAB structures corresponding to the MCP 
+% protocol JSON description of the available primitives, or empty if none 
+% exist.
 %
 % Examples:
 %
 %    tools = prodsever.mcp.list("http://localhost:9910/cleanSignal/mcp", "Tools")
-%    tools =
+%    tools{1} =
 %        struct with fields:
 %                  name: 'cleanSignal'
 %           description: 'Removes periodic noise from a signal using ' ...
@@ -22,7 +23,7 @@ function items = list(endpoint, type, opts)
         endpoint string { prodserver.mcp.validation.mustBeMCPServer }
         type (1,1) prodserver.mcp.Primitive 
         opts.timeout double {mustBePositive} = 60
-        opts.retry double {mustBePositive} = 3
+        opts.retry double {mustBePositive} = 30
         opts.delay double {mustBePositive} = 2
     end
 
@@ -46,16 +47,25 @@ function items = list(endpoint, type, opts)
             retry=opts.retry);
         items = items.(mcpName(type));
 
-        % Add the server endpoint to all the tools.
+        % Add the server endpoint to each result. Some lists return as cell
+        % arrays, some as structure arrays. This function ALWAYS returns a
+        % cell array.
         server.type = "http";
         server.url = endpoint;
-        [items.server] = deal(server);
+        if iscell(items)
+            for n = 1:numel(items)
+                items{n}.server = server;
+            end
+        elseif isempty(items) == false && isstruct(items)
+            [items.server] = server;
+            items = num2cell(items);
+        end
 
     catch me
         if strcmpi(me.identifier,"prodserver:mcp:HttpError") && ...
                 contains(me.message, "404: Not Found", IgnoreCase=true)
             error("Unknown MCP server %s.", endpoint);
         end
-        items = [];
+        rethrow(me);
     end
 end

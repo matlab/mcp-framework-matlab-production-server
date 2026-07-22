@@ -8,32 +8,63 @@ function definition = defineForMCP(tools,fcns, opts)
 % Copyright 2025, The MathWorks, Inc.
 
     arguments
-        tools { prodserver.mcp.validation.mustBeText }
-        fcns { prodserver.mcp.validation.mustBeText }
+        % Name of the tool on the MCP server
+        tools string { prodserver.mcp.validation.mustBeText }
+        % Function called by the tool. Must be on the MATLAB path.
+        fcns string { prodserver.mcp.validation.mustBeText }
         opts.AI = [];
-        opts.definitions string = string.empty;
-        opts.folder string = ""
+        % If non-empty, the definition(s) of tools
+        opts.definitions cell = {};
+        % Wire encoding to use for each tool.
+        opts.encoding prodserver.mcp.WireEncoding = "Invertible";
+        % Map of MATLAB to JSON types. Fieldnames are MATLAB types, field
+        % values are JSON types.
         opts.typemap struct = [];
-        opts.timeout double = 30;
-        opts.retry double = 2;
+        % Schema objects to embed in $defs of generated definition.
+        opts.defs cell = {}
+        % At what stage of the build is defineForMCP being called?
+        opts.stage prodserver.mcp.BuildStage = "Definition"
     end
 
-    prodserver.mcp.validation.mustBeSameSize(1,{tools,fcns});
+    % Position-based error only makes sense in argument block.
+    prodserver.mcp.validation.mustBeSameSize(["fcns","tools"],tools,fcns);
+    if ~isempty(opts.defs)
+        prodserver.mcp.validation.mustBeSameSize(["defs", "tools"],...
+            tools,opts.defs);
+    end
+
+    % Cannot provide both opts.definitions and opts.defs
+    if ~isempty(opts.defs) && ~isempty(opts.definitions)
+        error("prodserver:mcp:DoubleDefinition", "Cannot provide both " + ...
+            "definitions and defs arguments. If providing definitions, " + ...
+            "include any required defs in definitions.")
+    end
     
+    definition.tools = {};
     for n = 1:numel(tools)
-        if isempty(opts.definitions)
+        if isempty(opts.definitions) || isempty(opts.definitions{n})
+            defs = [];
+            if ~isempty(opts.defs)
+                defs = opts.defs{n};
+            end
+            if isscalar(opts.encoding) 
+                encoding = opts.encoding; 
+            else
+                encoding = opts.encoding(n);
+            end
             td = prodserver.mcp.internal.mcpDefinition(tools(n), ...
-                fcns(n),opts.typemap);
+                fcns(n),typemap=opts.typemap,defs=defs,stage=opts.stage,...
+                encoding=encoding);
         else
             % Assume each of these is a complete description of a single 
             % tool. Add the "tools" value to the definition we're building.
     
-            if exist(opts.definitions(n),"file") == 2
-                td = jsondecode(fileread(opts.definitions(n)));
-            elseif isstring(opts.definitions(n))
-                td = jsondecode(opts.definitions(n));
-            elseif isstruct(opts.definitions(n))
-                td = opts.definitions(n);
+            if exist(opts.definitions{n},"file") == 2
+                td = jsondecode(fileread(opts.definitions{n}));
+            elseif isstring(opts.definitions{n})
+                td = jsondecode(opts.definitions{n});
+            elseif isstruct(opts.definitions{n})
+                td = opts.definitions{n};
             end
         end
     
@@ -48,7 +79,7 @@ function definition = defineForMCP(tools,fcns, opts)
         % equal to the names of the tools. So copy the signature data by
         % field name.
         if iscell(td.tools)
-            definition.tools = td.tools;
+            definition.tools = [definition.tools, td.tools];
         elseif isstruct(td.tools)
             definition.tools{n} = td.tools;
         end

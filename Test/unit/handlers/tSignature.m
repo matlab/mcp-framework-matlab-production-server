@@ -1,23 +1,11 @@
 classdef tSignature < MCPHandlerBase
 % Test signature handler
 
-% Copyright 2025-2026 The MathWorks, Inc.
-
     methods (TestClassSetup)
         
         function useExamples(test)
-            testFolder = fileparts(mfilename("fullpath"));
-            test.toolsFolder = fullfile(testFolder,"..","..","..","Examples");
-
-            % Put the earthquake and signal example folders on the path.
-            import matlab.unittest.fixtures.PathFixture
-
-            earthquakeFolder = fullfile(test.toolsFolder,...
-                "Earthquake");
-            test.applyFixture(PathFixture(earthquakeFolder));
-
-            primeFolder = fullfile(test.toolsFolder,"Primes");
-            test.applyFixture(PathFixture(primeFolder));
+            % Add examples to the path
+            test.applyFixture(prodserver.mcp.test.mixin.RequireExamples());
         end
 
         function prepareTools(test)

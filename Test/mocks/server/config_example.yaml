@@ -1,0 +1,94 @@
+routes:
+  # Basic GET endpoint
+  - path: /api/products
+    methods:
+      - GET
+    response:
+      status: 200
+      headers:
+        Content-Type: application/json
+      body:
+        products:
+          - id: 1
+            name: Laptop
+            price: 999.99
+          - id: 2
+            name: Mouse
+            price: 29.99
+
+  # Regex pattern matching for dynamic IDs
+  - path: ^/api/products/\d+$
+    regex: true
+    methods:
+      - GET
+    response:
+      status: 200
+      headers:
+        Content-Type: application/json
+      body:
+        id: 123
+        name: Product Name
+        price: 49.99
+        description: A sample product
+
+  # POST endpoint
+  - path: /api/products
+    methods:
+      - POST
+    response:
+      status: 201
+      headers:
+        Content-Type: application/json
+        Location: /api/products/999
+      body:
+        id: 999
+        message: Product created successfully
+
+  # Multiple methods on same path
+  - path: /api/settings
+    methods:
+      - GET
+      - PUT
+    response:
+      status: 200
+      headers:
+        Content-Type: application/json
+      body:
+        theme: dark
+        notifications: true
+
+  # Unauthorized response
+  - path: /api/admin
+    methods:
+      - GET
+    response:
+      status: 401
+      headers:
+        Content-Type: application/json
+      body:
+        error: Unauthorized
+        message: Authentication required
+
+  # Not found with custom message
+  - path: /api/deprecated
+    methods:
+      - GET
+    response:
+      status: 404
+      headers:
+        Content-Type: application/json
+      body:
+        error: Not Found
+        message: This endpoint has been deprecated
+
+  # Simulated timeout (with delay)
+  - path: /api/timeout-test
+    methods:
+      - GET
+    response:
+      status: 200
+      headers:
+        Content-Type: application/json
+      body:
+        message: Response after delay
+      delay: 5

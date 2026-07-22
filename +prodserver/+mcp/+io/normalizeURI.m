@@ -6,7 +6,7 @@ function uri = normalizeURI(uri)
 %
 % Do not modify or complain about empty URIs.
 
-% Copyright (c) 2024, The MathWorks, Inc.
+% Copyright 2024-2026 The MathWorks, Inc.
 
     import prodserver.mcp.validation.istext
 
@@ -14,70 +14,88 @@ function uri = normalizeURI(uri)
         return;
     end
 
+    persistent authorityPattern
+    if isempty(authorityPattern)
+        authorityPattern = "://"+asManyOfPattern( ...
+            wildcardPattern(1,Except=characterListPattern("?#/")))+"/";
+    end
+
     if istext(uri)
-        uri = normalizePath(uri);
+        hasAuthority = contains(uri,authorityPattern);
+        uri = normalizePath(uri,hasAuthority);
     elseif isa(uri,"dictionary")
         x = keys(uri)';
-        uri(x) = normalizePath(uri(x));
+        hasAuthority = contains(uri(x),authorityPattern);
+        uri(x) = normalizePath(uri(x),hasAuthority);
     elseif isstruct(uri)
         np = num2cell(normalizePath([uri.path]));
         [uri.path] = np{:};
-        np = num2cell(normalizePath([uri.uri]));
+        hasAuthority = contains([uri.uri],authorityPattern);
+        np = num2cell(normalizePath([uri.uri],hasAuthority));
         [uri.uri] = np{:};
     end
 end
 
-function np = normalizePath(p)
-% Normalize only the path part of the URI. Do not modify query parameters.
+function np = normalizePath(p,hasAuthority)
+% Normalize only the path part of the URI. DO NOT modify the parameter
+% part. (This took a long time to find.)
+% 
+% Normalization means:
 %
-%  * Convert all \ to /
-%  * Collapse // to / except in scheme authority :// and UNC prefix //
+%  * Turn all \ into /
+%  * Collapse empty segments // into /, except at the beginning.
+%  * Never collapse authority-defining //
 
     import prodserver.mcp.internal.Constants
 
-    hasParams = contains(p,Constants.ParamStart);
-    pth = p;
-    param = repmat("",size(p));
-    if any(hasParams)
-        pth(hasParams) = extractBefore(p(hasParams),Constants.ParamStart);
-        param(hasParams) = extractAfter(p(hasParams),pth(hasParams));
+    if nargin == 1
+        hasAuthority = false(size(p));
     end
 
-    pth = strrep(pth,"\","/");
-    pth = collapseSlashes(pth);
-    np = pth + param;
+    if contains(p,Constants.ParamStart)
+        pth = extractBefore(p,Constants.ParamStart);
+        param = extractAfter(p,pth);
+        pth = strrep(pth,"\","/");
+        pth = preventCollapseOfAuthority(pth,hasAuthority);
+        np = pth + param;
+    else
+        np = strrep(p,"\","/");
+        np = preventCollapseOfAuthority(np,hasAuthority);
+    end
 end
 
-function pth = collapseSlashes(pth)
-% Collapse runs of slashes to a single slash, preserving scheme authority
-% :// and UNC leading //.
+function pth = preventCollapseOfAuthority(pth,hasAuthority)
 
-    AT = string(char(1));
-    UT = string(char(2));
-
-    persistent uncAtStart uncAfterAuth
-    if isempty(uncAtStart)
-        % Match // followed by a server name, not a drive letter like //C:
-        uncSuffix = wildcardPattern(1) + ...
-            (textBoundary("end") | wildcardPattern(1,Except=":"));
-        uncAtStart = textBoundary("start") + "//" + uncSuffix;
-        uncAfterAuth = AT + "//" + uncSuffix;
+    persistent authorityToken
+    persistent uncToken
+    persistent authorityProtector
+    if isempty(authorityToken)
+        authorityProtector =  ":/:/";
+        authorityToken = lookBehindBoundary(textBoundary("start") + ...
+            asManyOfPattern(wildcardPattern(1,Except=":"))) + "://";
+        % All that wildcarding is for drive letters. //a is a UNC path,
+        % but //a: is not.
+        uncToken = (lookBehindBoundary(textBoundary("start")) | ...
+            lookBehindBoundary(authorityProtector))+"//"+...
+            wildcardPattern(1)+(textBoundary("end") | wildcardPattern(1,Except=":"));
     end
 
-    pth = strrep(pth,"://",":"+AT);
+    % Replace the authority with text that won't be collapsed.
+    pth(hasAuthority) = replace(pth(hasAuthority),authorityToken,":/:/");
 
-    isUNC = contains(pth,uncAtStart);
+    % Find any UNC paths, which will start with :/:///.
+    isUNC = startsWith(pth,uncToken);
+
+    % Too aggressive for UNC paths, but let it be for now, and fix later.
+    pth = strrep(pth,"//","/");
+    pth = strrep(pth,":/:/","://");
     if any(isUNC)
-        pth(isUNC) = UT + extractAfter(pth(isUNC),2);
+        % Re-establish UNC paths. (Add one / to the front of those paths.)
+        % Only one of these patterns will match each UNC path.
+        pth(isUNC) = replace(pth(isUNC),lookBehindBoundary(...
+            textBoundary("start"))+"/","//");
+
+        pth(isUNC) = replace(pth(isUNC),lookBehindBoundary(...
+            textBoundary("start"))+":",":/");
     end
-
-    isAuthUNC = contains(pth,uncAfterAuth);
-    if any(isAuthUNC)
-        pth(isAuthUNC) = strrep(pth(isAuthUNC),AT+"//",AT+UT);
-    end
-
-    pth = regexprep(pth,'/{2,}','/');
-
-    pth = strrep(pth,AT,"//");
-    pth = strrep(pth,UT,"//");
 end

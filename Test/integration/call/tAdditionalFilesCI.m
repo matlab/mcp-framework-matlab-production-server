@@ -72,8 +72,8 @@ classdef tAdditionalFilesCI < MCPCaller & ...
 
             dataURL = stow(test,test.dataFolder,"data",dataFile);
             summaryURL = locate(test,"summary",test.dataFolder);
-            prodserver.mcp.call(endpoint,fcn(2),dataURL,summaryURL);
-            aSummary= fetch(test,summaryURL);
+            prodserver.mcp.call(endpoint,fcn(2),dataURL,answerURL=summaryURL);
+            aSummary = fetch(test,summaryURL);
             test.verifyEqual(aSummary,eSummary);
 
             %
@@ -87,7 +87,8 @@ classdef tAdditionalFilesCI < MCPCaller & ...
             bURL = stow(test,test.dataFolder,"b",b);
 
             % Invoke - x,y,z and b are externalized.
-            prodserver.mcp.call(endpoint,fcn(3),a,bURL,xURL,yURL,zURL);
+            prodserver.mcp.call(endpoint,fcn(3),a,bURL,xURL=xURL,...
+                yURL=yURL,zURL=zURL);
 
             % Fetch outputs from their URLs.
             aX = fetch(test,xURL);

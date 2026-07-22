@@ -23,7 +23,7 @@ function [varargout] = call(endpoint, tool, varargin)
 %        "detectEdge", image, edges, algorithm="Canny", aperture=7)
 %    
 
-% Copyright 2025, The MathWorks, Inc.
+% Copyright 2025-2026 The MathWorks, Inc.
 
     arguments
         endpoint string { prodserver.mcp.validation.mustBeMCPServer }
@@ -52,8 +52,17 @@ function [varargout] = call(endpoint, tool, varargin)
         "Tool",id=id);
     tools = items.tools;
 
+    % Can't tell with JSON, sometimes -- the encoding and decoding is not
+    % invertible -- an encoded cell array of structures can decode to a
+    % struct array if all the structures have the same fields. Make sure
+    % tools is a cell array. (We have to pick one, and since the tools can
+    % have different fields, cell array is the only wide enough type.)
+    if isstruct(tools)
+        tools = num2cell(tools);
+    end
+
     % Out, out, damn char!
-    names = arrayfun(@(t)string(t.name),tools);
+    names = cellfun(@(t)string(t.name),tools);
 
     found = strcmp(tool,names);
     if nnz(found) ~= 1
@@ -61,7 +70,11 @@ function [varargout] = call(endpoint, tool, varargin)
             "have unique names. Found %d tools named %s.", nnz(found), ...
             tool);
     end
+    % Get the structure defining the tool
     t = tools(found);
+    if iscell(t)
+        t = t{1};
+    end
 
     % Validate input argument count -- not more than max or less than
     % required.
@@ -124,7 +137,7 @@ function [varargout] = call(endpoint, tool, varargin)
     request = matlab.net.http.RequestMessage('POST', headers, body);
     response = send(request,endpoint);
     prodserver.mcp.internal.requireSuccess(response,endpoint, ...
-        request=data.method);
+        request=data.method + " " + tool);
 
     % Require structuredContent field if the tool has an output schema
     % with required outputs.
@@ -151,8 +164,9 @@ function [varargout] = call(endpoint, tool, varargin)
             varargout = cell(1,nargout);
             for n=1:nargout
                 varargout{n} = result.(req(n));
-                type = sig.(tool).output.type(n);
-                varargout{n} = prodserver.mcp.io.cast(type,varargout{n});
+                % type = sig.(tool).output.type(n);
+                % varargout{n} = prodserver.mcp.io.cast(type,varargout{n});
+                varargout{n} = prodserver.mcp.jsonrpc.mcpWireDecodeValue(varargout{n});
             end
         elseif nargout > 0
             error("prodserver:mcp:TooFewOutputs",...
@@ -160,7 +174,7 @@ function [varargout] = call(endpoint, tool, varargin)
                 nargout, numel(req), endpoint);
         end
     
-        if n < numel(result)
+        if N < numel(result)
             % Create name/value pairs from the remaining (non-required)
             % outputs and add them to the end of varargout.
             if exist("req","var")
