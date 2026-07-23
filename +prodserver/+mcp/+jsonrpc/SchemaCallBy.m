@@ -1,7 +1,7 @@
 classdef SchemaCallBy
 % SchemaCallBy Explicit specification of parameter passing mode.
 
-% Copyright 2026 The MathWorks, Inc.
+% Copyright 2026-2026 The MathWorks, Inc.
 
     enumeration
         Value,      % Pass parameter by value

@@ -4,7 +4,7 @@ function [x,y,z] = threeFour(a,b,c,d)
 % All inputs required. 
 % Outputs are always optional in MATLAB.
 
-% Copyright 2026 The MathWorks, Inc.
+% Copyright 2026-2026 The MathWorks, Inc.
 
     arguments(Input)
         a (1,1) double      % Required A

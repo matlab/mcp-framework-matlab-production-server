@@ -4,7 +4,7 @@ function [x,y,z] = allIndirect(a,b,c,d)
 % All inputs and outputs indirect. All inputs required.
 % Outputs are always optional in MATLAB.
 
-% Copyright 2026 The MathWorks, Inc.
+% Copyright 2026-2026 The MathWorks, Inc.
 
     % Explicitly specify call by reference to make scalar parameters
     % indirect.

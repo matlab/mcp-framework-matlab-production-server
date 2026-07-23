@@ -8,7 +8,7 @@ function [disjointC,disjointS,removedC,removedS] = litAndExtSchemas(...
 % The circle-related variables will be externalized while the
 % square-related variables should remain literal.
 
-% Copyright 2026 The MathWorks, Inc.
+% Copyright 2026-2026 The MathWorks, Inc.
 
     arguments(Input)
         % A vector of circles of unlimited length.

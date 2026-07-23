@@ -22,7 +22,7 @@ function [input,output,inHasNVP] = parameterDescription(mf)
 % (I don't even know if MATLAB allows that ... syntax. It shouldn't. But if
 % it does, I explicitly disallow it here.)
 
-% Copyright 2025 The MathWorks
+% Copyright 2025-2026 The MathWorks
 
     file = mf.FullPath;
     text = readlines(file);

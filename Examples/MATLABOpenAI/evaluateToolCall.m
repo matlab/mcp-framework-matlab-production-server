@@ -1,7 +1,7 @@
 function observation = evaluateToolCall(toolCall,tools)
 % evaluateToolCall Execute a tool as instructed by an AI agent.
 
-% Copyright 2025 The MathWorks, Inc.
+% Copyright 2025-2026 The MathWorks, Inc.
 
     % Validate tool name
     toolName = toolCall.function.name;

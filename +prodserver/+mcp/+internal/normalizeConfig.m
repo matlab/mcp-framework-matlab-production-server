@@ -2,7 +2,7 @@ function c = normalizeConfig(config)
 %normalizeConfig Change all field names to lowercase and all
 %character vectors to strings.
 
-% Copyright 2025 The MathWorks, Inc.
+% Copyright 2025-2026 The MathWorks, Inc.
 
     c = prodserver.mcp.internal.stringify(config);
     c = lowercaseFieldNames(c);

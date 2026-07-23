@@ -2,7 +2,7 @@ classdef ExternalData < handle
 % ExternalData Mixin for testing with external data. Must be a handle class
 % because matlab.unittest.TestCase is.
             
-% Copyright 2025 The MathWorks, Inc.
+% Copyright 2025-2026 The MathWorks, Inc.
 
     properties
         marshaller

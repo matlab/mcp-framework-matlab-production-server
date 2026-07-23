@@ -1,7 +1,7 @@
 function [tf, isActive] = isMCPserver(x)
 % isMCPserver Is the input the address of a Model Context Protocol Server?
 
-% Copyright 2025 The MathWorks, Inc.
+% Copyright 2025-2026 The MathWorks, Inc.
 
     % Must be a string of some type
     tf = prodserver.mcp.validation.istext(x);

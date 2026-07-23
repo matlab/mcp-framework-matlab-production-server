@@ -5,7 +5,7 @@ function definition = defineForMCP(tools,fcns, opts)
 % definitions may be vectors, but they must always be the same size, unless
 % definitions is empty. (tools and fcns must ALWAYS be the same size.)
 
-% Copyright 2025 The MathWorks, Inc.
+% Copyright 2025-2026 The MathWorks, Inc.
 
     arguments
         % Name of the tool on the MCP server

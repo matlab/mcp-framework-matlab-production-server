@@ -9,7 +9,7 @@ classdef (Abstract) Scheme
 %
 %See also: prodserver.mcp.io.uri.File
 
-% Copyright 2024-2025 The MathWorks, Inc.
+% Copyright 2024-2026 The MathWorks, Inc.
 
     properties (Constant,Hidden)
         namespace = schemeNamespace("Scheme");

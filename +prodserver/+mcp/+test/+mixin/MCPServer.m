@@ -3,7 +3,7 @@ classdef MCPServer < handle
 %encoders directly. Allows testing without starting MPS instance (and
 %direct debugging of tested code).
 
-% Copyright 2026 The MathWorks, Inc.
+% Copyright 2026-2026 The MathWorks, Inc.
 
     properties
         baseRequest

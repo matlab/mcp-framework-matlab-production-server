@@ -3,7 +3,7 @@ classdef tmultiTool < matlab.unittest.TestCase & ...
         prodserver.mcp.test.mixin.ExternalData
 % Test generation and execution of MCP server with multiple tools.
 
-% Copyright 2025 The MathWorks, Inc.
+% Copyright 2025-2026 The MathWorks, Inc.
 
     properties
         toolFolder  % Root tools folder

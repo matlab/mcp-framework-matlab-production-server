@@ -4,7 +4,7 @@ function data = exportVariable(uri, value, config)
 %values to files, Kafka streams or bytestreams (with scheme file://, 
 % kafka:// or bytestream://).
 
-% Copyright (C) 2022-2025, The MathWorks
+% Copyright 2022-2025, The MathWorks
 
     import prodserver.mcp.internal.hasField
     import prodserver.mcp.internal.Constants

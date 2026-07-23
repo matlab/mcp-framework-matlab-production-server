@@ -2,7 +2,7 @@ classdef SchemaInjection
 % SchemaInjection How to merge user-specified schema data with the
 % automatically generated schema.
 
-% Copyright 2026 The MathWorks, Inc.
+% Copyright 2026-2026 The MathWorks, Inc.
 
     enumeration
         % Add new properties to the schema. Error if the properties exist.

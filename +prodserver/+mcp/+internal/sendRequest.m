@@ -2,7 +2,7 @@ function response = sendRequest(request,uri,opts)
 % sendRequest Send an HTTP request to a URL. Optional arguments to control
 % timeout and retry behavior.
 
-% Copyright 2025 The MathWorks, Inc.
+% Copyright 2025-2026 The MathWorks, Inc.
     arguments
         request (1,1) matlab.net.http.RequestMessage
         uri (1,1) matlab.net.URI

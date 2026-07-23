@@ -3,7 +3,7 @@ function list = fixedSizeVectors(circle,square,area)
 % area less than the given area input. Use fixed size vectors for the lists
 % of geometric objects.
 
-% Copyright 2026 The MathWorks, Inc.
+% Copyright 2026-2026 The MathWorks, Inc.
 
     arguments(Input)
         % List of circles

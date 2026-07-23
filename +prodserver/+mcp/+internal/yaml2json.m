@@ -17,7 +17,7 @@ function json = yaml2json(yamlFile)
 %
 % See also: struct2yaml, jsondecode
 
-% Copyright 2025 The MathWorks, Inc.
+% Copyright 2025-2026 The MathWorks, Inc.
 
     import prodserver.mcp.internal.redAlert
 

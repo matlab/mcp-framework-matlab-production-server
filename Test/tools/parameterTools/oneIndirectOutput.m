@@ -5,7 +5,7 @@ function [x,y,z] = oneIndirectOutput(a,b,c,d)
 % Outputs are always optional in MATLAB.
 % One output indirect.
 
-% Copyright 2026 The MathWorks, Inc.
+% Copyright 2026-2026 The MathWorks, Inc.
 
     arguments(Input)
         a (1,1) double   % Required A

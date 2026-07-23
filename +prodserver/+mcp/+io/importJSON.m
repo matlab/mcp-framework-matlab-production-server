@@ -7,7 +7,7 @@ function value = importJSON(uri,config)
 %
 %    value == importJSON(exportJSON(value))
 
-% Copyright 2024 The MathWorks, Inc.
+% Copyright 2024-2026 The MathWorks, Inc.
 
     import prodserver.mcp.internal.hasField
     import prodserver.mcp.io.parseURI

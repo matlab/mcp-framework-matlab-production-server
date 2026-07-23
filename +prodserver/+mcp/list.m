@@ -17,7 +17,7 @@ function items = list(endpoint, type, opts)
 %
 % See also: prodserver.mcp.Primitive
 
-% Copyright 2025 The MathWorks, Inc.
+% Copyright 2025-2026 The MathWorks, Inc.
 
     arguments
         endpoint string { prodserver.mcp.validation.mustBeMCPServer }

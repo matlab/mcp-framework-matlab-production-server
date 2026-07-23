@@ -2,7 +2,7 @@ classdef ParameterKind
 % Classify function parameters by relation to the parameter list.
 % Note: order matters for Required, Optional and Repeating.
 
-% Copyright 2026 The MathWorks, Inc.
+% Copyright 2026-2026 The MathWorks, Inc.
 
     enumeration
         Required   % Required to appear in fixed location.

@@ -3,7 +3,7 @@ classdef DictionaryHandle < handle & matlab.mixin.indexing.RedefinesParen & ...
 %DictionaryHandle Shareable dictionary. Wraps a dictionary in handle
 %semantics.
 
-% Copyright 2025 The MathWorks, Inc.
+% Copyright 2025-2026 The MathWorks, Inc.
 
     properties (Access=private)
         kvMap

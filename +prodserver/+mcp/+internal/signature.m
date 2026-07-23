@@ -1,7 +1,7 @@
 function sig = signature(tool,endpoint,session,opts)
 %signature Retrieve signature data for the tool from the server.
 
-% Copyright 2026 The MathWorks, Inc.
+% Copyright 2026-2026 The MathWorks, Inc.
 
     arguments
         tool string

@@ -1,7 +1,7 @@
 classdef tmcpHandler < MCPHandlerBase 
 % Wide selection of tests for the mcpHandler function. 
 
-% Copyright 2026 The MathWorks, Inc.
+% Copyright 2026-2026 The MathWorks, Inc.
 
     methods (TestClassSetup)
 

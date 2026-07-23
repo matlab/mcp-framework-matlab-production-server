@@ -1,7 +1,7 @@
 function tf = isuri(x,opts)
 % isuri Is the input a valid URI?
 
-% Copyright 2025 The MathWorks, Inc.
+% Copyright 2025-2026 The MathWorks, Inc.
 
     arguments
         x 

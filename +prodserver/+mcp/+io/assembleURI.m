@@ -2,7 +2,7 @@ function str = assembleURI(uri)
 %assembleURI Create a URI string from the parts of a parsed URI:
 %    scheme, userinfo, host, port, path, query
 
-% Copyright (c) 2024-2025, The MathWorks, Inc.
+% Copyright 2024-2025, The MathWorks, Inc.
 
     import prodserver.mcp.internal.Constants
 

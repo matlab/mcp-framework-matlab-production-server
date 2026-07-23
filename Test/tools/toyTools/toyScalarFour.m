@@ -1,7 +1,7 @@
 function x = toyScalarFour(a,c,m,x0)
 %toyScalarFour Linear Congruential Generator of random numbers.
 
-% Copyright 2026 The MathWorks, Inc.
+% Copyright 2026-2026 The MathWorks, Inc.
 
     arguments(Input)
         a (1,1) double { mustBeInteger }   % Multiplier 

@@ -1,7 +1,7 @@
 function availableAI = findGenAI()
 % findGenAI Which generative AI interfaces are available?
 
-% Copyright 2025 The MathWorks, Inc.
+% Copyright 2025-2026 The MathWorks, Inc.
 
     import prodserver.mcp.GenerativeAI
     import prodserver.mcp.MCPConstants

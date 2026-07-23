@@ -12,7 +12,7 @@ function validateArgumentsWithSchema(schema, names, values)
 %   recursively, but validates user-defined classes only by type name using 
 %   isa().
 
-% Copyright 2026 The MathWorks, Inc.
+% Copyright 2026-2026 The MathWorks, Inc.
 
     arguments
         schema (1,1) struct

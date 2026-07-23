@@ -4,7 +4,7 @@ function [z,u,m] = optInExtOut(q,v,opts)
 % appear in the right order and that optional inputs are properly
 % associated with their comments.
 
-% Copyright 2026 The MathWorks, Inc.
+% Copyright 2026-2026 The MathWorks, Inc.
 
     arguments(Input)
         % Required scalar Q

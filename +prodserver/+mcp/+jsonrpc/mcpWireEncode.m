@@ -27,7 +27,7 @@ function j = mcpWireEncode(value)
 %
 %   See also: mcpWireEncodeValue, mcpWireDecode, jsonencode
 
-% Copyright 2026 The MathWorks, Inc.
+% Copyright 2026-2026 The MathWorks, Inc.
 
     j = prodserver.mcp.jsonrpc.mcpWireEncodeValue(value);
     j = jsonencode(j);

@@ -2,7 +2,7 @@ function mustBeWrapper(x)
 % mustBeWrapper Error if X is not a wrapper function or a function that
 % generates a wrapper function. May be empty or a vector.
 
-% Copyright 2025 The MathWorks, Inc.
+% Copyright 2025-2026 The MathWorks, Inc.
 
     import prodserver.mcp.MCPConstants
     

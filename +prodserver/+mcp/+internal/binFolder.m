@@ -2,7 +2,7 @@ function [bin,ctf] = binFolder(varargin)
 %toolboxBinDir Folder where component-specific binaries are installed.
 % Specify component path sections in varargin.
 
-% Copyright 2025 The MathWorks, Inc.
+% Copyright 2025-2026 The MathWorks, Inc.
 
     rootFolder = prodserver.mcp.internal.packageFolder;
 
