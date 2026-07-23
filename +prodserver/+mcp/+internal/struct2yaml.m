@@ -23,7 +23,7 @@ function yaml = struct2yaml(data,indent)
 %
 %See also: yaml2json, jsondecode
 
-% Copyright 2024, The MathWorks, Inc.
+% Copyright 2024-2026 The MathWorks, Inc.
 
     import prodserver.mcp.internal.struct2yaml
     if nargin == 1

@@ -1,3 +1,5 @@
+# Copyright 2025-2026 The MathWorks, Inc.
+
 from fastmcp import FastMCP
 from fastmcp.utilities.types import Image
 

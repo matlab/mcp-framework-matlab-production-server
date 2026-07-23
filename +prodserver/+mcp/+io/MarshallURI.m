@@ -1,7 +1,7 @@
 classdef MarshallURI
 %MarshallURI Manage scheme marshalling configuration.
 
-% Copyright 2024, The MathWorks, Inc.
+% Copyright 2024-2026 The MathWorks, Inc.
 
     properties (SetAccess = private)
         config     % Map: scheme name -> scheme marshalling object

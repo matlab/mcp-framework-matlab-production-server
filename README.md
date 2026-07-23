@@ -125,3 +125,5 @@ Contact us at <https://www.mathworks.com/support/contact_us.html>
 # License
 
 The license is available in the [license.txt](./license.txt) file.
+
+--- Copyright 2025-2026 The MathWorks, Inc. ---

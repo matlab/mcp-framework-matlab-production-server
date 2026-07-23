@@ -2,7 +2,7 @@ function uri = percentDecode(uri)
 %percentDecode Replace all percent-encodings in URI with their equivalent
 %characters. 
 
-% Copyright 2025, The MathWorks, Inc.
+% Copyright 2022-2026 The MathWorks, Inc.
 
     import prodserver.mcp.internal.Constants
 

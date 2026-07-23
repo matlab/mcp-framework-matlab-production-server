@@ -250,3 +250,5 @@ curl -H "Authorization: Bearer token" http://localhost:8080/api/data
 ## License
 
 Free to use and modify for your testing needs.
+
+--- Copyright 2025-2026 The MathWorks, Inc. ---

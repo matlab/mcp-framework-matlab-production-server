@@ -3,7 +3,7 @@ function value = importVariable(uri, type, config, opts)
 %using information in config. Imports variables from files, bytestreams
 %or Kafka topics (with scheme file://, bytestream:// or kafka://).
 
-% Copyright 2025-2026 The MathWorks
+% Copyright 2022-2026 The MathWorks, Inc.
 
     arguments
         uri { prodserver.mcp.validation.mustBeURI }
