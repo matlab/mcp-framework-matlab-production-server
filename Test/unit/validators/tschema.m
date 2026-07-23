@@ -1,5 +1,7 @@
 classdef tschema < matlab.unittest.TestCase
 
+% Copyright 2025-2026 The MathWorks, Inc.
+
     properties
         % Map of MATLAB types to JSON types. Specified as key/value pairs:
         % <MATLAB>,<JSON>.

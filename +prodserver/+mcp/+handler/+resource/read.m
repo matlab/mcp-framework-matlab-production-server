@@ -2,7 +2,7 @@ function [result, httpCode, httpMsg, msgHeaders] = read(jrpc)
 %read Handle MCP resources/read request. Returns the contents of the
 %   resource matching the requested URI (text or blob depending on MIME type).
 
-% Copyright 2025-2026, The MathWorks, Inc.
+% Copyright 2025-2026 The MathWorks, Inc.
 
     import prodserver.mcp.MCPConstants
 

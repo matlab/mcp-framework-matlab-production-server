@@ -3,6 +3,9 @@ function result = read(endpoint, resource, opts)
 %
 %    result = read(ENDPOINT, RESOURCE) reads RESOURCE from the MCP server
 %    at ENDPOINT.
+
+% Copyright 2025-2026 The MathWorks, Inc.
+
     arguments (Input)
         endpoint (1,1) string
         resource string

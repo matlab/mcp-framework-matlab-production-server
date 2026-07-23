@@ -1,6 +1,8 @@
 classdef tWrapperBI < matlab.unittest.TestCase
 % Experiment with various combinations of wrappers in the build stage.
 
+% Copyright 2025-2026 The MathWorks, Inc.
+
     properties
         toolFolder
         tempFolder

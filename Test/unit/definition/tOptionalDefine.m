@@ -1,6 +1,8 @@
 classdef tOptionalDefine < matlab.unittest.TestCase & ...
         prodserver.mcp.test.mixin.ExternalData
 
+% Copyright 2025-2026 The MathWorks, Inc.
+
     properties
         toolsFolder
     end
@@ -96,13 +98,13 @@ classdef tOptionalDefine < matlab.unittest.TestCase & ...
 
             dataFolder = fullfile(test.toolsFolder,"data");
 
-            ngcURL = locate(test,"DeepSkyNGC",dataFolder,ext="csv");
+            ngcURL = source(test,"DeepSkyNGC",dataFolder,ext="csv");
             ngc = fetch(test,ngcURL,import=iOpts);
 
-            raURL = locate(test,"DeepSkyRA",dataFolder,ext="csv");
+            raURL = source(test,"DeepSkyRA",dataFolder,ext="csv");
             ra = fetch(test,raURL);
 
-            decURL = locate(test,"DeepSkyDec",dataFolder,ext="csv");
+            decURL = source(test,"DeepSkyDec",dataFolder,ext="csv");
             dec = fetch(test,decURL);
 
             % No optional inputs
@@ -112,13 +114,13 @@ classdef tOptionalDefine < matlab.unittest.TestCase & ...
 
             % Get optional data 
 
-            constellationURL = locate(test,"DeepSkyConstellation",dataFolder,ext="csv");
+            constellationURL = source(test,"DeepSkyConstellation",dataFolder,ext="csv");
             constellation = fetch(test,constellationURL,import=iOpts);
 
-            nameURL = locate(test,"DeepSkyName",dataFolder,ext="csv");
+            nameURL = source(test,"DeepSkyName",dataFolder,ext="csv");
             name = fetch(test,nameURL,import=iOpts);
 
-            messierURL = locate(test,"DeepSkyMessier",dataFolder,ext="csv");
+            messierURL = source(test,"DeepSkyMessier",dataFolder,ext="csv");
             messier = fetch(test,messierURL,import=iOpts);
 
             % One optional input

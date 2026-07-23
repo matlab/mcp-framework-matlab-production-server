@@ -4,7 +4,7 @@ classdef tOptionalBI < matlab.unittest.TestCase & ...
 % Test generation and execution of MCP server with tools that have optional
 % arguments.
 
-% Copyright 2026, The MathWorks, Inc.
+% Copyright 2026 The MathWorks, Inc.
 
     properties
         toolFolder  % Root tools folder

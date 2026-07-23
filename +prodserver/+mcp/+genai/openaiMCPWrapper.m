@@ -1,7 +1,7 @@
 function wrapper = openaiMCPWrapper(fcn,genAI,folder,timeout,retry)
 % openaiMCPWrapper Use OpenAI to generate a wrapper function for fcn.
 
-% Copyright 2025, The MathWorks, Inc.
+% Copyright 2025 The MathWorks, Inc.
 
     import prodserver.mcp.MCPConstants
 

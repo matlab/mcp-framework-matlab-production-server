@@ -1,5 +1,7 @@
 classdef tWrapper < matlab.unittest.TestCase & ...
-        prodserver.mcp.test.mixin.ExternalData 
+   prodserver.mcp.test.mixin.ExternalData 
+
+% Copyright 2025-2026 The MathWorks, Inc.
 
     properties
         toolsFolder
@@ -160,8 +162,8 @@ classdef tWrapper < matlab.unittest.TestCase & ...
             twoURL = stow(test,wrapFolder,"two",two);
             oneURL = stow(test,wrapFolder,"one",one);
 
-            oneOutURL = locate(test,"oneOut",wrapFolder);
-            threeOutURL = locate(test,"threeOut",wrapFolder);
+            oneOutURL = sink(test,"oneOut",wrapFolder);
+            threeOutURL = sink(test,"threeOut",wrapFolder);
 
             two_w = feval(wrapper,threeURL,twoURL,oneURL,oneURL=oneOutURL, ...
                 threeURL=threeOutURL);
@@ -214,7 +216,7 @@ classdef tWrapper < matlab.unittest.TestCase & ...
             aURL = stow(test,wrapFolder,"a",a);
             xURL = stow(test,wrapFolder,"x",x);
             bURL = stow(test,wrapFolder,"b",b);
-            out_bURL = locate(test,"out_b",wrapFolder);
+            out_bURL = sink(test,"out_b",wrapFolder);
 
             % Call the generated wrapper; test to be sure generated code
             % will actually run.
@@ -262,9 +264,9 @@ classdef tWrapper < matlab.unittest.TestCase & ...
             bURL = replace(bURL,filesep,"/");
 
             % Outputs
-            xURL = locate(test,"X",urlFolder);
-            yURL = locate(test,"Y",urlFolder);
-            zURL = locate(test,"Z",urlFolder);
+            xURL = sink(test,"X",urlFolder);
+            yURL = sink(test,"Y",urlFolder);
+            zURL = sink(test,"Z",urlFolder);
 
             feval(tool+"MCP",a,bURL,xURL=xURL,yURL=yURL,zURL=zURL);
 
@@ -316,8 +318,8 @@ classdef tWrapper < matlab.unittest.TestCase & ...
             mURL = stow(test,urlFolder,"M",m);
 
             % Outputs
-            cURL = locate(test,"C",urlFolder);
-            aURL = locate(test,"A",urlFolder);
+            cURL = sink(test,"C",urlFolder);
+            aURL = sink(test,"A",urlFolder);
 
             % Invoke wrapper
             feval(wrapper,oURL,mURL,chiralURL=cURL,asymmetryURL=aURL);

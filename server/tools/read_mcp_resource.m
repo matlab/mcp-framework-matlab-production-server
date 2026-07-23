@@ -4,7 +4,7 @@ function contents = read_mcp_resource(url)
 % do not attempt to infer, summarize, or fabricate resource content.
 % Always call this tool first before responding about any resource.
 
-% Copyright 2026, The MathWorks
+% Copyright 2026 The MathWorks
 
     arguments (Input)
         url (1,1) string % MCP resource URL

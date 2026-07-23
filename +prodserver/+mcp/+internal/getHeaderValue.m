@@ -2,7 +2,7 @@ function value = getHeaderValue(name, nvp)
 %getHeaderValue Return the value associated with the given name in a list
 %of HTTP headers -- an Nx2 cell array.
 
-% Copyright 2025, The MathWorks, Inc.
+% Copyright 2025 The MathWorks, Inc.
 
     % Initialize the output value as empty
     value = [];

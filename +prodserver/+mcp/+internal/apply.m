@@ -2,7 +2,7 @@ function result = apply(fcn,list,varargin)
 % apply Apply a function to a list of items. Optional input uniform
 % indicates if all results are expected to the the same type.
 
-% Copyright 2025, The MathWorks, Inc.
+% Copyright 2025 The MathWorks, Inc.
 
     % All these booleans may be a style violation, but they certainly are
     % convenient.

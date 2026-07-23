@@ -1,7 +1,7 @@
 function tf = isSandbox()
 % isSandbox Running in sandbox mode?
 
-% Copyright 2025, The MathWorks, Inc.
+% Copyright 2025 The MathWorks, Inc.
 
     ml = string(filesep)+"matlab"+textBoundary("end");
     root = erase(matlabroot,ml);

@@ -14,7 +14,7 @@ function resource = resourceDefinition(resourceList)
 % Only uri and contents must have values. The others may be 
 % empty. But the system works better if they aren't.
 
-% Copyright 2026, The MathWorks, Inc.
+% Copyright 2026 The MathWorks, Inc.
 
     import prodserver.mcp.internal.Constants
     import prodserver.mcp.internal.hasField

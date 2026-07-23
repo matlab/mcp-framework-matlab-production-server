@@ -1,6 +1,9 @@
 classdef tExternal < MCPHandlerBase & ...
         prodserver.mcp.test.mixin.ExternalData
+
 % Call the mcpHandler to invoke a function that has externalized parameters.
+
+% Copyright 2025-2026 The MathWorks, Inc.
 
     properties
         toolFolder
@@ -34,7 +37,7 @@ classdef tExternal < MCPHandlerBase & ...
 
             % Allocate space for the triangle input and output
             rURL = stow(test,test.tempFolder,"R",r);
-            aZURI = locate(test,"Z",test.tempFolder);
+            aZURI = sink(test,"Z",test.tempFolder);
 
             % Call the function on the server.
             request = createRequest(test,fcn,test.server, ...

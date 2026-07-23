@@ -2,7 +2,7 @@ function [result, httpCode, httpMsg, msgHeaders] = initialize(jrpc)
 %initialize Handle MCP initialize request. Negotiates protocol version,
 %   capabilities, and session ID.
 
-% Copyright 2025-2026, The MathWorks, Inc.
+% Copyright 2025-2026 The MathWorks, Inc.
 
     import prodserver.mcp.MCPConstants
 

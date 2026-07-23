@@ -2,6 +2,8 @@ function mustMatchSchema(value,var,td,tool,io)
 % mustMatchSchema Error if value does not conform to the schema for tool's
 % io variable named var. (IO is either "input" or "output").
 
+% Copyright 2025-2026 The MathWorks, Inc.
+
     import prodserver.mcp.MCPConstants
     import prodserver.mcp.internal.hasField
 

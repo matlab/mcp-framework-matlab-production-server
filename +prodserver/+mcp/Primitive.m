@@ -1,7 +1,7 @@
 classdef Primitive
 % Primitive Types of objects forming the basis for client interaction.
 
-% Copyright 2025, The MathWorks, Inc.
+% Copyright 2025 The MathWorks, Inc.
 
     enumeration
         Tool      % Callable functions

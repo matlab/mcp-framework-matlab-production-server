@@ -1,4 +1,9 @@
 function [z,q] = toyFileSchema(m,r)
+% Calculate triangle area using Heron's formula. Define structured inputs 
+% and outputs via JSON schema.
+
+% Copyright 2025-2026 The MathWorks, Inc.
+
     arguments(Input)
         % Increase the size of each side of each triangle by this amount.
         m (1,1) double

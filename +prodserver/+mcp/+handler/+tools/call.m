@@ -3,7 +3,7 @@ function [result, httpCode, httpMsg, msgHeaders] = call(jrpc)
 %   positional, optional, and name-value arguments in order, invokes the
 %   function, and encodes each output as structured content.
 
-% Copyright 2025-2026, The MathWorks, Inc.
+% Copyright 2025-2026 The MathWorks, Inc.
 
     import prodserver.mcp.MCPConstants
     import prodserver.mcp.internal.ParameterKind

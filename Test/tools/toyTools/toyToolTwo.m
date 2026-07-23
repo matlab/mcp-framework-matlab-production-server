@@ -1,6 +1,9 @@
 function [chiral,asymmetry] = toyToolTwo(object, mirror)
 % Are the object and the mirror chiral or achiral? If achiral, what is the
 % first orientation-reversing asymmetry?
+
+% Copyright 2025-2026 The MathWorks, Inc.
+
     arguments(Input)
         object geom  % A geometrical form
         mirror geom  % The planar mirror reflection of object

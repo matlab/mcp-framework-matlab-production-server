@@ -1,7 +1,7 @@
 function a = heroArea(x,y,z)
 % heroArea Compute triangle area using Hero's formula.
 
-% Copyright 2025, The MathWorks, Inc.
+% Copyright 2025 The MathWorks, Inc.
     arguments(Input)
         x (1,1) double
         y (1,1) double

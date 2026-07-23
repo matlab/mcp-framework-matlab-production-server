@@ -16,7 +16,7 @@ function value = fromJSON(json,encoder)
 %
 % See also: toJSON
 
-% Copyright 2024, The MathWorks, Inc.
+% Copyright 2024 The MathWorks, Inc.
 
     import prodserver.mcp.io.fromJSON
 

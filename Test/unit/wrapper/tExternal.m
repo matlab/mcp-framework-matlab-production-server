@@ -1,5 +1,7 @@
 classdef tExternal < matlab.unittest.TestCase & ...
-        prodserver.mcp.test.mixin.ExternalData 
+        prodserver.mcp.test.mixin.ExternalData
+
+% Copyright 2025-2026 The MathWorks, Inc.
 
     properties
         toolsFolder
@@ -52,8 +54,8 @@ classdef tExternal < matlab.unittest.TestCase & ...
             % Now call the MCP function using externalized inputs and
             % outputs.
             urlFolder = string(test.tempFolder);
-            zURL = locate(test,"Z",urlFolder);
-            mURL = locate(test,"M",urlFolder);
+            zURL = sink(test,"Z",urlFolder);
+            mURL = sink(test,"M",urlFolder);
 
             % Externalize input data
             pURL = stow(test,urlFolder,"P",p);

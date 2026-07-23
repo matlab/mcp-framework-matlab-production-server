@@ -1,5 +1,7 @@
 classdef tExternalCI < MCPCaller & ...
-        prodserver.mcp.test.mixin.ExternalData 
+        prodserver.mcp.test.mixin.ExternalData
+
+% Copyright 2025-2026 The MathWorks, Inc.
 
 
     methods (TestClassSetup)
@@ -61,8 +63,8 @@ classdef tExternalCI < MCPCaller & ...
             % Now call the deployed function using externalized inputs and
             % outputs.
             urlFolder = string(test.tempFolder);
-            zURL = locate(test,"Z",urlFolder);
-            mURL = locate(test,"M",urlFolder);
+            zURL = sink(test,"Z",urlFolder);
+            mURL = sink(test,"M",urlFolder);
 
             % Externalize input data
             pURL = stow(test,urlFolder,"P",p);

@@ -1,7 +1,7 @@
 function name = uriVariable(uri)
 %uriVariable Extract variable name from URI.
 
-% Copyright 2024, The MathWorks, Inc.
+% Copyright 2024 The MathWorks, Inc.
 
     
 

@@ -112,13 +112,14 @@ classdef File < prodserver.mcp.io.Scheme
                     class(uri(1)));
             end
 
+            % Change prefix /C:/ to C:/ -- remove leading /. Only valid on
+            % Windows platform.
             if ispc
-                % Change prefix /C:/ to C:/ -- remove leading /
                 startsWithDriveLetter = startsWith(pth,driveLetter);
                 pth(startsWithDriveLetter) = ...
                     extractAfter(pth(startsWithDriveLetter),1);
             end
-
+            
             % Restore percent-encoded characters
             pth = prodserver.mcp.io.percentDecode(pth);
         end

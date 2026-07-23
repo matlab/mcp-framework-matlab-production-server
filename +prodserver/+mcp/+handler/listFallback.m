@@ -3,7 +3,7 @@ function [result, httpCode, httpMsg, msgHeaders] = listFallback(jrpc)
 %   Returns 204 No Content for any /list method not handled by a more
 %   specific handler.
 
-% Copyright 2025-2026, The MathWorks, Inc.
+% Copyright 2025-2026 The MathWorks, Inc.
 
     [result, httpCode, httpMsg, msgHeaders, r] = ...
         prodserver.mcp.handler.internal.initResult(jrpc);

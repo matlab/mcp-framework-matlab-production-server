@@ -25,7 +25,7 @@ function tf = isMIMETypeText(mimeType)
 %     isMIMETypeText("application/octet-stream")    % false
 %     isMIMETypeText("image/png")                   % false
 
-% Copyright 2025-2026, The MathWorks, Inc.
+% Copyright 2025-2026 The MathWorks, Inc.
 
     % Strip parameters ("; charset=utf-8", etc.) and normalise case.
     mimeType = lower(strtrim(string(mimeType)));

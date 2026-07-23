@@ -1,7 +1,7 @@
 function mustBeToolDefinition(x)
 % mustBeToolDefinition Error if X is not an MCP tool definition.
 
-% Copyright 2025, The MathWorks, Inc.
+% Copyright 2025 The MathWorks, Inc.
 
     import prodserver.mcp.internal.hasField
 

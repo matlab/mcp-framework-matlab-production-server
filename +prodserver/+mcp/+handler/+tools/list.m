@@ -2,7 +2,7 @@ function [result, httpCode, httpMsg, msgHeaders] = list(jrpc)
 %list Handle MCP tools/list request. Returns all tool definitions from the
 %   definition file as a JSON array.
 
-% Copyright 2025-2026, The MathWorks, Inc.
+% Copyright 2025-2026 The MathWorks, Inc.
 
     import prodserver.mcp.MCPConstants
     import prodserver.mcp.internal.Constants

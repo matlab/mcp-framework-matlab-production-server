@@ -10,7 +10,7 @@ function status = uploadCTF(ctf, url, opts)
 %
 % This is an internal function and thus only minimally validates inputs.
 
-% Copyright 2025, The MathWorks, Inc.
+% Copyright 2025 The MathWorks, Inc.
 
     arguments
         ctf string { mustBeFile }

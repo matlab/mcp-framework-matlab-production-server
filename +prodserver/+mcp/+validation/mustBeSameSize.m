@@ -3,7 +3,7 @@ function mustBeSameSize(reference,items)
 % the same size as the argument in the reference position (which is a
 % position in the original, full, set of arguments).
 
-% Copyright 2025, The MathWorks, Inc.
+% Copyright 2025 The MathWorks, Inc.
 
     arguments
         reference 

@@ -2,6 +2,8 @@ classdef tCallBy < MCPCaller & ...
         prodserver.mcp.test.mixin.ExternalData
 % Test explicit call-by-reference and call-by-value schema flags.
 
+% Copyright 2025-2026 The MathWorks, Inc.
+
     methods (TestMethodSetup)
         function scratchSpace(test)
             import matlab.unittest.fixtures.TemporaryFolderFixture
@@ -75,7 +77,7 @@ classdef tCallBy < MCPCaller & ...
             caURL = stow(test,urlFolder,"circlesA",data.circlesA);
 
             % Externalized data for the output
-            tfURL = locate(test,"intersect",test.tempFolder);
+            tfURL = sink(test,"intersect",test.tempFolder);
             
             % Call it.
             prodserver.mcp.call(endpoint,fcn,caURL,...

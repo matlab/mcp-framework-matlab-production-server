@@ -1,5 +1,8 @@
 function [sortedC,sortedS,areaC,areaS] = literalSchemas(circle,square)
 % Sort circles and squares by area
+
+% Copyright 2025-2026 The MathWorks, Inc.
+
     arguments(Input)
         % A vector of circles
         %#schema +circle.json

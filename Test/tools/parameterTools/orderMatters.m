@@ -1,7 +1,7 @@
 function [x,y,z] = orderMatters(a,b,c,d)
 % orderMatters Order of arguments changes the result.
 
-% Copyright 2026, The MathWorks, Inc
+% Copyright 2026 The MathWorks, Inc
 
     % Note: these comments would be more meaningful if the inputs were less
     % arbitrary. 

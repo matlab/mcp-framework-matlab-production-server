@@ -1,6 +1,8 @@
 classdef tSchemaCI < MCPCaller & ...
         prodserver.mcp.test.mixin.ExternalData
 
+% Copyright 2025-2026 The MathWorks, Inc.
+
     methods (TestMethodSetup)
         function scratchSpace(test)
             import matlab.unittest.fixtures.TemporaryFolderFixture
@@ -127,7 +129,7 @@ classdef tSchemaCI < MCPCaller & ...
             [eZ,eQ] = feval(fcn,m,r);
 
             % Allocate space for the input and output
-            aZURI = locate(test,"Z",test.tempFolder);
+            aZURI = sink(test,"Z",test.tempFolder);
             rURI = stow(test,test.tempFolder,"R",r);
 
             % Call the function on the server.

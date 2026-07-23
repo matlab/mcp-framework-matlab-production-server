@@ -2,7 +2,7 @@ function [result, httpCode, httpMsg, msgHeaders] = list(jrpc)
 %list Handle MCP resources/list request. Returns all resource descriptors
 % (without contents) from the definition file.
 
-% Copyright 2025-2026, The MathWorks, Inc.
+% Copyright 2025-2026 The MathWorks, Inc.
 
     import prodserver.mcp.MCPConstants
 

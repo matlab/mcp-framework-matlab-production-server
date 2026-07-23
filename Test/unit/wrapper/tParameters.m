@@ -1,5 +1,7 @@
 classdef tParameters < matlab.unittest.TestCase & ...
-        prodserver.mcp.test.mixin.ExternalData 
+        prodserver.mcp.test.mixin.ExternalData
+
+% Copyright 2025-2026 The MathWorks, Inc.
 
     properties
         toolsFolder
@@ -207,7 +209,7 @@ classdef tParameters < matlab.unittest.TestCase & ...
             urlFolder = string(tempFolder.Folder);
 
             % Outputs
-            yURL = locate(test,"Y",urlFolder);
+            yURL = sink(test,"Y",urlFolder);
 
             [ax,az] = feval(tool+"MCP",a,b,c,d,y=yURL);
             ay = fetch(test,yURL);
@@ -255,9 +257,9 @@ classdef tParameters < matlab.unittest.TestCase & ...
             dURL = stow(test,urlFolder,"d",d);
             
             % Outputs
-            xURL = locate(test,"X",urlFolder);
-            yURL = locate(test,"Y",urlFolder);
-            zURL = locate(test,"Z",urlFolder);
+            xURL = sink(test,"X",urlFolder);
+            yURL = sink(test,"Y",urlFolder);
+            zURL = sink(test,"Z",urlFolder);
 
             % Partial matching of unique optional input names. x matches
             % xURL, etc.

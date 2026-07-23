@@ -3,6 +3,9 @@ function tf = callByReference(c1,c2)
 % 
 % Test of the x-call-by: reference schema extension, which should force
 % c1 to be an externalized rather than a literal variable.
+
+% Copyright 2025-2026 The MathWorks, Inc.
+
     arguments (Input)
         % A vector of circles
         %#schema =circleByReference.json

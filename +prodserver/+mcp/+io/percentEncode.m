@@ -12,7 +12,7 @@ function str = percentEncode(str,opts)
 %    str = percentEncode("file:/path/with/s p a c e s/data.mat")
 
 
-% Copyright 2025, The MathWorks, Inc.
+% Copyright 2025 The MathWorks, Inc.
 
     arguments
         str string

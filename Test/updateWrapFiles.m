@@ -1,5 +1,8 @@
 function updateWrapFiles(opts)
 %updateWrapFiles Regenerate .wrap golden files from the current wrapper generator.
+
+% Copyright 2025-2026 The MathWorks, Inc.
+
     arguments
         opts.action (1,1) string = "preview"
     end

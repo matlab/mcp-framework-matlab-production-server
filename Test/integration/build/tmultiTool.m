@@ -3,7 +3,7 @@ classdef tmultiTool < matlab.unittest.TestCase & ...
         prodserver.mcp.test.mixin.ExternalData
 % Test generation and execution of MCP server with multiple tools.
 
-% Copyright 2025, The MathWorks, Inc.
+% Copyright 2025 The MathWorks, Inc.
 
     properties
         toolFolder  % Root tools folder
@@ -185,8 +185,8 @@ classdef tmultiTool < matlab.unittest.TestCase & ...
             width = 600; height=600; n = 5;
             [vectors, bbox] = snowflake(n, width, height);
 
-            vectorsURL = locate(test,"vectors",test.tempFolder);
-            bboxURL = locate(test,"bbox",test.tempFolder);
+            vectorsURL = sink(test,"vectors",test.tempFolder);
+            bboxURL = sink(test,"bbox",test.tempFolder);
 
             t = findDefinition("snowflake",def);
             s = def.signatures;
@@ -254,7 +254,7 @@ classdef tmultiTool < matlab.unittest.TestCase & ...
             n = 50000;
             dragon = chaosdragon(n);
 
-            dragonURL = locate(test,"twinDragon",test.tempFolder);
+            dragonURL = sink(test,"twinDragon",test.tempFolder);
 
             t = findDefinition("twinDragon",def);
             s = def.signatures;
@@ -282,7 +282,7 @@ classdef tmultiTool < matlab.unittest.TestCase & ...
             %
 
             jpg = fullfile(test.tempFolder,"dragonImage.jpg");
-            szURL = locate(test,"dragonSize",test.tempFolder);
+            szURL = sink(test,"dragonSize",test.tempFolder);
             color1 = "#EDB120";
             color2 = "#8516D1";
 
@@ -334,8 +334,8 @@ classdef tmultiTool < matlab.unittest.TestCase & ...
             sides = 5;
             [xyExpected,hueExpected] = chaosfractal(n,sides);
 
-            xyURL = locate(test,"chaosXY",test.tempFolder);
-            hueURL = locate(test,"chaosHue",test.tempFolder);
+            xyURL = sink(test,"chaosXY",test.tempFolder);
+            hueURL = sink(test,"chaosHue",test.tempFolder);
 
             t = findDefinition("chaos",def);
             s = def.signatures;
@@ -407,7 +407,7 @@ classdef tmultiTool < matlab.unittest.TestCase & ...
             width = 600;
             m = mandelbrot(n, width);
 
-            mandelbrotSetURL = locate(test,"mandelbrotSet",test.tempFolder);
+            mandelbrotSetURL = sink(test,"mandelbrotSet",test.tempFolder);
 
             t = findDefinition("mandelbrot",def);
             s = def.signatures;

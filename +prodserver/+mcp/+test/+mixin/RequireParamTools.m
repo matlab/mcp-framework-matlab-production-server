@@ -1,5 +1,7 @@
 classdef RequireParamTools < matlab.unittest.fixtures.Fixture
 
+% Copyright 2025-2026 The MathWorks, Inc.
+
     properties (SetAccess=immutable)
         toolFolder
         pkgFolder

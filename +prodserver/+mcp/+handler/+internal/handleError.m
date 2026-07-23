@@ -6,7 +6,7 @@ function result = handleError(jrpc, ex)
 %   The jsonrpc version is taken from JRPC when available, and the request
 %   id is taken from REQUEST when available.
 
-% Copyright 2025-2026, The MathWorks, Inc.
+% Copyright 2025-2026 The MathWorks, Inc.
 
     if ~isempty(jrpc) && isfield(jrpc,"jsonrpc")
         result.jsonrpc = jrpc.jsonrpc;

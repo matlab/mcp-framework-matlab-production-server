@@ -1,6 +1,8 @@
 classdef tSignature < MCPHandlerBase
 % Test signature handler
 
+% Copyright 2025-2026 The MathWorks, Inc.
+
     methods (TestClassSetup)
         
         function useExamples(test)

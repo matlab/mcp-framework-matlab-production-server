@@ -1,5 +1,8 @@
 function y = badFileSchema(x)
 % Test example for bad literal schema data.
+
+% Copyright 2025-2026 The MathWorks, Inc.
+
     arguments(Input)
         % This argument specifies invalid literal JSON.
         %#schema badX.json

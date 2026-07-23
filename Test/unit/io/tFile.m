@@ -1,6 +1,8 @@
 classdef tFile < matlab.unittest.TestCase
 % Test io.File marshaling (serialize/deserialize)
 
+% Copyright 2025-2026 The MathWorks, Inc.
+
     properties
         tempDir
         marshaller
@@ -22,13 +24,17 @@ classdef tFile < matlab.unittest.TestCase
 
             f = "/high/speed/storage/data.csv";
 
-            % Absolute path, because of drive letter.
-            % file://C:/high/speed/storage/data.csv
-            u = "file:/" + "/C:" + f;
-            p = prodserver.mcp.io.uri.File.FileURI2Path(u);
-            test.verifyEqual(p,"C:"+f);
+            % Only run this test on Windows platforms, because no others
+            % will produce drive-letter-prefixed paths.
+            if ispc
+                % Absolute path, because of drive letter.
+                % file://C:/high/speed/storage/data.csv
+                u = "file:/" + "/C:" + f;
+                p = prodserver.mcp.io.uri.File.FileURI2Path(u);
+                test.verifyEqual(p,"C:"+f);
+            end
 
-            % UNC path
+            % UNC path -- allowed on all platforms.
             % file:////high/speed/storage/data.csv
             u = "file:///"+f;
             p = prodserver.mcp.io.uri.File.FileURI2Path(u);
@@ -39,10 +45,12 @@ classdef tFile < matlab.unittest.TestCase
             p = prodserver.mcp.io.uri.File.FileURI2Path(u);
             test.verifyEqual(p,f);
 
-            % file:C:/high/speed/storage/data.csv
-            u = "file:" + "C:" + f;
-            p = prodserver.mcp.io.uri.File.FileURI2Path(u);
-            test.verifyEqual(p,"C:"+f);
+            if ispc
+                % file:C:/high/speed/storage/data.csv
+                u = "file:" + "C:" + f;
+                p = prodserver.mcp.io.uri.File.FileURI2Path(u);
+                test.verifyEqual(p,"C:"+f);
+            end
 
             % Absolute path
             % file:///high/speed/storage/data.csv
@@ -56,11 +64,6 @@ classdef tFile < matlab.unittest.TestCase
             u = "file:/"+f;
             p = prodserver.mcp.io.uri.File.FileURI2Path(u);
             test.verifyEqual(p,extractAfter(f,textBoundary("start")+"/high"));
-
-            % file:///C:/high/speed/storage/data.csv
-            u = "file://" + "/C:" + f;
-            p = prodserver.mcp.io.uri.File.FileURI2Path(u);
-            test.verifyEqual(p,"C:"+f);
             
         end
     end

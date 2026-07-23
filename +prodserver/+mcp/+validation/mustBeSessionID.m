@@ -1,7 +1,7 @@
 function mustBeSessionID(x)
 %mustBeSessionID Error if X is not a session ID.
 
-% Copyright 2025, The MathWorks, Inc
+% Copyright 2025 The MathWorks, Inc
 
     import prodserver.mcp.internal.Constants
 

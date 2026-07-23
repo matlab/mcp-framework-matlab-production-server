@@ -13,7 +13,7 @@ function mustBeResource(x)
 % Using a structure instead of an object to simplify conversion
 % to/from JSON.
 
-% Copyright 2026, The MathWorks, Inc.
+% Copyright 2026 The MathWorks, Inc.
 
      for n = 1:numel(x)
         if isstruct(x)

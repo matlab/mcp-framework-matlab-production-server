@@ -2,6 +2,8 @@ classdef tWireEncode < matlab.unittest.TestCase
 % Test round-trip invariance x == mcpWireDecode(mcpWireEncode(x))
 % for all types supported by the MCP wire encoding.
 
+% Copyright 2025-2026 The MathWorks, Inc.
+
     methods (Test)
 
         function tDouble(test)

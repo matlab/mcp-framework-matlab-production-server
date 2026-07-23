@@ -2,6 +2,8 @@ classdef tArgBlock < matlab.unittest.TestCase
 % Test argument block parsing. Some heuristics, so the parsing can fail in
 % ways that MATLAB won't.
 
+% Copyright 2025-2026 The MathWorks, Inc.
+
     properties
         exampleFolder
     end

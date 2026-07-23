@@ -8,7 +8,7 @@ function value = mcpWireDecode(j)
 %
 %   See also: mcpWireDecodeValue, mcpWireEncode, jsondecode
 
-% Copyright 2026, The MathWorks, Inc.
+% Copyright 2026 The MathWorks, Inc.
 
     j = jsondecode(j);
     value = prodserver.mcp.jsonrpc.mcpWireDecodeValue(j);

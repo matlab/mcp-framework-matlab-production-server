@@ -9,7 +9,7 @@ function [xy,hue] = chaosfractal(N,sides,opts)
 %towards that corner. c is expressed in degrees, with the X-axis 
 %representing 0 degrees.
 
-% Copyright 2025, The MathWorks, Inc.
+% Copyright 2025 The MathWorks, Inc.
 
     arguments (Input)
         N (1,1) double % Number of points in the resulting fractal.

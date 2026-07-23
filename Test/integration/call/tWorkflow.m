@@ -73,9 +73,9 @@ classdef tWorkflow < MCPCaller & ...
                 "MCP resource reading tool");
 
             % Create the file URL inputs in the temporary folder.
-            xURL = locate(test,"x",test.tempFolder);
-            yURL = locate(test,"y",test.tempFolder);
-            zURL = locate(test,"z",test.tempFolder);
+            xURL = sink(test,"x",test.tempFolder);
+            yURL = sink(test,"y",test.tempFolder);
+            zURL = sink(test,"z",test.tempFolder);
             bURL = stow(test,test.tempFolder,"b",b);
 
             % Invoke - x,y,z and b are externalized.

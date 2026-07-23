@@ -1,5 +1,7 @@
 classdef RequireExamples < matlab.unittest.fixtures.Fixture
 
+% Copyright 2025-2026 The MathWorks, Inc.
+
     properties (SetAccess=immutable)
         pkgFolder
         exampleFolder

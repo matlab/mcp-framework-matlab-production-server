@@ -1,6 +1,9 @@
 function seq = primeSequence(n,type)
 % Return the first N primes of the given sequence type. Four sequence types
 % supported: Eisenstein, Balanced, Isolated and Gaussian.
+
+% Copyright 2025-2026 The MathWorks, Inc.
+
     arguments(Input)
         n double    % Length of the generated sequence
         type string % Name of the sequence to generate

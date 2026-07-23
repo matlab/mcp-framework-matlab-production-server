@@ -1,5 +1,8 @@
 function updateToyJsonFiles(opts)
 %updateToyJsonFiles Regenerate toy*.json golden files from the current definition generator.
+
+% Copyright 2025-2026 The MathWorks, Inc.
+
     arguments
         opts.action (1,1) string = "preview"
     end

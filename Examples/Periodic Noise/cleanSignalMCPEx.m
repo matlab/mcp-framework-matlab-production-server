@@ -1,3 +1,4 @@
+% Copyright 2025-2026 The MathWorks, Inc.
 
 function [status, message] = cleanSignalMCPEx(noisyURL, period, cleanURL)
     % cleanSignalMCPEx Wrapper for cleanSignal function

@@ -3,6 +3,9 @@ function tf = callByValue(c1,c2)
 % 
 % Test of the x-call-by: value schema extension, which should force tf to
 % be a literal rather than externalized variable.
+
+% Copyright 2025-2026 The MathWorks, Inc.
+
     arguments (Input)
         % A vector of circles
         %#schema =circle.json

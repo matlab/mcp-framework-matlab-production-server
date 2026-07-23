@@ -1,5 +1,6 @@
 function [q] = toyFileSchemaMCP(m,rURL,out)
-% Allocate result You must read the MCP resource 
+% Calculate triangle area using Heron's formula. Define structured inputs 
+% and outputs via JSON schema. You must read the MCP resource 
 % mcp://protocol/tools/wire-format/parameters/encoding_rules in full and 
 % completely understand it before making any call to this tool.
 % This tool has optional inputs, some of which may be pass-by-reference

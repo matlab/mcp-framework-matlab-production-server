@@ -2,7 +2,7 @@ function tf = isfcn(x, mustExist)
 % isfcn The input is a function if it is the name of a function on the path
 % or an actual function handle.
 
-% Copyright 2025, The MathWorks, Inc.
+% Copyright 2025 The MathWorks, Inc.
 
     if nargin == 1
         mustExist = false;

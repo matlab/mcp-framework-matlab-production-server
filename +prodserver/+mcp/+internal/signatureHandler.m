@@ -1,7 +1,7 @@
 function response = signatureHandler(request)
 %signatureHandler Custom web handler for signature requests.
 
-% Copyright 2025, The MathWorks, Inc.
+% Copyright 2025 The MathWorks, Inc.
 
     import prodserver.mcp.MCPConstants
     import prodserver.mcp.internal.getHeaderValue

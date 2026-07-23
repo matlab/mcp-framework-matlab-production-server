@@ -2,7 +2,7 @@ function config = replaceTokens(tokens,config)
 %replaceTokens Replace all tokens in config with their values. config may
 %be a string or a structure with string-valued fields.
 
-% Copyright 2025, The MathWorks, Inc.
+% Copyright 2025 The MathWorks, Inc.
 
     import prodserver.mcp.validation.istext
     % Import yourself to be recursive.

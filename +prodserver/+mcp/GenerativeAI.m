@@ -1,6 +1,6 @@
 classdef GenerativeAI
 
-% Copyright 2025, The MathWorks, Inc.
+% Copyright 2025 The MathWorks, Inc.
 
     enumeration
         OpenAI      % OpenAI

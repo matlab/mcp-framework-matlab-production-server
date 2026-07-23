@@ -71,7 +71,7 @@ classdef tAdditionalFilesCI < MCPCaller & ...
             %
 
             dataURL = stow(test,test.dataFolder,"data",dataFile);
-            summaryURL = locate(test,"summary",test.dataFolder);
+            summaryURL = sink(test,"summary",test.dataFolder);
             prodserver.mcp.call(endpoint,fcn(2),dataURL,answerURL=summaryURL);
             aSummary = fetch(test,summaryURL);
             test.verifyEqual(aSummary,eSummary);
@@ -81,9 +81,9 @@ classdef tAdditionalFilesCI < MCPCaller & ...
             %
 
             % Create the file URL inputs in the temporary folder.
-            xURL = locate(test,"x",test.dataFolder);
-            yURL = locate(test,"y",test.dataFolder);
-            zURL = locate(test,"z",test.dataFolder);
+            xURL = sink(test,"x",test.dataFolder);
+            yURL = sink(test,"y",test.dataFolder);
+            zURL = sink(test,"z",test.dataFolder);
             bURL = stow(test,test.dataFolder,"b",b);
 
             % Invoke - x,y,z and b are externalized.

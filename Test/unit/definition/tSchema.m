@@ -1,5 +1,7 @@
 classdef tSchema < matlab.unittest.TestCase
 
+% Copyright 2025-2026 The MathWorks, Inc.
+
     properties
         toolsFolder
     end

@@ -2,7 +2,7 @@ function mustBeMCPServer(x)
 %mustBeMCPServer Argument validation function for arguments that must be
 %Model Context Protocol Server addresses. 
 
-% Copyright 2025, The MathWorks, Inc.
+% Copyright 2025 The MathWorks, Inc.
 
     % Must be a Model Context Protocol Server endpoint.
     

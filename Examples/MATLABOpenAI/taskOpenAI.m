@@ -1,7 +1,7 @@
 function response = taskOpenAI(prompt,mcpTools)
 % taskOpenAI Assign OpenAI LLMs the task given by the input prompt. 
 
-% Copyright 2025, The MathWorks, Inc.
+% Copyright 2025 The MathWorks, Inc.
 
     % Convert MCP tool format to OpenAI function objects.
     tools = mcpToOpenAI(mcpTools);

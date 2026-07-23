@@ -1,4 +1,7 @@
 classdef tvalidate < matlab.unittest.TestCase
+
+% Copyright 2025-2026 The MathWorks, Inc.
+
     methods (Test)
         function positiveInteger(test)
 

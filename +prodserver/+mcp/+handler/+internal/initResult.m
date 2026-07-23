@@ -3,7 +3,7 @@ function [result, httpCode, httpMsg, msgHeaders, r] = initResult(jrpc)
 %   Returns a result struct with jsonrpc field set, HTTP 200 OK status,
 %   empty message headers, and an empty content struct r.
 
-% Copyright 2025-2026, The MathWorks, Inc.
+% Copyright 2025-2026 The MathWorks, Inc.
 
     result.jsonrpc = jrpc.jsonrpc;
     httpCode = 200;

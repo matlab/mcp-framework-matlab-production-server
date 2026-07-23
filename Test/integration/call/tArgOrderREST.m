@@ -1,5 +1,7 @@
 classdef tArgOrderREST < MCPCaller
 % Use the REST interface to test argument order processing
+
+% Copyright 2025-2026 The MathWorks, Inc.
     
     methods (TestMethodSetup)
         function scratchSpace(test)

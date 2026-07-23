@@ -1,7 +1,7 @@
 function mustBeURI(x)
 %mustBeURI Throw an exception iff x is not a valid URI.
 
-% Copyright 2025, The MathWorks, Inc.
+% Copyright 2025 The MathWorks, Inc.
     
     tf = prodserver.mcp.validation.isuri(x);
 

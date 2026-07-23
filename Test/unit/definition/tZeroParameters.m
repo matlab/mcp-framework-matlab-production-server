@@ -1,6 +1,8 @@
 classdef tZeroParameters < matlab.unittest.TestCase & ...
         prodserver.mcp.test.mixin.ExternalData
 
+% Copyright 2025-2026 The MathWorks, Inc.
+
     properties
         toolsFolder
     end
@@ -68,9 +70,9 @@ classdef tZeroParameters < matlab.unittest.TestCase & ...
 
             % Prepare output locations
 
-            nURL = locate(test,"n",tfolder);
-            heroURL = locate(test,"hero",tfolder);
-            areaURL = locate(test,"area",tfolder);
+            nURL = sink(test,"n",tfolder);
+            heroURL = sink(test,"hero",tfolder);
+            areaURL = sink(test,"area",tfolder);
 
             % Put the temp folder on the path
             test.applyFixture(PathFixture(tfolder));
@@ -126,9 +128,9 @@ classdef tZeroParameters < matlab.unittest.TestCase & ...
             % Put the temp folder on the path
             test.applyFixture(PathFixture(tfolder));
 
-            [exchangeURL, exchangeFile] = locate(test,"exchange",tfolder, ...
+            [exchangeURL, exchangeFile] = source(test,"exchange",tfolder, ...
                 ext="csv");
-            [uuidURL, uuidFile] = locate(test,"uuid",tfolder,ext="csv");
+            [uuidURL, uuidFile] = source(test,"uuid",tfolder,ext="csv");
 
             swap = ["-,_", "a,A", "b,B", "c,C", "d,D", "e,E", "f,F"];
             writelines(swap,exchangeFile);

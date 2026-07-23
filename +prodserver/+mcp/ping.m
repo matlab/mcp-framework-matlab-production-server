@@ -10,7 +10,7 @@ function tf = ping(endpoint,opts)
 %   tf = prodsever.mcp.ping("http://localhost:9910/cleanSignal/mcp")
 %     tf = true
 
-% Copyright 2025, The MathWorks.
+% Copyright 2025 The MathWorks.
 
     arguments 
         endpoint (1,1) string { prodserver.mcp.validation.mustBeURI }

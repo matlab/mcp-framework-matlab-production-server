@@ -22,7 +22,7 @@ function json = toJSON(value,format)
 %
 % See also: fromJSON
 
-% Copyright 2024, The MathWorks, Inc.
+% Copyright 2024 The MathWorks, Inc.
 
     import prodserver.mcp.io.toJSON
 

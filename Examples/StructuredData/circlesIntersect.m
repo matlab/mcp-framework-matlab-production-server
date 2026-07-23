@@ -1,5 +1,8 @@
 function tf = circlesIntersect(c1, c2)
 % Do any of the circles in c1 and c2 intersect?
+
+% Copyright 2025-2026 The MathWorks, Inc.
+
     arguments (Input)
         % A vector of circles
         %#schema =circle.json

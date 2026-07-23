@@ -1,6 +1,9 @@
 function [n,extent,hero,area,cover] = toyZeroInputs()
 % toyZeroInputs Return the side lengths and areas of N Heronian triangles 
 % randomly chosen from the first 25. 
+
+% Copyright 2025-2026 The MathWorks, Inc.
+
     arguments(Output)
         n double        % Heronian triangle number of each triangle, 1 to 25.
         extent (1,1) double % Total perimeter of all triangles

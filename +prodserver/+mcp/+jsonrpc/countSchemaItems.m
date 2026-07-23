@@ -29,6 +29,9 @@ function [minItems, maxItems] = countSchemaItems(schema)
 %       % Returns minVal=1, maxVal=2
 
     % Handle empty, missing, or invalid schema
+
+% Copyright 2025-2026 The MathWorks, Inc.
+
     if nargin < 1 || isempty(schema)
         minItems = 0;
         maxItems = Inf;

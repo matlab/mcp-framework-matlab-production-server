@@ -1,5 +1,7 @@
 classdef MockCaller < matlab.unittest.TestCase
 
+% Copyright 2025-2026 The MathWorks, Inc.
+
     properties
         port = 50101
         server = fullfile(fileparts(mfilename("fullpath")), ...

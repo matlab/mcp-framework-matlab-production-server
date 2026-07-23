@@ -1,7 +1,7 @@
 function z = toyLiteralLimit(str,suffix)
 % Generate strings with a numeric suffix. 
 
-% Copyright 2026, The MathWorks, Inc.
+% Copyright 2026 The MathWorks, Inc.
     arguments(Input)
         str (1,1) string   % String that receives suffixes.
         %#schema {"maxItems": 17, "items": { "minimum": 2, "maximum": 32 } }

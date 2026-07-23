@@ -2,7 +2,8 @@ classdef ExternalData < handle
 % ExternalData Mixin for testing with external data. Must be a handle class
 % because matlab.unittest.TestCase is.
             
-% Copyright 2025, The MathWorks, Inc.
+% Copyright 2025 The MathWorks, Inc.
+
     properties
         marshaller
         removeable
@@ -13,8 +14,41 @@ classdef ExternalData < handle
             edm.marshaller = prodserver.mcp.io.MarshallURI();
         end
 
-        function [url,pth] = locate(mix,name,prefix,opts)
-        % locate Generate path and full URL for external data source or
+        function [url,pth] = source(mix,name,prefix,opts)
+        % attach Attach to an external data source. 
+            arguments
+                mix prodserver.mcp.test.mixin.ExternalData
+                name string 
+                prefix string 
+                opts.ext string = "mat"
+                opts.scheme string = "file";
+                opts.authority string = "//";
+            end
+
+            [url,pth] = location(mix,name,prefix,ext=opts.ext, ...
+                scheme=opts.scheme, authority=opts.authority, ...
+                remove=false);
+        end
+
+        function [url,pth] = sink(mix,name,prefix,opts)
+        % sink Path to a managed external data sink. Sink will be cleaned
+        % up when ExternalData is deleted.
+            arguments
+                mix prodserver.mcp.test.mixin.ExternalData
+                name string 
+                prefix string 
+                opts.ext string = "mat"
+                opts.scheme string = "file";
+                opts.authority string = "//";
+            end
+
+            [url,pth] = location(mix,name,prefix,ext=opts.ext, ...
+                scheme=opts.scheme, authority=opts.authority, ...
+                remove=true);
+        end
+
+        function [url,pth] = location(mix,name,prefix,opts)
+        % location Generate path and full URL for external data source or
         % sink.
             arguments
                 mix prodserver.mcp.test.mixin.ExternalData
@@ -23,7 +57,7 @@ classdef ExternalData < handle
                 opts.ext string = "mat"
                 opts.scheme string = "file";
                 opts.authority string = "//";
-                opts.remove = true;
+                opts.remove = false;
             end
 
             pth = fullfile(prefix,name+"."+opts.ext);
@@ -45,11 +79,10 @@ classdef ExternalData < handle
                 opts.suffix = "Data"
                 opts.remove = true;
             end
-            [url,file] = locate(mix,name+opts.suffix,pth);
+
             % Possibly register file for removal when mixin is destroyed.
-            if opts.remove
-                mix.removeable = unique([mix.removeable, url]);
-            end
+            [url,file] = location(mix,name+opts.suffix,pth,...
+                remove=opts.remove);
             
             switch(opts.ext)
                 case "mat"
@@ -65,8 +98,6 @@ classdef ExternalData < handle
 
         function x = fetch(mix,source,opts)
         % fetch Deserialize data from source according to importer. 
-
-            % Copyright 2025, The MathWorks, Inc.
 
             arguments
                 mix prodserver.mcp.test.mixin.ExternalData

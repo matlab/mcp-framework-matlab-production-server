@@ -16,6 +16,8 @@ function uri = normalizeURI(uri)
 
     persistent authorityPattern
     if isempty(authorityPattern)
+        % Authority is the characters between the first :// and the next /.
+        % 
         authorityPattern = "://"+asManyOfPattern( ...
             wildcardPattern(1,Except=characterListPattern("?#/")))+"/";
     end
@@ -45,6 +47,8 @@ function np = normalizePath(p,hasAuthority)
 %  * Turn all \ into /
 %  * Collapse empty segments // into /, except at the beginning.
 %  * Never collapse authority-defining //
+%  * Do not remove the / that occurs before a drive letter. /C:/foo is 
+%    a valid URL path, even though it is NOT a valid filesystem path.
 
     import prodserver.mcp.internal.Constants
 
@@ -68,27 +72,34 @@ function pth = preventCollapseOfAuthority(pth,hasAuthority)
 
     persistent authorityToken
     persistent uncToken
-    persistent authorityProtector
+    persistent justice
     if isempty(authorityToken)
-        authorityProtector =  ":/:/";
+        % Prevents the collapse of authority. The trailing : prevents
+        % file:///tmp/... from collapsing into file://tmp/... (see strrep
+        % calls below).
+        justice = ":/:/:";
+
+        % Match the :// at the beginning of the path -- if the character
+        % after this token is a /, there is no authority.
         authorityToken = lookBehindBoundary(textBoundary("start") + ...
             asManyOfPattern(wildcardPattern(1,Except=":"))) + "://";
-        % All that wildcarding is for drive letters. //a is a UNC path,
+
+        % All that wild-carding is for drive letters. //a is a UNC path,
         % but //a: is not.
         uncToken = (lookBehindBoundary(textBoundary("start")) | ...
-            lookBehindBoundary(authorityProtector))+"//"+...
+            lookBehindBoundary(justice))+"//"+...
             wildcardPattern(1)+(textBoundary("end") | wildcardPattern(1,Except=":"));
     end
 
     % Replace the authority with text that won't be collapsed.
-    pth(hasAuthority) = replace(pth(hasAuthority),authorityToken,":/:/");
+    pth(hasAuthority) = replace(pth(hasAuthority),authorityToken,justice);
 
-    % Find any UNC paths, which will start with :/:///.
+    % Find any UNC paths, which will start with :/:/://.
     isUNC = startsWith(pth,uncToken);
 
     % Too aggressive for UNC paths, but let it be for now, and fix later.
-    pth = strrep(pth,"//","/");
-    pth = strrep(pth,":/:/","://");
+    pth = strrep(pth,"//","/"); 
+    pth = strrep(pth,justice,"://");
     if any(isUNC)
         % Re-establish UNC paths. (Add one / to the front of those paths.)
         % Only one of these patterns will match each UNC path.

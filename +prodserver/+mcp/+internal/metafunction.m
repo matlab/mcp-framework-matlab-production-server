@@ -14,7 +14,7 @@ function mf = metafunction(fcn)
 % by metafunction in both releases and renames many of the fields used in
 % 25b.
 
-% Copyright 2025, The MathWorks, Inc.
+% Copyright 2025 The MathWorks, Inc.
 
     if isMATLABReleaseOlderThan("R2025b")
         releaseInfo = matlabRelease;

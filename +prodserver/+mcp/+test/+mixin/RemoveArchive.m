@@ -1,7 +1,7 @@
 classdef RemoveArchive < matlab.unittest.fixtures.Fixture
 % A fixture for pre- and post-test removal of generated archives.
 
-% Copyright 2026, The MathWorks, Inc.
+% Copyright 2026 The MathWorks, Inc.
 
     properties
         archiveName

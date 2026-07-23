@@ -1,6 +1,8 @@
 classdef tMarshal < matlab.unittest.TestCase
 % Test marshaling (serialize/deserialize)
 
+% Copyright 2025-2026 The MathWorks, Inc.
+
     properties
         tempDir
         marshaller
