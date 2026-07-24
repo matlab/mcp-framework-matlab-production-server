@@ -58,3 +58,5 @@ seq = prodserver.mcp.call("http://localhost/primeSequence/mcp",11,"balanced")
 1. Copy the handler files from this folder into your MCP tool's folder: `mcpHandler.m`, `pingHandler.m`, `signatureHandler.m`.
 2. Change directory to your MCP tool's folder.
 3. Follow the steps in the example, adopting file names, paths and the call to `prodserver.mcp.call` as appropriate for your tool.
+
+--- Copyright 2025-2026 The MathWorks, Inc. ---

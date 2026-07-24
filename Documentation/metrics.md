@@ -78,3 +78,5 @@ m = prodserver.mcp.metrics("http://localhost:9910/primeSequence/mcp", ...
     prodserver.mcp.MetricsScope.All, timeout=30, retry=5)
 ```
 Returns every metric reported by the MATLAB Production Server, including both instance-level and MCP metrics.
+
+--- Copyright 2025-2026 The MathWorks, Inc. ---

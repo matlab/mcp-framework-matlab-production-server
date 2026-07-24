@@ -75,3 +75,5 @@ Modify the configuration file as necessary for your environment.
   }
 }
 ```
+
+--- Copyright 2025-2026 The MathWorks, Inc. ---

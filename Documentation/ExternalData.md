@@ -140,3 +140,5 @@ to the `uri` folder.
 | Method  | Description  |
 | :---    |  :---        |
 | FileURI2Path | Static method to extract a file system path from a `file:` scheme URL. |
+
+--- Copyright 2025-2026 The MathWorks, Inc. ---

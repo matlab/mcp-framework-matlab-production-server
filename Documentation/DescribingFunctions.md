@@ -88,3 +88,4 @@ function img = drawvector(bbox,vectors,options)
     end
 ```
 
+--- Copyright 2025-2026 The MathWorks, Inc. ---
