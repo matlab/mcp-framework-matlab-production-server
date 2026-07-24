@@ -16,11 +16,11 @@ import sys
 import argparse
 import logging
 
-logging.basicConfig(
-    filename="mock_server.log",
-    level=logging.DEBUG,
-    format="%(asctime)s %(levelname)s %(message)s"
-)
+# logging.basicConfig(
+#     filename="mock_server.log",
+#     level=logging.DEBUG,
+#     format="%(asctime)s %(levelname)s %(message)s"
+# )
 
 class StopMcpServer(BaseException):
     pass
