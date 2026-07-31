@@ -79,6 +79,9 @@ function data = exportVariable(uri, value, config)
                 case "writetable"
                     args = {};
                     writetable(value, pth, args{:});
+
+                otherwise
+                    feval(config.via, pth, value);
             end
 
         case "bytestream"

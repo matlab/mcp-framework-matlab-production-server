@@ -25,7 +25,7 @@ function endpoint = deploy(archive,host,port,opts)
         % Number of seconds to wait for HTTP requests to complete.
         opts.timeout double {prodserver.mcp.validation.mustBePositiveInteger} = 180;
         % How many times to retry HTTP requests.
-        opts.retry double = 30
+        opts.retry double = 10
         % How many times to retry installation verification.
         opts.verify double = 5
         % How long to wait between retries

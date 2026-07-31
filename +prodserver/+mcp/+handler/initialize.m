@@ -47,8 +47,7 @@ function [result, httpCode, httpMsg, msgHeaders] = initialize(jrpc)
 
     % All header data must be char, not string.
     msgHeaders = vertcat(msgHeaders, ...
-        { MCPConstants.SessionId char(session); ...
-          MCPConstants.ProtocolVersion protocolVersion });
+        { MCPConstants.SessionId char(session); });
 
     result.result = r;
 end

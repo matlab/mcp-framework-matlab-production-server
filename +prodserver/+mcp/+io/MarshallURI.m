@@ -433,6 +433,31 @@ classdef MarshallURI
             end
         end
 
+        function fcns = delegates(mu)
+        %delegates Function names invoked dynamically by the marshaller.
+            import prodserver.mcp.internal.hasField
+            fcns = string.empty;
+            names = keys(mu.config);
+            for n = 1:numel(names)
+                cfg = mu.config{names(n)}.configuration;
+                for section = ["read","write"]
+                    if ~hasField(cfg, section), continue; end
+                    s = cfg.(section);
+                    if hasField(s, "fcn")
+                        fcns(end+1) = s.fcn; %#ok<AGROW>
+                    end
+                    if hasField(s, "config") && isstruct(s.config)
+                        for k = 1:numel(s.config)
+                            if isfield(s.config(k), "via")
+                                fcns(end+1) = s.config(k).via; %#ok<AGROW>
+                            end
+                        end
+                    end
+                end
+            end
+            fcns = unique(fcns);
+        end
+
         function tf = persist(mu,uri,type)
         %persist Does uri have persistence type?
             import prodserver.mcp.validation.istext

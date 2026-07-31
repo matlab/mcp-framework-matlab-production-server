@@ -130,6 +130,9 @@ function value = importVariable(uri, type, config, opts)
                         args = {opts.import};
                     end
                     value = readtable(pth, args{:});
+
+                otherwise
+                    value = feval(config.via, pth);
             end
 
         case "bytestream"

@@ -4,6 +4,7 @@ classdef WireEncoding
 % Copyright 2025-2026 The MathWorks, Inc.
 
     enumeration
+        Hybrid        % Use Invertible only where JSON threatens errors
         Invertible    % Require x = decode(encode(x))
         JSON          % Allow JSON's ambiguous types
     end

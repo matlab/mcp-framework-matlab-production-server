@@ -38,7 +38,7 @@ classdef tDefinition < matlab.unittest.TestCase
                 "Earthquake")));
 
             td = prodserver.mcp.internal.mcpDefinition(...
-                "plotTrajectories", "plotTrajectoriesMCP");
+                "plotTrajectoriesMCP", "plotTrajectoriesMCP");
             definition.tools = { td.tools };
             definition.signatures = { td.signatures };
 
@@ -47,9 +47,9 @@ classdef tDefinition < matlab.unittest.TestCase
             definition = jsondecode(jsonencode(definition));
 
             expectedDefinition = jsondecode(...
-                fileread("plotTrajectories.json"));
+                fileread("plotTrajectoriesMCP.json"));
 
-            test.verifyEqual(definition,expectedDefinition);
+            test.verifyEqual(definition.tools,expectedDefinition);
 
         end
 

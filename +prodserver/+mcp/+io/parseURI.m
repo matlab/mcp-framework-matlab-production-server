@@ -53,8 +53,11 @@ function u = parseURI(uri)
         % Extract authority: [userinfo "@"] host [":" port]
         %
     
-        % Strip off scheme, leaves string starting with :
-        uri(n) = strrep(uri(n),u(n).scheme,"");
+        % Strip off scheme, leaves string starting with :. But only strip
+        % scheme from very beginning of URI. file:////mathworks/file.data
+        % should result in :////mathworks/file.data. (The second "file"
+        % should not be removed.)
+        uri(n) = erase(uri(n),textBoundary("start")+u(n).scheme);
 
         % Extract authority, which extends to the next /, ? # or the end of
         % the URI. Authority only present if // follows the :

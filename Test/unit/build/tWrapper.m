@@ -251,8 +251,8 @@ classdef tWrapper < matlab.unittest.TestCase
             triangle = jsondecode(triangle);
             rURL = rmfield(d.inputSchema.rURL,"description");
             zURL = rmfield(d.outputSchema.zURL,"description");
-            test.verifyEqual(rURL.properties.data,triangle);
-            test.verifyEqual(zURL.properties.data,triangle);
+            test.verifyEqual(rURL.oneOf{2}.properties.data,triangle);
+            test.verifyEqual(zURL.oneOf{2}.properties.data,triangle);
 
         end
 

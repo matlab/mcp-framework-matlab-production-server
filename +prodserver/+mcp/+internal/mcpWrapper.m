@@ -419,7 +419,7 @@ function [code,indirect] = mcpWrapper(fcn,tool,opts)
     code = code + "end" + newline;
 end
 
-function txt = assembleExternalizedDescription(param,io,ioMsg)
+function txt = assembleExternalizedDescription(orig, param,io,ioMsg)
 % Create a description for the externalized parameter named in param.
 
     import prodserver.mcp.MCPConstants
@@ -429,7 +429,8 @@ function txt = assembleExternalizedDescription(param,io,ioMsg)
     else
         prefix = MCPConstants.ReferenceSchemaOutputPrefix;
     end
-    txt = [ioMsg;sprintf("%s %s",prefix,refLoc)];
+    txt = sprintf("%s '%s'. %s %s. %s", ioMsg, orig, prefix, refLoc, ...
+        MCPConstants.ByReferenceContent);
     txt = strtrim(string(textwrap(txt,MCPConstants.WrapTextLen)));
 end
 
@@ -449,34 +450,29 @@ function [indirect,tool] = externalizeParameters(tool,origIn,externIn,...
             d = d(~schema);
         end
 
-        % Remove the wire-encoding message, since the URL is just a string,
-        % which JSON can handle easily.
-        encoding = contains(d,MCPConstants.WireEncodingResourceURI);
-        if any(encoding)
-            d = d(~encoding);
-        end
+        d = stripEncodingMsg(d);
     end
 
     indirect = [];
     for n = 1:numel(origIn)
-        indirect.inputSchema.(externIn(n)) = tool.inputSchema.properties.(origIn(n));
-        d = assembleExternalizedDescription(externIn(n), "inputSchema", ...
+        indirect.inputSchema.(externIn(n)) = allowBareScalar(tool.inputSchema.properties.(origIn(n)));
+        d = assembleExternalizedDescription(origIn(n), externIn(n), "inputSchema", ...
             MCPConstants.ByReferenceInMsg);
         % Add by-reference comment to description.
         dd = splitlines(tool.inputSchema.properties.(origIn(n)).description);
-        dd = [dd; d];
+        dd = [d; dd];
         tool.inputSchema.properties.(origIn(n)).description = ...
             externalizeDescription(dd);
     end
     for n = 1:numel(origOut)
-        indirect.outputSchema.(externOut(n)) = tool.outputSchema.properties.(origOut(n));
-        d = assembleExternalizedDescription(externOut(n), "outputSchema",...
+        indirect.outputSchema.(externOut(n)) = allowBareScalar(tool.outputSchema.properties.(origOut(n)));
+        d = assembleExternalizedDescription(origOut(n), externOut(n), "outputSchema",...
             MCPConstants.ByReferenceOutMsg);
         dd = splitlines(tool.outputSchema.properties.(origOut(n)).description);
-        dd = [dd; d];
+        dd = [d; dd];
         tool.outputSchema.properties.(origOut(n)).description = ...
             externalizeDescription(dd);
-    end   
+    end
 end
 
 function params = toolParameters(signature,schema)
@@ -659,4 +655,64 @@ function name = uniqueLocalVariable(in, out, local)
     blacklist = [ ki, ko ];
     name = matlab.lang.makeUniqueStrings([blacklist, local]);
     name = name(end);
+end
+
+function schema = allowBareScalar(schema)
+%allowBareScalar Extend wire-encoding schema to also accept bare scalars.
+    if ~isfield(schema, 'properties') || ~isfield(schema.properties, 'data')
+        return
+    end
+    bare = bareScalarSchema(schema);
+    wrapped = schema;
+    if isfield(wrapped, 'description')
+        wrapped = rmfield(wrapped, 'description');
+    end
+    if isfield(wrapped, 'annotation')
+        wrapped = rmfield(wrapped, 'annotation');
+    end
+    result.oneOf = [bare; {wrapped}];
+    if isfield(schema, 'description')
+        result.description = stripEncodingMsg(schema.description);
+    end
+    schema = result;
+end
+
+function d = stripEncodingMsg(d)
+%stripEncodingMsg Remove wire-encoding instruction lines from a description.
+    import prodserver.mcp.MCPConstants
+    wasScalar = isscalar(d) && contains(d, newline);
+    if wasScalar
+        lines = splitlines(d);
+    else
+        lines = d;
+    end
+    keep = ~contains(lines, MCPConstants.WireEncodingResourceURI);
+    lines = lines(keep);
+    if wasScalar
+        d = strjoin(lines, newline);
+    else
+        d = lines;
+    end
+end
+
+function bare = bareScalarSchema(wrappedSchema)
+%bareScalarSchema Bare-scalar alternatives for a wire-encoded parameter.
+    dataSchema = wrappedSchema.properties.data;
+    if isfield(dataSchema, 'items')
+        elementType = dataSchema.items.type;
+    else
+        elementType = dataSchema.type;
+    end
+    switch elementType
+        case "number"
+            bare = {struct('type','number'); struct('type','string')};
+        case "integer"
+            bare = {struct('type','integer')};
+        case "string"
+            bare = {struct('type','string')};
+        case "boolean"
+            bare = {struct('type','boolean')};
+        otherwise
+            bare = {struct('type',elementType)};
+    end
 end

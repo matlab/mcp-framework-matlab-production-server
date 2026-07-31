@@ -41,9 +41,20 @@ function [wrappers,indirect] = wrapForMCP(fcns,wrappers,folder,opts)
             % May be empty if there are no indirect references to parameter
             % schemas.
             indirect{n} = def;
+
+            % Will need to rehash to reference metafunction's cache if
+            % we're overwriting the wrapper function.
+            refreshCache = false;
+            if exist(wrappers(n),"file") == 2
+                refreshCache = true;
+            end
             
             % Generated code already ends with a newline.
             writelines(code,wrappers(n),TrailingLineEndingRule="never");
+
+            if refreshCache
+                rehash;
+            end
             
         else
             if strcmpi(wrappers(n),MCPConstants.NoWrapper) == true

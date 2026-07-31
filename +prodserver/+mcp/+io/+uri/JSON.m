@@ -57,8 +57,3 @@ classdef JSON < prodserver.mcp.io.Scheme
 end
 
 
-% Introduced from / by JSON.yaml. Called indirectly. MATLAB Compiler will
-% never find them without this hint.
-
-%#function prodserver.mcp.io.importJSON
-%#function prodserver.mcp.io.exportJSON

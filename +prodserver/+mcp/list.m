@@ -22,8 +22,8 @@ function items = list(endpoint, type, opts)
     arguments
         endpoint string { prodserver.mcp.validation.mustBeMCPServer }
         type (1,1) prodserver.mcp.Primitive 
-        opts.timeout double {mustBePositive} = 60
-        opts.retry double {mustBePositive} = 30
+        opts.timeout double {mustBePositive} = 30
+        opts.retry double {mustBePositive} = 10
         opts.delay double {mustBePositive} = 2
     end
 

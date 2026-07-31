@@ -111,6 +111,7 @@ classdef ExternalData < handle
 
         function delete(mix)
             % Delete resources registered for removal.
+            w = warning("off","MATLAB:DELETE:FileNotFound");
             for n = 1:numel(mix.removeable)
                 u = prodserver.mcp.io.parseURI(mix.removeable(n));
                 switch u.scheme
@@ -122,6 +123,7 @@ classdef ExternalData < handle
                         % Send a DELETE to the resource
                 end
             end
+            warning(w);
         end
 
     end

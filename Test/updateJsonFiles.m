@@ -13,9 +13,11 @@ function updateToyJsonFiles(opts)
     testRoot = fileparts(mfilename("fullpath"));
     projectRoot = fileparts(testRoot);
     toyDir = fullfile(testRoot, "tools", "toyTools");
+    exampleDir = fullfile(projectRoot,"Examples");
+    earthQDir = fullfile(exampleDir,"Earthquake");
 
     % Temporarily add required folders to the path.
-    oldPath = addpath(projectRoot, toyDir);
+    oldPath = addpath(projectRoot, toyDir, earthQDir);
     restorePath = onCleanup(@() path(oldPath));
 
     % Temporary folder for wrapper generation.
@@ -30,14 +32,16 @@ function updateToyJsonFiles(opts)
     % --- Simple single-tool definitions ---
     % defineForMCP(tool, tool) → jsonencode(td.tools{1})
     simpleTools = ["toyZeroInputs", "toyZeroOutputs", "toyScalarOptions", ...
-        "toyScalarNVOptions", "toyFileSchema", "toyLiteralLimit"];
+        "toyScalarNVOptions", "toyFileSchema", "toyLiteralLimit", ...
+        "plotTrajectoriesMCP"];
 
     for k = 1:numel(simpleTools)
         tool = simpleTools(k);
         td = prodserver.mcp.internal.defineForMCP(tool, tool);
         json = jsonencode(td.tools{1});
+        toolDir = fileparts(which(tool));
         [nUpdated, nUnchanged] = compareAndWrite( ...
-            fullfile(toyDir, tool + ".json"), json, ...
+            fullfile(toolDir, tool + ".json"), json, ...
             opts.action, nUpdated, nUnchanged);
     end
 
@@ -91,7 +95,9 @@ function updateToyJsonFiles(opts)
     end
 end
 
-function [nUpdated, nUnchanged] = compareAndWrite(jsonFile, json, action, nUpdated, nUnchanged)
+function [nUpdated, nUnchanged] = compareAndWrite(jsonFile, json, ...
+    action, nUpdated, nUnchanged)
+
     if isfile(jsonFile)
         old = strtrim(fileread(jsonFile));
     else

@@ -223,7 +223,7 @@ classdef tvalidate < matlab.unittest.TestCase
 
             test.verifyError(@()mustBeURI(18),"prodserver:mcp:BadURIType");
             test.verifyError(@()mustBeURI(@sin),"prodserver:mcp:BadURIType");
-            test.verifyError(@()mustBeURI(struct('x',99)),"prodserver:mcp:BadURIType");
+            test.verifyError(@()mustBeURI(struct('x',99)),"prodserver:mcp:BadURI");
 
             test.verifyError(@()mustBeURI("file:$path/to/my/data/file.txt"),...
                 "prodserver:mcp:BadURI");

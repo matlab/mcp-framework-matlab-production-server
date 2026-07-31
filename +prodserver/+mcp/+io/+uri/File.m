@@ -393,8 +393,3 @@ function tokens = fileTokens()
     tokens(File.persistRootToken) = persistFolder;
 end
 
-% Introduced from / by File.yaml. Called indirectly. MATLAB Compiler will
-% never find them without this hint.
-
-%#function prodserver.mcp.io.importVariable
-%#function prodserver.mcp.io.exportVariable

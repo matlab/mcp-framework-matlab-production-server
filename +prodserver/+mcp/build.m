@@ -231,7 +231,7 @@ function [ctf,endpoint] = build(fcn, opts)
     % If a server was provided, publish the archive to the server.
     if opts.stop < prodserver.mcp.BuildStage.Deploy, return; end
     if ~isempty(opts.server)
-        endpoint = prodserver.mcp.deploy(opts.archive,opts.server);
+        endpoint = prodserver.mcp.deploy(ctf,opts.server);
     end
 end
 
@@ -314,6 +314,14 @@ function ctf = buildMCP(files, folder, archive, definition, routesType, stop)
     schemes = arrayfun(@(s)string(which(s)),schemes);
     yaml = arrayfun(@(s)replace(s,".m"+textBoundary("end"),".yaml"), schemes);
     schemes = [ schemes, yaml ];
+
+    % The marshaller dispatches I/O to functions named in YAML configs.
+    % These are invisible to MATLAB Compiler — resolve and include them.
+    mu = prodserver.mcp.io.MarshallURI();
+    dlg = delegates(mu);
+    dlg = arrayfun(@(f)string(which(f)), dlg);
+    dlg = dlg(strlength(dlg) > 0 & ~startsWith(dlg, ["built-in", matlabroot]));
+    schemes = [schemes, dlg];
 
     % Add the custom route handling functions. These are bound directly
     % to the web routes.

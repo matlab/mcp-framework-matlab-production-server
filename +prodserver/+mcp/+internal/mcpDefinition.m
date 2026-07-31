@@ -73,21 +73,6 @@ function definition = mcpDefinition(tool,fcn,opts)
     % output argument.
     [in,out,inHasNVP] = parameterDescription(mf);
 
-    % TODO: Don't do this.
-    % If the function has optional name value pair arguments, add a comment
-    % to the tool description describing how an AI agent should form the
-    % argument list.
-    % if inHasNVP
-    %     % Don't duplicate NVP calling convention comment.
-    %     if contains(definition.tools.description, ...
-    %             MCPConstants.OptionalGroupMsg) == false
-    %         definition.tools.description = [ ...
-    %             definition.tools.description; ...
-    %             MCPConstants.OptionalGroupMsg ...
-    %         ];
-    %     end
-    % end
-
     % Enumerate externalized inputs and outputs
     externalIn = string.empty; 
     externalOut = string.empty;
@@ -120,11 +105,14 @@ function definition = mcpDefinition(tool,fcn,opts)
             external = fieldnames(opts.defs.outputSchema);
             for n = 1:numel(external)
                 definition.tools.inputSchema.properties.(external{n}).writeOnly = true;
-                definition.tools.inputSchema.properties.(external{n}).examples = ...
-                    MCPConstants.ByReferenceOutExample;
             end
         end
     end
+
+    % Remove annotations in the parameter definitions of the description.
+    % We use them internally to manage some wire-encoding decisions, but
+    % they apparently confuse Claude, so we remove them here.
+    %definition = prodserver.mcp.internal.removeField(definition,"annotation");
 end
 
 function definition = defineParameters(definition,tool,io,descriptions, ...
@@ -142,8 +130,12 @@ function definition = defineParameters(definition,tool,io,descriptions, ...
 %  typemap: Maps "extra" MATLAB types to JSONRPC types. A structure.
 %  stage: Stage of the build process.
 
+    import prodserver.mcp.MCPConstants
     import prodserver.mcp.internal.ParameterKind
-    
+    import prodserver.mcp.jsonrpc.argumentDeclaration
+    import prodserver.mcp.jsonrpc.explainWireEncoding
+    import prodserver.mcp.jsonrpc.argumentSchema
+
     % Set schema name based on parameter group -- input or output.
     if strcmp(io,"input")
         schemaName = "inputSchema";
@@ -163,12 +155,7 @@ function definition = defineParameters(definition,tool,io,descriptions, ...
 
     % Collect argument information from metafunction data.
     [parameters,required,kind,order,group,validation,default] = ...
-        argumentDeclaration(signature,descriptions,encoding);
-    
-    % Update parameter structure with descriptions.
-    if ~isempty(descriptions)
-        parameters = setDescription(parameters,descriptions,stage);
-    end
+        argumentDeclaration(signature,descriptions,encoding,stage);
     
     % Populate MATLAB signature structure with MATLAB native types.
     if ~isempty(parameters)
@@ -181,7 +168,7 @@ function definition = defineParameters(definition,tool,io,descriptions, ...
         definition.signatures.(tool).(io).validation = validation;
         definition.signatures.(tool).(io).default = default;
     end
-    
+
     % Convert MATLAB types to compatible JSON types
     parameters = mcpArgumentTypes(parameters,typemap);
     
@@ -199,32 +186,14 @@ function definition = defineParameters(definition,tool,io,descriptions, ...
     %definition.tools.(schemaName).additionalProperties = false;
 end
 
+function pt = parameterTypeName(param,name)
+% Get or set parameter type name. 
+%    pt = parameterTypeName(param)      : Get name of parameter's type
+%        Returns existing name.
+%
+%    pt = parameterTypeName(param,name) : Set name of parameter's type
+%        Returns modified parameter structure.
 
-function parameters = setDescription(parameters,ad,stage)
-% Copy the description text into the "description" field of each parameter.
-% ad is a dictionary: name -> description. Maintain line breaks of
-% description. If the stage is "Definition", remove build-time pragmas.
-    import prodserver.mcp.internal.Constants
-    
-    for arg = keys(ad)'
-        d = ad(arg).description;
-        if stage == prodserver.mcp.BuildStage.Definition
-            keep = true(size(d));
-            for n = 1:numel(d)
-                % Don't keep %#schema lines in the published description.
-                if startsWith(d(n),Constants.Schema)
-                    keep(n) = false;
-                end
-            end
-            d = d(keep);
-        end
-        % MCP protocol requires single-string descriptions -- can't be an
-        % array. Line breaks are OK.
-        parameters.(arg).description = strjoin(d,newline);
-    end
-end
-
-function t = parameterTypeName(type)
     import prodserver.mcp.MCPConstants
 
     % The location of the actual type of the parameter depends on the wire
@@ -233,17 +202,46 @@ function t = parameterTypeName(type)
     % annotation field to determine if we're using the invertible encoding.
     % The contains test is looking for text in the
     % wireEncodingArgTemplate.json. So if you change that, change this.
-    if isfield(type,"annotation") && contains(type.annotation,"Invertible wire encoding")
-        type = type.properties.data;
+   
+    wireEncoding = false;
+    if isfield(param,"annotation") && ...
+            contains(param.annotation,"Invertible wire encoding")
+        wireEncoding = true;
     end
 
-    % type will be simple string for scalar parameters and a
-    % structure for array parameters. Return the type name of the
-    % elements of the array or the scalar type name.
-    if strcmpi(type.type,MCPConstants.Array)
-        t = type.items.type;
+    if nargin == 1
+
+        % Remove wireEncoding wrapper, because we're looking for the actual
+        % type, the wrapped type, not the wrapper type.
+        if wireEncoding
+            type = param.properties.data;
+        else
+            type = param;
+        end
+
+        % type will be simple string for scalar parameters and a
+        % structure for array parameters. Return the type name of the
+        % elements of the array or the scalar type name.
+        if strcmpi(type.type,MCPConstants.Array)
+            pt = type.items.type;
+        else
+            pt = type.type;
+        end
     else
-        t = type.type;
+        if wireEncoding
+            if strcmpi(param.properties.data.type,MCPConstants.Array)
+                param.properties.data.items.type = name;
+            else
+                param.properties.data.type = name;
+            end
+        else
+            if strcmpi(param.type,MCPConstants.Array)
+                param.itmes.type = name;
+            else
+                param.type = name;
+            end
+        end
+        pt = param;
     end
 end
 
@@ -257,6 +255,7 @@ function parameters = mcpArgumentTypes(parameters,typemap)
 
     import prodserver.mcp.MCPConstants
     import prodserver.mcp.internal.SchemaOrigin
+    import prodserver.mcp.jsonrpc.jsonParameterType
 
     name = string(fieldnames(parameters));
     for n = 1:numel(name)
@@ -282,490 +281,17 @@ function parameters = mcpArgumentTypes(parameters,typemap)
         parameters.(name(n)) = rmfield(parameters.(name(n)),"schema");
 
         if isempty(t) || strlength(t) == 0
-            if strcmp(parameters.(name(n)).type,"array")
-                badType = parameters.(name(n)).items.type;
-            else
-                badType = parameters.(name(n)).type;
-            end
+            badType = parameterTypeName(parameters.(name(n)));
             error("prodserver:mcp:IncompatibleArgumentType", ...
                 "Parameter '%s' has unsupported MATLAB type '%s'. Valid " + ...
                 "types include numeric types, strings, cell arrays and " + ...
                 "structures.", name(n), badType);
         end
 
-        % Array and scalar have different representation.
-        if strcmpi(parameters.(name(n)).type, MCPConstants.Array)
-            % Array
-            parameters.(name(n)).items.type = t;
-        else
-            % Scalar
-            parameters.(name(n)).type = t;
-        end
+        % Array and scalar have different representation. And wireEncoding
+        % stores the type name in a more complex structure. So defer to a
+        % method that knows all about the structure.
+        parameters.(name(n)) = parameterTypeName(parameters.(name(n)),t);
     end
 end
 
-function parameters = explainWireEncoding(parameters,io,external)
-% Add the wire encoding reference to the description of each parameter.
-    import prodserver.mcp.MCPConstants
-
-    % For every parameter...
-    param = keys(parameters)';
-
-    if strcmpi(io,"input")
-        wireEncodingMsg = MCPConstants.WireEncodingInputMsg;
-    else
-        wireEncodingMsg = MCPConstants.WireEncodingOutputMsg;
-    end
-    
-    for p = param
-        % Don't add encoding comment to externalized parameters.
-        if nnz(ismember(p,external)) == 0
-            % And don't add it twice.
-            alreadyExplained = contains(parameters(p).description,...
-                MCPConstants.WireEncodingResourceURI);
-
-            if nnz(alreadyExplained) == 0
-                parameters(p).description = [ parameters(p).description; ...
-                    wireEncodingMsg ];
-            end
-        end
-    end
-end
-
-function parameters = argumentSchema(parameters)
-% Extract user-specified schema from comments in the description. 
-%
-% Allow the following syntax:
-%
-%   %#schema { "maxItems": 12 }
-%   %#schema =x.json
-%   %#schema +{ "x-call-by": "value" }
-%
-% In the first,the JSON schema appears literally. In the second, the JSON
-% schema is contained in a file. In the third, the schema is added to
-% to schema automatically derived from the MATLAB function. The parser 
-% will use the "{" character to distinguish these cases.
-
-    import prodserver.mcp.internal.Constants
-    import prodserver.mcp.internal.SchemaInjection
-    import prodserver.mcp.internal.SchemaOrigin
-
-    function [schema,inject,line] = findSchema(comment,p)
-    % Search the comment lines for p to find a line that specifies the
-    % schema for p. May or may not exist. 
-        schema = []; line = 0;
-        inject = SchemaInjection.Unknown;
-        for n = 1:numel(comment)
-            if startsWith(comment(n),Constants.Schema)
-                % Found on line n
-                line = n;
-
-                % Found schema line -- replace or add properties?
-                inject = SchemaInjection.Add;
-                
-                % If the schema source (literal or file) is preceded by an
-                % "=", the user wants to COMPLETELY REPLACE (skip) the
-                % generated schema. A "+", on the other hand, adds the
-                % properties to the generated schema, overwriting any
-                % autogenerated properties of the same name.
-                if startsWith(comment(n),Constants.Schema + ...
-                        whitespacePattern + SchemaInjection.ReplaceToken())
-                    inject = SchemaInjection.Replace;
-                end
-
-                % Now, is it literal or file-based?
-                if contains(comment(n), "{")
-                    % Literal schema following the keyword.
-                    schema = extractBetween(comment(n), "{", ...
-                        textBoundary("end"), Boundaries="inclusive");
-                    return;
-                else
-                    % File path follows the keyword and optional schema
-                    % injection action token. File must exist.
-                    file = strtrim(extractAfter(comment(n), ...
-                        Constants.Schema + optionalPattern(...
-                        whitespacePattern + characterListPattern(...
-                        SchemaInjection.AddToken() + ...
-                        SchemaInjection.ReplaceToken))));
-
-                    if exist(file,"file") == 2
-                        % Read all the data
-                        schema = readlines(file);
-                        % Trim leading and trailing whitespace.
-                        schema = strtrim(schema);
-                        % Join lines into a single string.
-                        schema = strjoin(schema," ");
-                    else
-                        error("prodserver:mcp:SchemaFileNotFound", ...
-                            "Unable to locate schema file %s for parameter %s.", ...
-                            file,p)
-                    end
-                end
-            end
-        end
-    end
-
-    
-    % For every parameter...
-    param = keys(parameters)';
-
-    % Using try-catch as flow of control only to provide a more
-    % intelligible error message if the schema is invalid JSON.
-    try
-        for p = param
-            [json,inject,line] = findSchema(parameters(p).description,p);
-            
-            if ~isempty(json)
-                % Require that the schema data be valid JSON
-                schema = jsondecode(json);
-                % Add the schema to the parameter description.
-                parameters(p).schema.line = line;
-                parameters(p).schema.schema = schema;
-                parameters(p).schema.inject = inject;
-
-                % Knowing the origin of the schema helps with management of
-                % type names. Client schemas must contain only JSON schema 
-                % types.
-                if inject == SchemaInjection.Add
-                    parameters(p).schema.origin = SchemaOrigin.Hybrid;
-                elseif inject == SchemaInjection.Replace
-                    parameters(p).schema.origin = SchemaOrigin.Client;
-                else
-                    error("prodserver:mcp:InvalidSchemaInjection", ...
-                        "Invalid schema injection type: %s", ...
-                        string(inject));
-                end  
-            else
-                parameters(p).schema.origin = SchemaOrigin.Introspection;
-            end
-        end
-    catch me
-        if startsWith(me.identifier,"MATLAB:json")
-            error("prodserver:mcp:InvalidParameterSchema", ...
-                "Invalid schema for parameter '%s': %s", ...
-                p,me.message);
-        else
-            rethrow(me);
-        end
-    end
-
-end
-
-function [properties,required,kind,order,group,validation,default] = ...
-    argumentDeclaration(args,parameters,encoding)
-% Extract argument names and types, but not descriptions from an argument
-% block. Return an MCP properties structure and an array of the names of
-% the required arguments.
-%
-% All the returned types must be jsonencode-compatible, as they form part
-% of the signature, which travels over the wire via JSONRPC. So no
-% dictionaries, tempting as they may be.
-
-    import prodserver.mcp.MCPConstants
-    import prodserver.mcp.internal.Constants
-    import prodserver.mcp.internal.hasField
-    import prodserver.mcp.internal.ParameterKind
-    import prodserver.mcp.internal.SchemaInjection
-    import prodserver.mcp.internal.SchemaOrigin
-    import prodserver.mcp.jsonrpc.SchemaCallBy
-
-
-    names = cell(1,numel(args));
-    decl = cell(size(names));
-    required = false(size(names));
-    kind = repmat(ParameterKind.Unknown,size(names));
-    % Should be dictionaries, but must be struct due to JSON constraints.
-    group = [];
-    default = [];
-    validation = cell(size(names));
-
-    % If we're using the precise, invertible encoding, wrap the user's
-    % declaration in the encoding wrapper.
-    wrapper = struct.empty;
-    if encoding == prodserver.mcp.WireEncoding.Invertible
-        % Fetch the wrapper text, a JSON object. Storing it as JSON
-        % improves readability and maintainability.
-        wrapper = fileread(fullfile(prodserver.mcp.internal.packageFolder(),...
-            "+prodserver","+mcp","+jsonrpc","wireEncodingArgTemplate.json"));
-        % Turn the wrapper text into a structure. Plain JSON, decodes
-        % without ambiguity.
-        wrapper = jsondecode(wrapper);
-    end
-
-    % Determine the properties of each argument, either by introspection 
-    % or from a user-supplied schema.
-    for i = 1:numel(args)
-
-        % Parameter name
-        names{i} = args(i).Identifier.Name;
-
-        % Is the parameter required or optional? Name value pairs are
-        % always optional. Positional arguments are optional if they are
-        % assigned a default value in the argument block. Track positional
-        % vs. name value precisely.
-        required(i) = args(i).Required;
-        kind(i) = ParameterKind.FromMetaData(required(i),args(i).Identifier);
-
-        % The default type for all arguments, until we're told differently
-        % by the argument block validation or the schema.
-        t = MCPConstants.DefaultArgType;
-        if hasField(args(i),"Validation.Class")
-            if ~isempty(args(i).Validation.Class)
-                t = args(i).Validation.Class.Name;
-            end
-        end
-
-        % Argument block validation typically specifies one or more of size
-        % (shape), data type and value constraints (mustBePositive, for
-        % example).
-        if hasField(parameters(names{i}),"validation") && ...
-                strlength(parameters(names{i}).validation) > 0
-            [sz,t,f,v] = argumentInfo(parameters(names{i}).validation);
-            if isempty(t) 
-                t = MCPConstants.DefaultArgType;
-            end
-            validation{i} = struct("size",sz,"type",t,"fcn",f);
-            default.(names{i}) = v;
-        else
-            default.(names{i}) = "";
-        end
-
-        % Array or scalar? Everything is an array (because MATLAB) unless 
-        % explicitly declared otherwise. Create a structure that will 
-        % result in one of two JSON encodings.
-        %
-        % For array parameters:
-        %   {
-        %       "type": "array",
-        %       "items": { "type": "<MATLAB type name>" }
-        %   }
-        % If the parameter has a size validation like (1,3,2), the
-        % structure will include the "maxItems" field (with value 6 in this
-        % case.)
-        %
-        % For scalar parameters (where the size is explicitly (1,1)):
-        %   {
-        %       "type": "<MATLAB type name>" 
-        %   }
-        %
-        % Some MCP hosts appear to validate against the schema. Others do
-        % not. YMMV. For the ones that do, the schema must be correct.
-
-        d.type = "array";
-        d.items.type = t;
-
-        % Validation may indicate the size of one or more dimensions. If
-        % all dimensions have a finite size, we can compute the maximum
-        % number of elements, which JSONSchema uses.
-        if hasField(args(i),"Validation.Size") && ...
-            ~isempty(args(i).Validation.Size)
-            % If any dimension is unrestricted, there is no size limit.
-            % Otherwise, maxItems is the product of the dimensions.
-
-            dims = args(i).Validation.Size;
-            maxItems = 1;
-            for dI = 1:numel(dims)
-                if isa(dims(dI),'matlab.metadata.UnrestrictedDimension')
-                    sz = Inf;
-                elseif isa(dims(dI),'matlab.metadata.FixedDimension')
-                    sz = dims(dI).Length;
-                end
-                maxItems = maxItems * sz;
-            end
-            if ~isinf(maxItems) && maxItems > 1
-                d.maxItems = maxItems;
-            end
-
-            % Check for scalar -- and undo all work above, if so. Create
-            % the much simpler scalar declaration.
-            if maxItems == 1
-                d = [];
-                d.type = t;
-            end
-        end
-
-        % Record variable group membership. Optional arguments have a
-        % "group"; the name of the "structure" of which they are fields.
-        % Must be string, not char, as subsequent code expects the result
-        % of concatenation to retain the number of arguments, even if the
-        % group is empty.
-        group.(args(i).Identifier.Name) = string(args(i).Identifier.GroupName);
-
-        % Inject user-specified schema properties. This may modify or
-        % undo some or all of the work done above, by design.
-        d.schema.line = 0;
-        if parameters(names{i}).schema.origin ~= SchemaOrigin.Introspection
-            schema = parameters(names{i}).schema;
-            d.schema.line = schema.line;
-            inject = schema.inject;
-            schema = schema.schema;
-
-            % The user-specified schema may either add to or replace the
-            % autogenerated schema.
-            if inject == SchemaInjection.Replace
-                d = [];
-            end
-
-            propertyNames = string(fieldnames(schema))';
-            for p = propertyNames
-                [pth,val] = nestedFieldValues(schema,p);
-                for f = 1:numel(pth)
-                    fPth = pth{f};
-                    d = setfield(d,fPth{:},val{f}); 
-                end
-            end
-        end
-        % Whence did the schema originate?
-        d.schema.origin = parameters(names{i}).schema.origin;
-
-        % No time-frame for mf.Signature.Inputs(i).Description, so
-        % placeholder for now and fix-up later.
-        d.description = t;
-
-        % If we're using the invertible wire encoding, wrap the argument in
-        % the invertible envelope.
-        if ~isempty(wrapper) 
-            % Get a clean copy of the wrapper object.
-            thisWrapper = wrapper;
-
-            % Move the schema field to the top level of the structure,
-            % whence it will be appropriately removed later.
-            thisWrapper.schema = d.schema; d = rmfield(d,"schema");
-
-            % Move the description field to the top level of the structure,
-            % where the LLM will see it.
-            thisWrapper.description = d.description; d = rmfield(d,"description");
-
-            % Move the call by field, if there is one, to the top level of
-            % the structure, so that it properly influences
-            % externalization.
-            if isfield(d,SchemaCallBy.fieldName)
-                thisWrapper.(SchemaCallBy.fieldName) = d.(SchemaCallBy.fieldName);
-                d = rmfield(d,SchemaCallBy.fieldName);
-            end
-
-            % Place the schema for this variable into the data field of the
-            % invertible envelope. 
-            thisWrapper.properties.data = d;
-            d = thisWrapper;
-        end
-
-        % Save the declaration in a format that makes creating the output
-        % structure easy.
-        decl{i} = d;
-        d = [];   % To allow it to be string or structure again.
-    end
-
-    % Structure with one field per argument. name -> (type, description)
-    % Except description is empty right now -- to be filled in later.
-    args = [ names; decl ];
-    properties = struct(args{:});
-    required = names(required);
-    count = ParameterKind.CountType(kind);
-    % How many positional arguments?
-    pN = count(ParameterKind.Required) + count(ParameterKind.Optional);
-    order = string(names(1:pN));
-end
-
-function [size,type,fcn,default] = argumentInfo(info)
-% The argument information line (a string) consists of four optional parts:
-% <size> <class> <validation> <default>
-% <size> is delimited by ( ).
-% <class> is a single string, with no spaces.
-% <validation> is delimited by { }.
-% <default> begins with =.
-
-    import prodserver.mcp.internal.Constants
-
-    % When erasing parts of the string, use the patterns instead of the
-    % literal text in order to anchor the erasure to the beginning of the
-    % string. In the info line 'string = string.empty' we must ONLY erase
-    % the first 'string' or the default value will be set to '.empty',
-    % which is invalid MATLAB code.
-
-    size = extract(info,Constants.ParameterSizePattern);
-    info = strtrim(erase(info,Constants.ParameterSizePattern));
-
-    type = extract(info,Constants.TypePattern);
-    info = strtrim(erase(info,Constants.TypePattern));
-
-    fcn = extract(info,Constants.ValidationPattern);
-    info = strtrim(erase(info,Constants.ValidationPattern));
-
-    default = strtrim(extract(info,Constants.DefaultPattern));
-end
-
-function [pth,val] = nestedFieldValues(s,f)
-% Recursively extract all field values and their full paths from field F of
-% structure S. Both pth and val are cell arrays.
-    if isstruct(s.(f))
-        fields = string(fieldnames(s.(f)))';
-        val = {};
-        pth = {};
-        for sf = fields
-            [sp,v] = nestedFieldValues(s.(f),sf);
-            for p = 1:numel(sp)
-                sp{p} = [ {f}, sp{p} ]; 
-            end
-            pth = [ pth, sp ]; %#ok<AGROW>
-            val = [ val, v ];  %#ok<AGROW>
-        end
-    else
-        pth = { { f } } ;
-        val = { s.(f) };
-    end
-end
-
-function jsonType = jsonParameterType(matlabType,typemap)
-% Map MATLAB types to JSON RPC types. The only valid types for JSON are:
-% array, boolean, integer, null, number, object, string. In this list,
-% "object" means struct.
-% 
-% Return a "" string if there is no compatible JSON type.
-
-    arguments
-        matlabType string
-        typemap struct
-    end
-
-    intType = textBoundary("start") + ("int" | "uint") + ...
-        ("8" | "16" | "32" | "64" | "128") + textBoundary("end");
-    
-    jsonType = strings(1,numel(matlabType));
-
-    for n = 1:numel(matlabType)
-
-        % Special case types first -- user specified these conversions, so
-        % honor them.
-        if ismember(matlabType(n),fieldnames(typemap))
-            jsonType(n) = typemap.(matlabType(n));
-        % Character types become string
-        elseif strcmp(matlabType(n),"char") || strcmp(matlabType(n),"string")
-            jsonType(n) = "string";
-    
-        % All integer types become "integer"
-        elseif matches(matlabType(n),intType)
-            jsonType(n) = "integer";
-    
-        % Floating point types are "number"
-        elseif strcmp(matlabType(n),"double") || strcmp(matlabType(n),"float")
-            jsonType(n) = "number";
-    
-        % Data with named fields is an "object"
-        elseif strcmp(matlabType(n),"struct")
-            jsonType(n) = "object";
-    
-        % logical -> boolean
-        elseif strcmp(matlabType(n),"logical")
-            jsonType(n) = "boolean";
-    
-        % cell arrays are JSON arrays
-        elseif strcmp(matlabType(n),"cell")
-            jsonType(n) = "array";
-    
-        % No compatible JSON type for this MATLAB type. 
-        else
-            jsonType(n) = "";
-        end
-    end
-end

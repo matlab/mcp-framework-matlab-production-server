@@ -73,6 +73,58 @@ classdef tMarshal < matlab.unittest.TestCase
 
         end
 
+        function tJSON(test)
+
+            tfolder = test.tempDir.Folder;
+
+            %
+            % deserialize
+            %
+
+            original = struct('x', 1, 'y', [2 3 4]);
+            jsonFile = fullfile(tfolder,"readThis.json");
+            prodserver.mcp.io.saveJSON(jsonFile, original);
+
+            % URLs use forward-slash only.
+            url = "file:" + jsonFile;
+            url = replace(url,filesep,"/");
+
+            % Always returns a cell array
+            actual = deserialize(test.marshaller, url);
+            test.verifyTrue(isequaln(actual{1},original),"deserialize");
+
+            %
+            % serialize
+            %
+
+            % URLs use forward-slash only.
+            jsonFile = fullfile(tfolder,"wroteThat.json");
+            url = "file:" + jsonFile;
+            url = replace(url,filesep,"/");
+
+            serialize(test.marshaller,url,{original});
+
+            actual = prodserver.mcp.io.loadJSON(jsonFile);
+            test.verifyTrue(isequaln(actual,original),"serialize");
+
+            %
+            % Round trip
+            %
+
+            original = struct('name', 'test', 'values', magic(3));
+
+            % URLs use forward-slash only.
+            jsonFile = fullfile(tfolder,"wroteThenRead.json");
+            url = "file:" + jsonFile;
+            url = replace(url,filesep,"/");
+
+            serialize(test.marshaller,url,{original});
+
+            actual = deserialize(test.marshaller, url);
+            test.verifyTrue(isequaln(actual{1},original),"round trip");
+
+        end
+
         function tMAT(test)
 
             import prodserver.mcp.internal.Constants

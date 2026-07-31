@@ -77,7 +77,7 @@ function pth = preventCollapseOfAuthority(pth,hasAuthority)
         % Prevents the collapse of authority. The trailing : prevents
         % file:///tmp/... from collapsing into file://tmp/... (see strrep
         % calls below).
-        justice = ":/:/:";
+        justice = "*/*/*";
 
         % Match the :// at the beginning of the path -- if the character
         % after this token is a /, there is no authority.
@@ -94,8 +94,8 @@ function pth = preventCollapseOfAuthority(pth,hasAuthority)
     % Replace the authority with text that won't be collapsed.
     pth(hasAuthority) = replace(pth(hasAuthority),authorityToken,justice);
 
-    % Find any UNC paths, which will start with :/:/://.
-    isUNC = startsWith(pth,uncToken);
+    % Find any UNC paths, which will contain */*/*//.
+    isUNC = contains(pth,uncToken);
 
     % Too aggressive for UNC paths, but let it be for now, and fix later.
     pth = strrep(pth,"//","/"); 
@@ -107,6 +107,6 @@ function pth = preventCollapseOfAuthority(pth,hasAuthority)
             textBoundary("start"))+"/","//");
 
         pth(isUNC) = replace(pth(isUNC),lookBehindBoundary(...
-            textBoundary("start"))+":",":/");
+            textBoundary("start")+wildcardPattern(Except=":"))+":",":/");
     end
 end

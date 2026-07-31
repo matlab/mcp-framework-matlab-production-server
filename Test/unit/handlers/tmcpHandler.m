@@ -54,10 +54,27 @@ classdef tmcpHandler < MCPHandlerBase
                 test.verifyEqual(string(result.contents.mimeType), ...
                     MCPConstants.WireEncodingResource.mimeType);
 
-                % Not what we'd find in a real deployed tool, but validates
-                % that content was written to MAT file.
-                test.verifyEqual(string(result.contents.text), ...
-                    MCPConstants.WireEncodingResource.contents);
+                % Make sure the definition file is where we expect it to
+                % be.
+                w = string(which(MCPConstants.DefinitionFile));
+                test.assertEqual(w,test.definitionFile);
+
+                if exist(MCPConstants.WireEncodingResource.contents,"file") == 2
+                    actual = strtrim(split(string(result.contents.text),newline));
+                    txt = readlines(MCPConstants.WireEncodingResource.contents);
+                    expected = strtrim(split(strjoin(txt,newline),newline));
+
+                    % Test each line for equality and report first unequal
+                    % line.
+                    for n = 1:numel(expected)
+                        if n <= numel(actual)
+                            test.assertEqual(actual(n),expected(n),"Line " + string(n));
+                        end
+                    end
+                else
+                    test.verifyEqual(string(result.contents.text), ...
+                        MCPConstants.WireEncodingResource.contents);
+                end
             end
         end
     end

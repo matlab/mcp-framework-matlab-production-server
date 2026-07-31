@@ -4,8 +4,8 @@ function [x,z] = oneIndirectOutputMCP(a,b,c,d,out)
 % MCP resource mcp://protocol/tools/wire-format/parameters/encoding_rules 
 % in full and completely understand it before making any call to this 
 % tool.
-% This tool has optional inputs, some of which may be pass-by-reference
-% output locations.
+% Some inputs to this tool are optional output locations: URLs where the
+% server writes results. Provide a writable URL to receive each output.
     arguments(Input)
         % Required A
         % You must encode data as described by this MCP resource: mcp://protocol/tools/wire-format/parameters/encoding_rules
@@ -19,12 +19,12 @@ function [x,z] = oneIndirectOutputMCP(a,b,c,d,out)
         % Required D
         % You must encode data as described by this MCP resource: mcp://protocol/tools/wire-format/parameters/encoding_rules
         d (1,1) double
+        % URL pointing to the output value for 'y'. This value never returned
+        % inline. Read result from URL using scheme-appropriate method: file
+        % system read for file: URLs, HTTP GET for http:// URLs and so on. Data
+        % at the URL formatted per  "$ref": "#/$defs/outputSchema/yURL". The
+        % content of the URL is:
         % Reference Y
-        % Pass-by-reference output location. Provide a writeable URL. This output
-        % never returned inline.
-        % Read result from URL using schema-appropriate method: file system read
-        % for file: URLs, HTTP GET for http:// URLs and so on. Data at the URL
-        % formatted as  "$ref": "#/$defs/outputSchema/yURL"
         out.yURL (1,1) string  = ""
     end
     arguments(Output)
