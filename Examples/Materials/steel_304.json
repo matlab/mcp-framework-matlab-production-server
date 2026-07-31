@@ -1,0 +1,14 @@
+{
+  "name": "Stainless Steel 304",
+  "category": "Stainless Steel",
+  "properties": {
+    "density": {"value": 8000, "units": "kg/m^3"},
+    "youngs_modulus": {"value": 193e9, "units": "Pa"},
+    "yield_strength": {"value": 215e6, "units": "Pa"},
+    "ultimate_tensile_strength": {"value": 505e6, "units": "Pa"},
+    "poissons_ratio": {"value": 0.29, "units": "dimensionless"},
+    "thermal_conductivity": {"value": 16.2, "units": "W/(m*K)"},
+    "specific_heat": {"value": 500, "units": "J/(kg*K)"},
+    "thermal_expansion_coefficient": {"value": 17.3e-6, "units": "1/K"}
+  }
+}

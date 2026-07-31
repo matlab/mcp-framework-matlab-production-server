@@ -78,11 +78,14 @@ The Examples folder contains several complete MCP tools of varying complexity. E
 * [Periodic Noise](./Examples/Periodic%20Noise/PeriodicNoise.md): Eliminates periodic noise from a measured signal. Demonstrates explicit use of an automatically generated wrapper function.
 * [Earthquake](./Examples/Earthquake/Earthquake.md): Generates plots of earthquake data. Demonstates use of a user-written wrapper function.
 * [Multiple Tools](./Examples/MultiTool/MultipleTools.md): Build a server hosting multiple MCP tools.
+* [Materials](./Examples/Materials/Materials.md): Engineering material properties as MCP Resources paired with structural and thermal analysis tools. Demonstrates how resources enhance server usability.
 
 To become effective MCP tools, MATLAB functions must accommodate the MCP environment. In particular,
 your functions must: 
 * Provide an LLM (and human!) readable [description](./Documentation/DescribingFunctions.md) of their purpose and capabilities.
 * Process large or complex data via [external sources and sinks](./Documentation/ExternalData.md).
+
+MCP servers may also expose [Resources](./Documentation/Resources.md) -- read-only data that provides context for tools. Resources allow an LLM to discover and read reference data (material properties, calibration tables, configuration) instead of hallucinating values or requiring the user to supply them.
 
 If you add comments and function argument blocks to your code, MCP Framework can automate most
 of this process. See the links for details.

@@ -1,0 +1,28 @@
+{
+  "catalog": [
+    {
+      "uri": "mcp://materials/aluminum_6061",
+      "name": "Aluminum 6061-T6",
+      "category": "Aluminum Alloy",
+      "summary": "General-purpose aluminum alloy. High strength-to-weight ratio, good corrosion resistance. Common in aerospace and structural applications."
+    },
+    {
+      "uri": "mcp://materials/steel_304",
+      "name": "Stainless Steel 304",
+      "category": "Stainless Steel",
+      "summary": "Austenitic stainless steel. Excellent corrosion resistance, high strength, widely used in food processing, chemical, and architectural applications."
+    },
+    {
+      "uri": "mcp://materials/titanium_ti6al4v",
+      "name": "Titanium Ti-6Al-4V",
+      "category": "Titanium Alloy",
+      "summary": "Most common titanium alloy. Exceptional strength-to-weight ratio and corrosion resistance. Used in aerospace, medical implants, and marine applications."
+    },
+    {
+      "uri": "mcp://materials/copper_c110",
+      "name": "Copper C110 (ETP)",
+      "category": "Copper",
+      "summary": "Electrolytic tough pitch copper. Highest thermal and electrical conductivity among common engineering metals. Used in heat exchangers, bus bars, and electrical components."
+    }
+  ]
+}
