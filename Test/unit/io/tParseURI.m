@@ -1,4 +1,6 @@
 classdef tParseURI < matlab.unittest.TestCase
+    
+% Copyright 2026 The MathWorks, Inc.
 
     methods(Test)
         function fileURI(test)

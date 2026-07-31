@@ -276,3 +276,5 @@ Report to the user:
 - The tool name(s) and description(s) deployed
 - That the MCP server has been registered in Claude Code settings
 - **Inform the user that they must restart Claude Code (or start a new session) for the new MCP tool to become available**
+
+--- Copyright 2026 The MathWorks, Inc. ---
