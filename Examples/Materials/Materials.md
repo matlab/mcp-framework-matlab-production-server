@@ -183,3 +183,4 @@ Each material resource has this structure:
 }
 ```
 
+--- Copyright 2026 The MathWorks, Inc. ---
