@@ -1,0 +1,24 @@
+{
+    "type": "array",
+    "maxItems": 39,
+    "items": {
+        "type": "object",
+        "properties": {
+            "x": {
+                "type": "number",
+                "description": "First side of the triangle",
+                "exclusiveMinimum": 0
+            },
+            "y": {
+                "type": "number",
+                "description": "Second side of the triangle",
+                "exclusiveMinimum": 0
+            },
+            "z": {
+                "type": "number",
+                "description": "Third side of the triangle",
+                "exclusiveMinimum": 0
+            }
+        }
+    }
+}

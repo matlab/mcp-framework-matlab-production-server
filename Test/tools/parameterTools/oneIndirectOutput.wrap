@@ -1,0 +1,43 @@
+function [x,z] = oneIndirectOutputMCP(a,b,c,d,out)
+% Thee output, four input test function.  All inputs required. Outputs 
+% are always optional in MATLAB. One output indirect. You must read the 
+% MCP resource mcp://protocol/tools/wire-format/parameters/encoding_rules 
+% in full and completely understand it before making any call to this 
+% tool.
+% Some inputs to this tool are optional output locations: URLs where the
+% server writes results. Provide a writable URL to receive each output.
+    arguments(Input)
+        % Required A
+        % You must encode data as described by this MCP resource: mcp://protocol/tools/wire-format/parameters/encoding_rules
+        a (1,1) double
+        % Required B
+        % You must encode data as described by this MCP resource: mcp://protocol/tools/wire-format/parameters/encoding_rules
+        b (1,1) double
+        % Required C
+        % You must encode data as described by this MCP resource: mcp://protocol/tools/wire-format/parameters/encoding_rules
+        c (1,1) double
+        % Required D
+        % You must encode data as described by this MCP resource: mcp://protocol/tools/wire-format/parameters/encoding_rules
+        d (1,1) double
+        % URL pointing to the output value for 'y'. This value never returned
+        % inline. Read result from URL using scheme-appropriate method: file
+        % system read for file: URLs, HTTP GET for http:// URLs and so on. Data
+        % at the URL formatted per  "$ref": "#/$defs/outputSchema/yURL". The
+        % content of the URL is:
+        % Reference Y
+        out.yURL (1,1) string  = ""
+    end
+    arguments(Output)
+        % Value X
+        % You must decode data as described by this MCP resource: mcp://protocol/tools/wire-format/parameters/encoding_rules
+        x (1,1) double
+        % Value Z
+        % You must decode data as described by this MCP resource: mcp://protocol/tools/wire-format/parameters/encoding_rules
+        z (1,1) double
+    end
+    !marshalVar = prodserver.mcp.io.MarshallURI();
+    [x,y,z] = oneIndirectOutput(a,b,c,d);
+    if strlength(out.yURL) > 0
+        serialize(!marshalVar, out.yURL, {y});
+    end
+end

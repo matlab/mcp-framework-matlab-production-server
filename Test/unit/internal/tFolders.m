@@ -1,5 +1,7 @@
 classdef tFolders < matlab.unittest.TestCase
 
+% Copyright 2025-2026 The MathWorks, Inc.
+
     methods(Test)
         function bin(testCase)
             binFolder = prodserver.mcp.internal.binFolder;

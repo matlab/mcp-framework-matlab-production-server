@@ -1,0 +1,32 @@
+function [sortedC,sortedS,areaC,areaS] = literalSchemasMCP(circle,square)
+% Sort circles and squares by area You must read the MCP resource 
+% mcp://protocol/tools/wire-format/parameters/encoding_rules in full and 
+% completely understand it before making any call to this tool.
+    arguments(Input)
+        % A vector of circles
+        % #schema +circle.json
+        % You must encode data as described by this MCP resource: mcp://protocol/tools/wire-format/parameters/encoding_rules
+        circle (1,11) struct
+        % A vector of squares
+        % #schema +square.json
+        % You must encode data as described by this MCP resource: mcp://protocol/tools/wire-format/parameters/encoding_rules
+        square (1,13) struct
+    end
+    arguments(Output)
+        % Vector of circles sorted by area.
+        % #schema +circle.json
+        % You must decode data as described by this MCP resource: mcp://protocol/tools/wire-format/parameters/encoding_rules
+        sortedC (1,11) struct
+        % Vector of squares sorted by area.
+        % #schema +square.json
+        % You must decode data as described by this MCP resource: mcp://protocol/tools/wire-format/parameters/encoding_rules
+        sortedS (1,13) struct
+        % Vector of circle areas
+        % You must decode data as described by this MCP resource: mcp://protocol/tools/wire-format/parameters/encoding_rules
+        areaC (1,11) double
+        % Vector of square areas
+        % You must decode data as described by this MCP resource: mcp://protocol/tools/wire-format/parameters/encoding_rules
+        areaS (1,13) double
+    end
+    [sortedC,sortedS,areaC,areaS] = literalSchemas(circle,square);
+end

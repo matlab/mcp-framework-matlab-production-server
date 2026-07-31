@@ -1,23 +1,52 @@
-function toyToolOneMCP(a,bURL,xURL,yURL,zURL)
-% First of the toy tools which do nothing useful.
+function toyToolOneMCP(a,bURL,out)
+% First of the toy tools which do nothing useful. You must read the MCP 
+% resource mcp://protocol/tools/wire-format/parameters/encoding_rules in 
+% full and completely understand it before making any call to this tool.
+% Some inputs to this tool are optional output locations: URLs where the
+% server writes results. Provide a writable URL to receive each output.
     arguments(Input)
         % A scalar, as if the declaration wasn't obvious
+        % You must encode data as described by this MCP resource: mcp://protocol/tools/wire-format/parameters/encoding_rules
         a (1,1) double
+        % URL pointing to the input value for 'b'. The data at this URL must be
+        % wire-encoded data per "$ref": "#/$defs/inputSchema/bURL". The content
+        % of the URL is:
         % Who knows how big this could get?
-        bURL (1,1) string
+        bURL (1,1) string 
+        % URL pointing to the output value for 'x'. This value never returned
+        % inline. Read result from URL using scheme-appropriate method: file
+        % system read for file: URLs, HTTP GET for http:// URLs and so on. Data
+        % at the URL formatted per  "$ref": "#/$defs/outputSchema/xURL". The
+        % content of the URL is:
         % A powerful result
-        xURL (1,1) string
+        out.xURL (1,1) string  = ""
+        % URL pointing to the output value for 'y'. This value never returned
+        % inline. Read result from URL using scheme-appropriate method: file
+        % system read for file: URLs, HTTP GET for http:// URLs and so on. Data
+        % at the URL formatted per  "$ref": "#/$defs/outputSchema/yURL". The
+        % content of the URL is:
         % Power augmented by 2^8!
-        yURL (1,1) string
+        out.yURL (1,1) string  = ""
+        % URL pointing to the output value for 'z'. This value never returned
+        % inline. Read result from URL using scheme-appropriate method: file
+        % system read for file: URLs, HTTP GET for http:// URLs and so on. Data
+        % at the URL formatted per  "$ref": "#/$defs/outputSchema/zURL". The
+        % content of the URL is:
         % Not quite so much
-        zURL (1,1) string
+        out.zURL (1,1) string  = ""
     end
     !marshalVar = prodserver.mcp.io.MarshallURI();
     % deserialize always returns a cell array.
     b = deserialize(!marshalVar,bURL);
     b = b{1};
     [x,y,z] = toyToolOne(a,b);
-    serialize(!marshalVar, xURL, {x});
-    serialize(!marshalVar, yURL, {y});
-    serialize(!marshalVar, zURL, {z});
+    if strlength(out.xURL) > 0
+        serialize(!marshalVar, out.xURL, {x});
+    end
+    if strlength(out.yURL) > 0
+        serialize(!marshalVar, out.yURL, {y});
+    end
+    if strlength(out.zURL) > 0
+        serialize(!marshalVar, out.zURL, {z});
+    end
 end

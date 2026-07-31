@@ -1,7 +1,7 @@
 function tf = issid(x)
 %issid Is X a Session-ID? 
 
-% Copyright 2025, The MathWorks, Inc.
+% Copyright 2025-2026 The MathWorks, Inc.
 
     import prodserver.mcp.internal.Constants
 

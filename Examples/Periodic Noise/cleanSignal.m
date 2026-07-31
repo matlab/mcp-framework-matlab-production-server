@@ -1,6 +1,9 @@
 function clean = cleanSignal(noisy,period)
 %cleanSignal Remove periodic noise from a signal using a Butterworth notch
 %filter.
+
+% Copyright 2025-2026 The MathWorks, Inc.
+
     arguments (Input)
         % Noisy signal
         noisy double

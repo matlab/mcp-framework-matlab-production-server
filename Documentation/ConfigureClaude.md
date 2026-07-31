@@ -6,6 +6,20 @@ The [Claude&reg; Desktop](https://support.claude.com/en/articles/10949351-gettin
 
 Both types of servers use the JSONRPC protocol, but STDIO servers must run on the same machine as the Claude Desktop while HTTP servers are more flexible and may run on any machine reachable via the network. MCP Framework for MATLAB Production Server builds HTTP servers. Some versions of Claude only support STDIO servers -- but the included STDIO to HTTP server bridge allows these versions to connect to HTTP servers.
 
+## Automated Setup (Claude Code)
+
+If you have Claude Code installed, run this MATLAB command to register the MCP Framework build skill:
+
+```MATLAB
+prodserver.mcp.agent.setup
+```
+
+This installs the `/mps-mcp-build` skill, which allows Claude Code to build and deploy MCP tools from MATLAB functions on your behalf. Restart Claude Code after running this command. The skill works from any project folder.
+
+For manual MCP server configuration (needed to make deployed tools available to Claude as callable MCP tools), see the configuration examples below.
+
+## Example: Periodic Noise
+
 This example demonstrates:
 * Coordination of multiple tools to produce the result requested by a user prompt.
 * An STDIO to HTTP bridge server that connects STDIO only hosts to HTTP MCP servers. 
@@ -75,3 +89,5 @@ Modify the configuration file as necessary for your environment.
   }
 }
 ```
+
+--- Copyright 2025-2026 The MathWorks, Inc. ---

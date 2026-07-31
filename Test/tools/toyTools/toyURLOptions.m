@@ -1,5 +1,8 @@
 function report = toyURLOptions(ngc, ra, dec, opts)
 % Format deep sky object data into a tabular report.
+
+% Copyright 2025-2026 The MathWorks, Inc.
+
     arguments(Input)
         ngc string   % New General Catalog number
         ra  double   % Right ascension

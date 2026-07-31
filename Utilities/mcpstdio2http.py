@@ -1,6 +1,6 @@
 # mcpstdio2http.py
 
-# Copyright 2025, The MathWorks, Inc.
+# Copyright 2025-2026 The MathWorks, Inc.
 
 import os
 import re
@@ -91,7 +91,16 @@ def main():
         except Exception as e:
             err = str(e)
             logger.error(f"Error proxying MCP request: {err}\n")
-            break
+            logger.error(f"Repsonse: ###{resp.text}###")
+            # Let the caller know that an error occurred.
+            resp_bytes = resp.content
+            resp = resp_bytes.decode('UTF-8')
+ 
+            # stdio protocol requires reponse on a single line.
+            resp = nospace(resp.replace("\n", " "))+"\n"
+            stdout.write(resp)
+            stdout.flush()
+            #break
 
 if __name__ == "__main__":
     main()

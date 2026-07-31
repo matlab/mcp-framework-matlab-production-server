@@ -1,4 +1,7 @@
 classdef tBuildStage < matlab.unittest.TestCase
+
+% Copyright 2025-2026 The MathWorks, Inc.
+
     methods(Test)
 
         function lessThan(test)

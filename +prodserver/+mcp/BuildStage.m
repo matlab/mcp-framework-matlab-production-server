@@ -1,7 +1,7 @@
 classdef BuildStage
 % BuildStage Stages of the build process. An ordered list.
 
-% Copyright 2025, The MathWorks, Inc.
+% Copyright 2025-2026 The MathWorks, Inc.
 
     properties (Constant)
         % The order of the build stages. See prodserver.mcp.build.

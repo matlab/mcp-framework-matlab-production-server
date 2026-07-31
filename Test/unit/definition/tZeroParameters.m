@@ -1,6 +1,8 @@
 classdef tZeroParameters < matlab.unittest.TestCase & ...
         prodserver.mcp.test.mixin.ExternalData
 
+% Copyright 2025-2026 The MathWorks, Inc.
+
     properties
         toolsFolder
     end
@@ -15,13 +17,9 @@ classdef tZeroParameters < matlab.unittest.TestCase & ...
             test.applyFixture(PathFixture(pkgFolder));
         end
 
-        function managePath(test)
-            % Put the toy tools on the path
-            import matlab.unittest.fixtures.PathFixture
-            folder = fileparts(mfilename("fullpath"));
-            test.toolsFolder = fullfile(folder,"..", "..", "tools", ...
-                "toyTools");
-            test.applyFixture(PathFixture(test.toolsFolder));
+        function requireToyTools(test)
+            rtt = test.applyFixture(prodserver.mcp.test.mixin.RequireToyTools());
+            test.toolsFolder = rtt.toolFolder;
         end
 
     end
@@ -72,9 +70,9 @@ classdef tZeroParameters < matlab.unittest.TestCase & ...
 
             % Prepare output locations
 
-            nURL = locate(test,"n",tfolder);
-            heroURL = locate(test,"hero",tfolder);
-            areaURL = locate(test,"area",tfolder);
+            nURL = sink(test,"n",tfolder);
+            heroURL = sink(test,"hero",tfolder);
+            areaURL = sink(test,"area",tfolder);
 
             % Put the temp folder on the path
             test.applyFixture(PathFixture(tfolder));
@@ -83,7 +81,7 @@ classdef tZeroParameters < matlab.unittest.TestCase & ...
             % reproducible results for this tool.
             rng(39,"multFibonacci");
             [~,fcn] = fileparts(wrap);
-            [extent,cover] = feval(fcn,nURL,heroURL,areaURL);
+            [extent,cover] = feval(fcn,n=nURL,hero=heroURL,area=areaURL);
 
             % Expected result with this random seed.
             x = {12, 10, 7};
@@ -130,9 +128,9 @@ classdef tZeroParameters < matlab.unittest.TestCase & ...
             % Put the temp folder on the path
             test.applyFixture(PathFixture(tfolder));
 
-            [exchangeURL, exchangeFile] = locate(test,"exchange",tfolder, ...
+            [exchangeURL, exchangeFile] = source(test,"exchange",tfolder, ...
                 ext="csv");
-            [uuidURL, uuidFile] = locate(test,"uuid",tfolder,ext="csv");
+            [uuidURL, uuidFile] = source(test,"uuid",tfolder,ext="csv");
 
             swap = ["-,_", "a,A", "b,B", "c,C", "d,D", "e,E", "f,F"];
             writelines(swap,exchangeFile);

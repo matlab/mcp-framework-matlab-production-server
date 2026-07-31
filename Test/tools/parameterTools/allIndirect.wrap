@@ -1,0 +1,72 @@
+function allIndirectMCP(aURL,bURL,cURL,dURL,out)
+% Thee output, four input test function.  All inputs and outputs 
+% indirect. All inputs required. Outputs are always optional in MATLAB. 
+% You must read the MCP resource 
+% mcp://protocol/tools/wire-format/parameters/encoding_rules in full and 
+% completely understand it before making any call to this tool.
+% Some inputs to this tool are optional output locations: URLs where the
+% server writes results. Provide a writable URL to receive each output.
+    arguments(Input)
+        % URL pointing to the input value for 'a'. The data at this URL must be
+        % wire-encoded data per "$ref": "#/$defs/inputSchema/aURL". The content
+        % of the URL is:
+        % Required A
+        aURL (1,1) string 
+        % URL pointing to the input value for 'b'. The data at this URL must be
+        % wire-encoded data per "$ref": "#/$defs/inputSchema/bURL". The content
+        % of the URL is:
+        % Required B
+        bURL (1,1) string 
+        % URL pointing to the input value for 'c'. The data at this URL must be
+        % wire-encoded data per "$ref": "#/$defs/inputSchema/cURL". The content
+        % of the URL is:
+        % Required C
+        cURL (1,1) string 
+        % URL pointing to the input value for 'd'. The data at this URL must be
+        % wire-encoded data per "$ref": "#/$defs/inputSchema/dURL". The content
+        % of the URL is:
+        % Required D
+        dURL (1,1) string 
+        % URL pointing to the output value for 'x'. This value never returned
+        % inline. Read result from URL using scheme-appropriate method: file
+        % system read for file: URLs, HTTP GET for http:// URLs and so on. Data
+        % at the URL formatted per  "$ref": "#/$defs/outputSchema/xURL". The
+        % content of the URL is:
+        % Value X
+        out.xURL (1,1) string  = ""
+        % URL pointing to the output value for 'y'. This value never returned
+        % inline. Read result from URL using scheme-appropriate method: file
+        % system read for file: URLs, HTTP GET for http:// URLs and so on. Data
+        % at the URL formatted per  "$ref": "#/$defs/outputSchema/yURL". The
+        % content of the URL is:
+        % Value Y
+        out.yURL (1,1) string  = ""
+        % URL pointing to the output value for 'z'. This value never returned
+        % inline. Read result from URL using scheme-appropriate method: file
+        % system read for file: URLs, HTTP GET for http:// URLs and so on. Data
+        % at the URL formatted per  "$ref": "#/$defs/outputSchema/zURL". The
+        % content of the URL is:
+        % Value Z
+        out.zURL (1,1) string  = ""
+    end
+    !marshalVar = prodserver.mcp.io.MarshallURI();
+    % deserialize always returns a cell array.
+    a = deserialize(!marshalVar,aURL);
+    a = a{1};
+    b = deserialize(!marshalVar,bURL);
+    b = b{1};
+    c = deserialize(!marshalVar,cURL);
+    c = c{1};
+    d = deserialize(!marshalVar,dURL);
+    d = d{1};
+    [x,y,z] = allIndirect(a,b,c,d);
+    if strlength(out.xURL) > 0
+        serialize(!marshalVar, out.xURL, {x});
+    end
+    if strlength(out.yURL) > 0
+        serialize(!marshalVar, out.yURL, {y});
+    end
+    if strlength(out.zURL) > 0
+        serialize(!marshalVar, out.zURL, {z});
+    end
+end

@@ -72,3 +72,4 @@ For reference, your MCP Server Configuration file, `mcp.json`, should look like 
 	"inputs": []
 }
 ```
+--- Copyright 2025-2026 The MathWorks, Inc. ---

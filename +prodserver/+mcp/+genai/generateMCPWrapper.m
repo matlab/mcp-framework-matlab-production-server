@@ -2,7 +2,7 @@ function wrapper = generateMCPWrapper(fcn,genAI,folder,timeout,retry)
 % generateMCPWrapper Use the chosen generative AI interface to create a
 % wrapper function for fcn.
 
-% Copyright 2025, The MathWorks, Inc.
+% Copyright 2025-2026 The MathWorks, Inc.
     
     genFcn = "prodserver.mcp.genai." + lower(string(genAI)) + "MCPWrapper";
     w = which(genFcn);

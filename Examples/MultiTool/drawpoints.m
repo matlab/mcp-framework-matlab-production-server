@@ -1,6 +1,8 @@
 function drawpoints(xy,jpg,opts)
 %drawpoints Produce a JPG image of a set of two-dimensional points.
 
+% Copyright 2025-2026 The MathWorks, Inc.
+
     arguments(Input)
         xy double         % X and Y coordinates of the points
         jpg (1,1) string  % Path to file in which to save the JPG image

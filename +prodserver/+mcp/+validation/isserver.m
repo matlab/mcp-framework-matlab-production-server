@@ -1,7 +1,7 @@
 function [tf, isActive] = isserver(x,opts)
 % isserver Is the input the address of a MATLAB Production Server?
 
-% Copyright 2025, The MathWorks, Inc.
+% Copyright 2025-2026 The MathWorks, Inc.
 
     arguments
         x

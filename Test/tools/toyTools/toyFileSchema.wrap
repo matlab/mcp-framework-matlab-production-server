@@ -1,0 +1,39 @@
+function [q] = toyFileSchemaMCP(m,rURL,out)
+% Calculate triangle area using Heron's formula. Define structured inputs 
+% and outputs via JSON schema. You must read the MCP resource 
+% mcp://protocol/tools/wire-format/parameters/encoding_rules in full and 
+% completely understand it before making any call to this tool.
+% Some inputs to this tool are optional output locations: URLs where the
+% server writes results. Provide a writable URL to receive each output.
+    arguments(Input)
+        % Increase the size of each side of each triangle by this amount.
+        % You must encode data as described by this MCP resource: mcp://protocol/tools/wire-format/parameters/encoding_rules
+        m (1,1) double
+        % URL pointing to the input value for 'r'. The data at this URL must be
+        % wire-encoded data per "$ref": "#/$defs/inputSchema/rURL". The content
+        % of the URL is:
+        % An array of triangles.
+        rURL (1,1) string 
+        % URL pointing to the output value for 'z'. This value never returned
+        % inline. Read result from URL using scheme-appropriate method: file
+        % system read for file: URLs, HTTP GET for http:// URLs and so on. Data
+        % at the URL formatted per  "$ref": "#/$defs/outputSchema/zURL". The
+        % content of the URL is:
+        % The new triangles, after adding m to each side.
+        out.zURL (1,1) string  = ""
+    end
+    arguments(Output)
+        % Area of each of the new triangles
+        % #schema +{ "maxItems": 39 }
+        % You must decode data as described by this MCP resource: mcp://protocol/tools/wire-format/parameters/encoding_rules
+        q (1,:) double
+    end
+    !marshalVar = prodserver.mcp.io.MarshallURI();
+    % deserialize always returns a cell array.
+    r = deserialize(!marshalVar,rURL);
+    r = r{1};
+    [z,q] = toyFileSchema(m,r);
+    if strlength(out.zURL) > 0
+        serialize(!marshalVar, out.zURL, {z});
+    end
+end

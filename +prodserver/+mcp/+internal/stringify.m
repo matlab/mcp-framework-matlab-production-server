@@ -2,7 +2,7 @@ function s = stringify(s)
 %stringify Turn every char vector (the 1970s called, they want their
 %datatype back) in s into a string.
 
-% Copyright 2023 The MathWorks, Inc.
+% Copyright 2025-2026 The MathWorks, Inc.
 
     % Know thyself in order to recurse.
     import prodserver.mcp.internal.stringify

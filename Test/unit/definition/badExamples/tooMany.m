@@ -1,5 +1,8 @@
 function y = tooMany(x,q)
 % Any argument worth having is worth repeating.
+
+% Copyright 2025-2026 The MathWorks, Inc.
+
     arguments(Input)
         x
     end

@@ -1,7 +1,7 @@
 classdef tHeaders < matlab.unittest.TestCase
 % Test HTTP header manipulation
 
-% Copyright 2026 The MathWorks, Inc.
+% Copyright 2026-2026 The MathWorks, Inc.
 
     methods(Test)
 

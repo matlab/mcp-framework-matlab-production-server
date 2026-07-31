@@ -8,7 +8,7 @@ function json = exportJSON(uri,value,config)
 %
 %    value == importJSON(exportJSON(name,value))
 
-% Copyright 2024-2025 The MathWorks, Inc.
+% Copyright 2024-2026 The MathWorks, Inc.
 
     if prodserver.mcp.validation.istext(uri)
         u = prodserver.mcp.io.parseURI(uri);

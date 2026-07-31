@@ -6,6 +6,8 @@ function m=mandelbrot(width, iterations)
 % Algorithms based on the Wikipedia article:
 % http://en.wikipedia.org/wiki/Mandelbrot_set
 
+% Copyright 2025-2026 The MathWorks, Inc.
+
     arguments(Input)
         width (1,1) double      % X-axis width of the Mandelbrot set.
         iterations (1,1) double % Number of iterations used to create the fractal.

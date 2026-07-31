@@ -4,7 +4,7 @@ function mustBeImportOptions(x)
 % ImportOptions subclass and matlab.io.ImportOptions.empty generates an
 % error.
 
-% Copyright 202, The MathWorks, Inc.
+% Copyright 2025-2026 The MathWorks, Inc.
 
     if isempty(x)
         return;

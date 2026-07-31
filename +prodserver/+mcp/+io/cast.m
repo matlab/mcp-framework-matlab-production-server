@@ -3,7 +3,7 @@ function x = cast(type, x, opts)
 %This function will raise an exception if requested type conversion is not
 %possible.
 
-% Copyright 2026, The MathWorks, Inc.
+% Copyright 2026-2026 The MathWorks, Inc.
 
     arguments
         type string

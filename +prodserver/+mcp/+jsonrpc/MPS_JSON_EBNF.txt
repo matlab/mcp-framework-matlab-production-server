@@ -1,0 +1,379 @@
+(* ================================================================
+   MATLAB Production Server — JSON Encoding Grammar (Large Format Only)
+   Improved version: structured column-major encoding, split numeric
+   types, explicit complex pairs, derived size where possible.
+   Source: MathWorks MPS RESTful API documentation
+   ================================================================ *)
+
+
+(* ================================================================
+   TOP LEVEL
+   Server responses are a JSON array; each element is one output.
+   Inputs may be any matlab-value.
+   ================================================================ *)
+
+response        ::= '[' matlab-value (',' matlab-value)* ']'
+
+matlab-value    ::= numeric-real
+                  | numeric-complex
+                  | logical-large
+                  | char-large
+                  | cell-large
+                  | struct-large
+                  | string-large
+                  | enum-large
+                  | datetime-large
+                  | empty-array-large
+
+
+(* ================================================================
+   NUMERIC — REAL (double, single, integers)
+   Split into float and integer to enforce NaN/Inf constraints.
+   ================================================================ *)
+
+numeric-real    ::= float-real-large
+                  | integer-large
+
+float-real-large ::= '{'
+                       '"mwdata":' float-data ','
+                       '"mwsize":' size-array ','
+                       '"mwtype":' float-type
+                     '}'
+                     ; mwdata is a flat JSON array in column-major order.
+                     ; product(mwsize) MUST equal length(mwdata).
+                     ; Column-major order: for an M-by-N matrix, element at
+                     ;   row r, col c is at index r + c*M (0-based).
+                     ; NaN, Inf, and -Inf are permitted for float types only.
+
+integer-large   ::= '{'
+                      '"mwdata":' integer-data ','
+                      '"mwsize":' size-array ','
+                      '"mwtype":' integer-type
+                    '}'
+                    ; NaN, Inf, and -Inf are NOT permitted for integer types.
+                    ; product(mwsize) MUST equal length(mwdata).
+                    ; int64 and uint64 values are represented as JSON numbers
+                    ;   without conversion to double (full precision preserved).
+
+float-data      ::= '[' float-element (',' float-element)* ']'
+                  | '[' ']'
+
+float-element   ::= json-number
+                  | special-string
+                  | special-object
+                  ; NaN/Inf/-Inf may appear as string or object form.
+
+integer-data    ::= '[' json-number (',' json-number)* ']'
+                  | '[' ']'
+                  ; Only plain JSON numbers permitted — no NaN/Inf/-Inf.
+
+float-type      ::= '"double"' | '"single"'
+
+integer-type    ::= '"int8"'  | '"uint8"'
+                  | '"int16"' | '"uint16"'
+                  | '"int32"' | '"uint32"'
+                  | '"int64"' | '"uint64"'
+
+special-string  ::= '"NaN"' | '"Inf"' | '"-Inf"'
+
+special-object  ::= '{"mwdata":"NaN"}'
+                  | '{"mwdata":"Inf"}'
+                  | '{"mwdata":"-Inf"}'
+
+
+(* ================================================================
+   NUMERIC — COMPLEX
+   Separated from real to make mwcomplex mandatory and to make
+   interleaving structurally explicit.
+   Only float types (double, single) support complex.
+   ================================================================ *)
+
+numeric-complex ::= '{'
+                      '"mwcomplex":' 'true' ','
+                      '"mwdata":' complex-data ','
+                      '"mwsize":' size-array ','
+                      '"mwtype":' float-type
+                    '}'
+                    ; mwcomplex MUST be present, MUST be true, MUST appear first.
+                    ; mwdata contains real and imaginary parts as adjacent pairs:
+                    ;   [re0, im0, re1, im1, ...] in column-major order.
+                    ; length(mwdata) MUST equal 2 * product(mwsize).
+                    ; Each adjacent pair (re, im) corresponds to one complex element.
+                    ; NaN and Inf are permitted in either the real or imaginary part.
+
+complex-data    ::= '[' complex-pair (',' complex-pair)* ']'
+                  | '[' ']'
+
+complex-pair    ::= float-element ',' float-element
+                    ; First element is the real part, second is the imaginary part.
+                    ; Both parts MUST use the same special-value form if either is
+                    ;   NaN, Inf, or -Inf.
+
+
+(* ================================================================
+   LOGICAL
+   ================================================================ *)
+
+logical-large   ::= '{'
+                      '"mwdata":' logical-data ','
+                      '"mwsize":' size-array ','
+                      '"mwtype":' '"logical"'
+                    '}'
+                    ; mwdata elements MUST be JSON true or false only.
+                    ; Elements in column-major order.
+                    ; product(mwsize) MUST equal length(mwdata).
+
+logical-data    ::= '[' logical-element (',' logical-element)* ']'
+                  | '[' ']'
+
+logical-element ::= 'true' | 'false'
+
+
+(* ================================================================
+   CHAR
+   ================================================================ *)
+
+char-large      ::= '{'
+                      '"mwdata":' char-data ','
+                      '"mwsize":' size-array ','
+                      '"mwtype":' '"char"'
+                    '}'
+                    ; mwdata is a JSON array containing exactly one JSON string.
+                    ; For an M-by-N char array, the string contains M*N characters
+                    ;   in column-major order (all of column 1, then column 2, ...).
+                    ; Example: ['ab';'cd'] -> "acbd" (column-major: a,c then b,d)
+                    ; mwsize[0] * mwsize[1] MUST equal length of the string.
+                    ; mwsize MUST have exactly 2 elements for char arrays.
+
+char-data       ::= '[' json-string ']'
+                  | '[' ']'
+
+
+(* ================================================================
+   CELL ARRAY
+   ================================================================ *)
+
+cell-large      ::= '{'
+                      '"mwdata":' cell-data ','
+                      '"mwsize":' size-array ','
+                      '"mwtype":' '"cell"'
+                    '}'
+                    ; mwdata is a flat JSON array of matlab-values in column-major order.
+                    ; Each element MUST use large notation (small notation excluded).
+                    ; product(mwsize) MUST equal length(mwdata).
+                    ; Cell elements may be of any matlab-value type including
+                    ;   nested cell arrays and struct arrays.
+
+cell-data       ::= '[' matlab-value (',' matlab-value)* ']'
+                  | '[' ']'
+
+
+(* ================================================================
+   STRUCT ARRAY
+
+   mwdata is a JSON object mapping field names to field-value arrays.
+   Each field-value array contains one matlab-value per struct element,
+   in column-major order across the struct array dimensions.
+
+   Example: a 2-by-2 struct with field "x" has a field-value array
+   of length 4, ordered: [s(1,1).x, s(2,1).x, s(1,2).x, s(2,2).x]
+   ================================================================ *)
+
+struct-large    ::= '{'
+                      '"mwdata":' struct-data ','
+                      '"mwsize":' size-array ','
+                      '"mwtype":' '"struct"'
+                    '}'
+                    ; All field-value arrays MUST have the same length.
+                    ; That length MUST equal product(mwsize).
+                    ; Field values MUST use large notation.
+                    ; Empty struct arrays are not permitted.
+
+struct-data     ::= '{' struct-field (',' struct-field)* '}'
+
+struct-field    ::= json-string ':' struct-field-values
+
+struct-field-values ::= '[' matlab-value (',' matlab-value)* ']'
+                        ; Length MUST equal product(parent mwsize).
+                        ; Values in column-major order across struct array dimensions.
+
+
+(* ================================================================
+   STRING ARRAY
+   ================================================================ *)
+
+string-large    ::= '{'
+                      '"mwdata":' string-data ','
+                      '"mwsize":' size-array ','
+                      '"mwtype":' '"string"'
+                    '}'
+                    ; mwdata elements are JSON strings in column-major order.
+                    ; Missing string values represented as {"mwdata":"missing"}.
+                    ; product(mwsize) MUST equal length(mwdata).
+
+string-data     ::= '[' string-element (',' string-element)* ']'
+                  | '[' ']'
+
+string-element  ::= json-string
+                  | '{"mwdata":"missing"}'
+
+
+(* ================================================================
+   ENUMERATION
+   ================================================================ *)
+
+enum-large      ::= '{'
+                      '"mwdata":' enum-data ','
+                      '"mwsize":' size-array ','
+                      '"mwtype":' json-string
+                    '}'
+                    ; mwtype MUST be the MATLAB class name of the enumeration
+                    ;   (e.g. "Colors"), NOT the literal string "enumeration".
+                    ; mwdata elements are strings naming enumeration members.
+                    ; All member names MUST be valid members of the named class.
+                    ; product(mwsize) MUST equal length(mwdata).
+
+enum-data       ::= '[' json-string (',' json-string)* ']'
+                  | '[' ']'
+
+
+(* ================================================================
+   DATETIME ARRAY
+
+   Datetime is always large notation. The mwdata field contains
+   timestamp arrays; mwmetadata contains timezone and format strings.
+   Timestamp values are POSIX time in milliseconds since
+   1970-01-01T00:00:00 UTC.
+   ================================================================ *)
+
+datetime-large  ::= '{'
+                      '"mwdata":' datetime-data ','
+                      '"mwmetadata":' datetime-metadata ','
+                      '"mwsize":' size-array ','
+                      '"mwtype":' '"datetime"'
+                    '}'
+                    ; product(mwsize) MUST equal length of TimeStamp data.
+                    ; LowOrderTimeStamp, if present, MUST have same length
+                    ;   as TimeStamp.
+                    ; NaT is represented by TimeStamp = NaN.
+                    ; datetime(Inf,...) is represented by TimeStamp = Inf.
+
+datetime-data   ::= '{' '"TimeStamp":' timestamp-value '}'
+                  | '{'
+                      '"TimeStamp":' timestamp-value ','
+                      '"LowOrderTimeStamp":' timestamp-value
+                    '}'
+                    ; LowOrderTimeStamp provides sub-millisecond precision.
+                    ; Omit LowOrderTimeStamp when millisecond precision suffices.
+
+timestamp-value ::= float-real-large
+                    ; TimeStamp and LowOrderTimeStamp are double arrays.
+                    ; MUST use large notation (float-real-large with mwtype "double").
+                    ; mwsize MUST match the parent datetime mwsize.
+                    ; NaN represents NaT; Inf represents datetime(Inf,...).
+
+datetime-metadata ::= '{'
+                        '"TimeZone":' tz-value ','
+                        '"Format":' fmt-value
+                      '}'
+                      ; TimeZone may be empty string "" for unzoned datetime.
+                      ; Format default depends on system locale.
+
+tz-value        ::= char-large
+                    ; MUST use large notation char with mwtype "char".
+                    ; May be empty: mwdata [""], mwsize [0,0].
+
+fmt-value       ::= char-large
+                    ; MUST use large notation char with mwtype "char".
+                    ; Contains a MATLAB datetime format string,
+                    ;   e.g. "dd-MMM-uuuu" or "dd-MMM-uuuu HH:mm:ss".
+
+
+(* ================================================================
+   EMPTY ARRAY
+   struct is explicitly excluded.
+   ================================================================ *)
+
+empty-array-large ::= '{'
+                        '"mwdata":' '[' ']' ','
+                        '"mwsize":' '[' '0' ',' '0' ']' ','
+                        '"mwtype":' empty-type
+                      '}'
+
+empty-type      ::= '"double"'  | '"single"'
+                  | '"int8"'    | '"uint8"'
+                  | '"int16"'   | '"uint16"'
+                  | '"int32"'   | '"uint32"'
+                  | '"int64"'   | '"uint64"'
+                  | '"logical"' | '"char"'
+                  | '"cell"'    | '"string"'
+                  | json-string
+                  ; json-string for enumeration class names only.
+                  ; struct is NOT permitted as an empty array type.
+
+
+(* ================================================================
+   SHARED PRIMITIVES
+   ================================================================ *)
+
+size-array      ::= '[' pos-integer (',' pos-integer)* ']'
+                    ; MUST contain at least 2 elements (MATLAB arrays are
+                    ;   always at least 2-dimensional). Scalar is [1,1].
+                    ; All values MUST be >= 1 for non-empty arrays.
+
+pos-integer     ::= [1-9] digit*
+                  | '1'
+                  ; All dimension values must be positive integers >= 1.
+                  ; Use empty-array-large (mwsize [0,0]) for empty arrays.
+
+json-string     ::= '"' character* '"'
+                    ; Standard JSON string with Unicode escape sequences.
+
+json-number     ::= '-'? ( '0' | [1-9] digit* ) ( '.' digit+ )? ( [eE] [+-]? digit+ )?
+                    ; Standard JSON number.
+                    ; int64/uint64 use this form without precision loss.
+
+character       ::= any Unicode character except '"' and '\'
+                  | escape-sequence
+
+escape-sequence ::= '\' ( '"' | '\' | '/' | 'b' | 'f' | 'n' | 'r' | 't' )
+                  | '\u' hex hex hex hex
+
+hex             ::= [0-9a-fA-F]
+digit           ::= [0-9]
+
+
+(* ================================================================
+   SEMANTIC CONSTRAINTS SUMMARY
+   (inexpressible in EBNF; require server-side validation)
+
+   C1. product(mwsize) == length(mwdata)
+         Applies to: float-real-large, integer-large, logical-large,
+                     string-large, enum-large, cell-large.
+
+   C2. length(mwdata) == 2 * product(mwsize)
+         Applies to: numeric-complex (real/imaginary pairs interleaved).
+
+   C3. All columns in a matrix MUST have equal length (rectangularity).
+         Applies to: all array types.
+
+   C4. All struct-field-values arrays MUST have equal length,
+       and that length MUST equal product(parent mwsize).
+
+   C5. TimeStamp mwsize MUST match parent datetime mwsize.
+       LowOrderTimeStamp mwsize MUST match TimeStamp mwsize if present.
+
+   C6. char mwdata string length MUST equal product(mwsize).
+
+   C7. mwsize MUST have >= 2 elements for all types.
+
+   C8. NaN/Inf/-Inf are only valid in float-data (double, single).
+       integer-data MUST contain only plain json-number values.
+
+   C9. mwtype for enum-large MUST be a valid MATLAB enumeration class
+       name, not the literal string "enumeration".
+
+   C10. Column-major ordering: for an M-by-N-by-P... array, element
+        at indices (i,j,k,...) appears at flat position
+        i + j*M + k*M*N + ... (all indices 0-based).
+   ================================================================ *)
