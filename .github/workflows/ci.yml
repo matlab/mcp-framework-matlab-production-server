@@ -161,6 +161,41 @@ jobs:
           name: integration-test-results-${{ matrix.arch }}
           path: test-results/
 
+  check-fingerprint:
+    runs-on: [self-hosted, glnxa64]
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Verify framework fingerprint is current
+        run: |
+          EXPECTED=$(find +prodserver -name "*.m" -exec sha256sum {} + | sort -k2 | sha256sum | cut -d' ' -f1)
+          ACTUAL=$(cat +prodserver/+mcp/+internal/frameworkFingerprint.txt)
+          if [ "$EXPECTED" != "$ACTUAL" ]; then
+            echo "::error::Framework fingerprint is stale. Run: find +prodserver -name \"*.m\" -exec sha256sum {} + | sort -k2 | sha256sum | cut -d' ' -f1 > +prodserver/+mcp/+internal/frameworkFingerprint.txt"
+            exit 1
+          fi
+
+  update-fingerprint:
+    runs-on: [self-hosted, glnxa64]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Compute framework fingerprint
+        run: |
+          find +prodserver -name "*.m" -exec sha256sum {} + | sort -k2 | sha256sum | cut -d' ' -f1 > +prodserver/+mcp/+internal/frameworkFingerprint.txt
+      - name: Commit if changed
+        run: |
+          git diff --quiet +prodserver/+mcp/+internal/frameworkFingerprint.txt && exit 0
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add +prodserver/+mcp/+internal/frameworkFingerprint.txt
+          git commit -m "Update framework fingerprint"
+          git push
+
   e2e-tests:
     strategy:
       fail-fast: false
