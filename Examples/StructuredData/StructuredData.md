@@ -143,3 +143,5 @@ It has no way to know what fields to provide. With `%#schema`, the definition in
 ```
 
 The LLM can now construct a valid call autonomously, without asking the user for the struct layout.
+
+--- Copyright 2026 The MathWorks, Inc. ---
