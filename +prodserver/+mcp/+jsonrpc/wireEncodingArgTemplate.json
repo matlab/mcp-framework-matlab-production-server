@@ -1,0 +1,14 @@
+{
+    "type": "object",
+    "annotation": "Invertible wire encoding wrapper for MCP Framework for MATLAB Production Server",
+    "required": ["type","size","data"],
+    "properties": {
+        "type": { "type": "string" },
+        "size": {
+            "type": "array",
+            "items": { "type": "number" },
+            "minItems": 2
+        },
+        "data": null
+    }
+}

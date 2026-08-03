@@ -1,13 +1,14 @@
 function [session,id,capabilities] = initialize(endpoint, opts)
+% initialize Send initialize message to MCP server at endpoint. 
 
-% Copyright 2025, The MathWorks, Inc.
+% Copyright 2025-2026 The MathWorks, Inc.
 
     arguments
         endpoint string { prodserver.mcp.validation.mustBeMCPServer }
         opts.require prodserver.mcp.Primitive { mustBeVector } = "None"
         opts.id double { mustBePositive } = 1
         opts.timeout double {mustBePositive} = 60
-        opts.retry double {mustBePositive} = 3
+        opts.retry double {mustBePositive} = 30
         opts.delay double {mustBePositive} = 2
     end
 

@@ -2,7 +2,7 @@ function tf = isnothing(x)
 %isnothing Is the input one of the many possible permutations of "not a
 %thing"? Nothing must be true for every element of x. :-)
 
-% Copyright (c) 2025 The MathWorks, Inc.
+% Copyright 2025-2026 The MathWorks, Inc.
 
     % Tests valid for all data types
     tf = isempty(x) || all(ismissing(x));

@@ -1,4 +1,4 @@
-function [input,output] = parameterDescription(mf)
+function [input,output,inHasNVP] = parameterDescription(mf)
 % parameterDescription Determine input and output parameter descriptions.
 %
 % Search the file for arguments blocks (which must be present) and extract
@@ -22,11 +22,14 @@ function [input,output] = parameterDescription(mf)
 % (I don't even know if MATLAB allows that ... syntax. It shouldn't. But if
 % it does, I explicitly disallow it here.)
 
-% Copyright 2025, The MathWorks
+% Copyright 2025-2026 The MathWorks, Inc.
 
     file = mf.FullPath;
     text = readlines(file);
     textLines = split(text,newline);
+
+    % Assume no NVP in inputs until proven otherwise
+    inHasNVP = false;
 
     % How many argument blocks are there in the function, and where are
     % they located? Look for arguments(Input) and arguments(Output) where
@@ -85,7 +88,8 @@ function [input,output] = parameterDescription(mf)
                 "without an input arguments block.",mf.Name,mf.FullPath);
         end
         % Build a dictionary mapping argument name to argument description.
-        ad = argDescriptionFromBlock(textLines,inArgLine,mf.FullPath,"input");
+        [ad,hasGroup] = argDescriptionFromBlock(textLines,inArgLine,...
+            mf.FullPath,"input");
         
         % Number of keys in ad must match number of input arguments.
         if numEntries(ad) ~= numel(mf.Signature.Inputs)
@@ -97,6 +101,10 @@ function [input,output] = parameterDescription(mf)
 
         % This dictionary maps input names to their descriptions.
         input = ad;
+
+        % If there are grouped input arguments, the function supports
+        % optional name value pair arguments.
+        if hasGroup, inHasNVP = true; end
     else
         input = [];  
     end
@@ -127,11 +135,15 @@ function [input,output] = parameterDescription(mf)
     end
 end
 
-function ad = argDescriptionFromBlock(textLines,argBlockLine,file,block)
+function [ad,hasGroup] = argDescriptionFromBlock(textLines,argBlockLine,file,block)
 % Find comments describing each argument in the argument block starting at
-% pos.
+% pos. Return dictionary: 
+%    <arg name> --> <description> + <validation> + <group>
+
+    import prodserver.mcp.MCPConstants
 
     ad = configureDictionary("string","struct");
+    hasGroup = false;
 
     % Search above and to the right for comments describing each argument
     % in the block. Allow multi-line comments above the argument, but only
@@ -179,9 +191,23 @@ function ad = argDescriptionFromBlock(textLines,argBlockLine,file,block)
         group = extract(names(n),textBoundary("start")+...
             wildcardPattern(Except='.')+lookAheadBoundary("."));
         if ~isempty(group)
+            hasGroup = true;                 % Some arguments in a group.
             d = ad(names(n));                % metadata for argument names(n)
             d.group = group;                 % add group name field
             an = erase(names(n),group+".");  % remove group prefix
+
+
+            % TODO: Remove when tests pass
+            % Add a comment for the LLM: this is an optional Name/Value
+            % pair parameter. But check first to see if the comment is
+            % already there -- wrapper generation places the comment in
+            % wrapper functions from which this function extracts
+            % descriptions.
+            % nvp = sprintf("%s: %s.%s", MCPConstants.NVPTag, d.group, an);
+            % if contains(d.description,nvp) == false
+            %     d.description = [d.description; nvp];
+            % end
+
             ad = remove(ad,names(n));        % delete entry for names(n)
             ad(an) = d;                      % add entry for new name
         end

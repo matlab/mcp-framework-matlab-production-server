@@ -2,7 +2,7 @@ function cfg = findConfig(config,u,type)
 %findConfig Search config for a structure matching the importable or
 %exportable data format described in the parsed URI u.
 
-% Copyright (c) 2024 The MathWorks, Inc.
+% Copyright 2024-2026 The MathWorks, Inc.
 
     
     import prodserver.mcp.internal.hasField

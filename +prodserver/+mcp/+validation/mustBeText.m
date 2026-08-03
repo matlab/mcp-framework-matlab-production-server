@@ -2,7 +2,7 @@ function mustBeText(x,var,constraint)
 %mustBeText Throw an error if x is not string, char or cell array of char.
 %Optional constraint (a function) must also be satisfied.
 
-% Copyright 2023-2025 The MathWorks, Inc.
+% Copyright 2023-2026 The MathWorks, Inc.
 
 % Written because validateattributes can't check for cellstr and MATLAB's
 % mustBeText doesn't allow customization of the error message.

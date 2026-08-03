@@ -4,7 +4,7 @@ function [id,realm,type,sid] = parseSessionID(id)
 % Return the parts in the order in which they are most
 % likely to be used.
 
-% Copyright (C) 2025, The MathWorks
+% Copyright 2025-2026 The MathWorks, Inc.
 
     arguments
         id string { prodserver.mcp.validation.mustBeSessionID }

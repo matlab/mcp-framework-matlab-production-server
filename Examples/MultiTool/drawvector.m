@@ -10,7 +10,7 @@ function drawvector(bbox, vectors, width, height, jpg)
 %    [vectors,bbox] = snowflake(4,300,300);
 %    drawvector(bbox, vectors,);
 
-% Copyright 2025, The MathWorks
+% Copyright 2022-2026 The MathWorks, Inc.
 
     arguments(Input)
         bbox double % Bounding box that contains the vectors

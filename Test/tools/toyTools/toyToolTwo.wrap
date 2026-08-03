@@ -1,15 +1,35 @@
-function toyToolTwoMCP(objectURL,mirrorURL,chiralURL,asymmetryURL)
-% Are the object and the mirror chiral or achiral? If achiral, what is the
-% first orientation-reversing asymmetry?
+function toyToolTwoMCP(objectURL,mirrorURL,out)
+% Are the object and the mirror chiral or achiral? If achiral, what is 
+% the first orientation-reversing asymmetry? You must read the MCP 
+% resource mcp://protocol/tools/wire-format/parameters/encoding_rules in 
+% full and completely understand it before making any call to this tool.
+% Some inputs to this tool are optional output locations: URLs where the
+% server writes results. Provide a writable URL to receive each output.
     arguments(Input)
+        % URL pointing to the input value for 'object'. The data at this URL must
+        % be wire-encoded data per "$ref": "#/$defs/inputSchema/objectURL". The
+        % content of the URL is:
         % A geometrical form
-        objectURL (1,1) string
+        objectURL (1,1) string 
+        % URL pointing to the input value for 'mirror'. The data at this URL must
+        % be wire-encoded data per "$ref": "#/$defs/inputSchema/mirrorURL". The
+        % content of the URL is:
         % The planar mirror reflection of object
-        mirrorURL (1,1) string
+        mirrorURL (1,1) string 
+        % URL pointing to the output value for 'chiral'. This value never
+        % returned inline. Read result from URL using scheme-appropriate method:
+        % file system read for file: URLs, HTTP GET for http:// URLs and so on.
+        % Data at the URL formatted per  "$ref":
+        % "#/$defs/outputSchema/chiralURL". The content of the URL is:
         % True if mirror can be rotated to match object
-        chiralURL (1,1) string
+        out.chiralURL (1,1) string  = ""
+        % URL pointing to the output value for 'asymmetry'. This value never
+        % returned inline. Read result from URL using scheme-appropriate method:
+        % file system read for file: URLs, HTTP GET for http:// URLs and so on.
+        % Data at the URL formatted per  "$ref":
+        % "#/$defs/outputSchema/asymmetryURL". The content of the URL is:
         % The asymmetry number if not
-        asymmetryURL (1,1) string
+        out.asymmetryURL (1,1) string  = ""
     end
     !marshalVar = prodserver.mcp.io.MarshallURI();
     % deserialize always returns a cell array.
@@ -18,6 +38,10 @@ function toyToolTwoMCP(objectURL,mirrorURL,chiralURL,asymmetryURL)
     mirror = deserialize(!marshalVar,mirrorURL);
     mirror = mirror{1};
     [chiral,asymmetry] = toyToolTwo(object,mirror);
-    serialize(!marshalVar, chiralURL, {chiral});
-    serialize(!marshalVar, asymmetryURL, {asymmetry});
+    if strlength(out.chiralURL) > 0
+        serialize(!marshalVar, out.chiralURL, {chiral});
+    end
+    if strlength(out.asymmetryURL) > 0
+        serialize(!marshalVar, out.asymmetryURL, {asymmetry});
+    end
 end

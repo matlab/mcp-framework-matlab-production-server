@@ -2,7 +2,7 @@ function [folder,archFolder] = packageFolder
 %packageFolder Return the package's root folder, and the 
 %architecture-specific bin directory.
 
-% Copyright 2025 The MathWorks, Inc.
+% Copyright 2025-2026 The MathWorks, Inc.
 
     folder = fileparts(mfilename("fullpath"));
     folder = strrep(folder,fullfile("+prodserver","+mcp","+internal"),"");

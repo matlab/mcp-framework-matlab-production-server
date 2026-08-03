@@ -1,5 +1,8 @@
 function [x,y,z] = toyToolOne(a,b)
 % First of the toy tools which do nothing useful.
+
+% Copyright 2025-2026 The MathWorks, Inc.
+
     arguments(Input)
         a (1,1) double % A scalar, as if the declaration wasn't obvious
         b uint64       % Who knows how big this could get?

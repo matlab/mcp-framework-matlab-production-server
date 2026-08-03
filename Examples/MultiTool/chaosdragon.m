@@ -1,6 +1,8 @@
 function dragon = chaosdragon(N)
 % Generate N points of the twin-dragon fractal. 
 
+% Copyright 2025-2026 The MathWorks, Inc.
+
     arguments(Input)
         N (1,1) double % Number of points in the resulting fractal.
     end

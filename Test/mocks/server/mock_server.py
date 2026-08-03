@@ -4,6 +4,8 @@ Mock HTTP Server for Testing
 Configurable via JSON/YAML files to define routes and responses.
 """
 
+# Copyright 2026 The MathWorks, Inc.
+
 import json
 import yaml
 from http.server import HTTPServer, BaseHTTPRequestHandler
@@ -12,6 +14,13 @@ import re
 import os
 import sys
 import argparse
+import logging
+
+# logging.basicConfig(
+#     filename="mock_server.log",
+#     level=logging.DEBUG,
+#     format="%(asctime)s %(levelname)s %(message)s"
+# )
 
 class StopMcpServer(BaseException):
     pass
@@ -39,6 +48,7 @@ class MockHTTPHandler(BaseHTTPRequestHandler):
     
     def handle_request(self, method):
         """Handle incoming requests based on configuration."""
+        logging.debug(f"{method} {self.path}")
         parsed_path = urlparse(self.path)
         path = parsed_path.path
         query_params = parse_qs(parsed_path.query)
@@ -68,26 +78,29 @@ class MockHTTPHandler(BaseHTTPRequestHandler):
     
     def find_response_by_request(self, route, body):
         # Match request by jrpc method or entire body
-
+        logging.debug(f"Finding response for {route}")
         if isinstance(body,str):
             for req in route.get('request', []):
+                logging.debug(body)
                 b = req.get('body',[])
+                logging.debug(f"b {b}")
                 if b == body:
                     return req.get('response',[])
         elif isinstance(body,dict):
+            logging.debug("dict")
             jrpc = body.get('method',[])
-            print(jrpc)
+            logging.debug(jrpc)
             for req in route.get('request', []):
                 mth = req.get('jrpc')
                 if mth == jrpc:
                     # call must match inputs too
                     if jrpc == "tools/call":
                         call = req.get('call')
-                        print(call)
+                        logging.debug(call)
                         actualIn = body.get('params').get('arguments')
                         expectedIn = call.get('input')
-                        print(actualIn)
-                        print(expectedIn)
+                        logging.debug(f"Actual: {actualIn}")
+                        logging.debug(f"Expected: {expectedIn}")
                         if expectedIn == actualIn:
                             return req.get('response')
                         else:
@@ -98,7 +111,9 @@ class MockHTTPHandler(BaseHTTPRequestHandler):
 
     def find_matching_response(self, method, path, body):
         """Find a route configuration that matches the request."""
+        logging.debug(f"Searching for {method} {path}")
         for route in self.config.get('routes', []):
+            logging.debug(f"Checking route {route['path']} for {method}")
             # Check if method matches
             route_methods = route.get('methods', ['GET'])
             if method not in route_methods:
@@ -107,9 +122,11 @@ class MockHTTPHandler(BaseHTTPRequestHandler):
             # Check if path matches (exact or regex)
             route_path = route.get('path', '')
             if route.get('regex', False):
+                logging.debug("regex")
                 if re.match(route_path, path):
                     return self.find_response_by_request(route,body)
             else:
+                logging.debug(f"exact {route_path} == {path}")
                 if route_path == path:
                     return self.find_response_by_request(route,body)
         
@@ -187,6 +204,9 @@ def run_server(config_file, host='localhost', port=8080):
     
     print(f"Mock HTTP Server running on http://{host}:{port}")
     print(f"Loaded {len(config.get('routes', []))} routes from {config_file}")
+    print("Routes:")
+    for route in config.get("routes"):
+        print(route["path"])
     print(f"PID = {os.getpid()}")
     print("Press Ctrl+C to stop\n")
     

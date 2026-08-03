@@ -1,5 +1,8 @@
 function toyZeroOutputs(n,exchange,file)
 % toyZeroOutputs Generate n UUIDs into file.
+
+% Copyright 2025-2026 The MathWorks, Inc.
+
     arguments
         n (1,1) double    % Number of UUIDs to generate.
         exchange string   % Replace text in UUID: "old,new".

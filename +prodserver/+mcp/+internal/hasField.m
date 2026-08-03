@@ -33,7 +33,7 @@ function tf = hasField(s, index)
 %   >> tf = hasField(car, 23)
 %   Error
 
-% Copyright 2025, The MathWorks, Inc.
+% Copyright 2025-2026 The MathWorks, Inc.
 
     
 

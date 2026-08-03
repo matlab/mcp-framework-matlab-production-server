@@ -88,8 +88,9 @@ classdef MCPHandlerBase < matlab.unittest.TestCase
             test.definitionFile = fullfile(test.tempFolder,...
                 MCPConstants.DefinitionFile);
             def.(MCPConstants.DefinitionVariable) = definition;
+            def.(MCPConstants.ResourceVariable) = ...
+                prodserver.mcp.internal.resourceDefinition({MCPConstants.WireEncodingResource});
             save(test.definitionFile,"-struct","def");
-
         end
     end
 end

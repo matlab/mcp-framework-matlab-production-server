@@ -1,3 +1,4 @@
+% Copyright 2025-2026 The MathWorks, Inc.
 
 function [status, message] = cleanSignalMCP(noisyURL, period, cleanURL)
     % cleanSignalMCP Wrapper for cleanSignal function

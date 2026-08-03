@@ -1,7 +1,7 @@
 function mustBeScheme(str)
 %mustBeScheme Error if str does not conform to HTTP scheme syntax.
 
-% Copyright 2025, The MathWorks, Inc.
+% Copyright 2025-2026 The MathWorks, Inc.
 
     validateattributes(str, {'char','string'}, {'scalartext','nonempty'});
     str = lower(string(str));

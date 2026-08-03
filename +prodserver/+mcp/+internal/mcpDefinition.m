@@ -1,16 +1,20 @@
-function definition = mcpDefinition(tool,fcn,typemap)
+function definition = mcpDefinition(tool,fcn,opts)
 %mcpDefinition Generate a definition for tool from the code in fcn.
 
-% Copyright 2025, The MathWorks, Inc.
+% Copyright 2025-2026 The MathWorks, Inc.
+
+    arguments(Input)
+        tool (1,1) string  % Name of the tool on the MCP server.
+        fcn (1,1) string   % Function the tool calls. Must be on the MATLAB path.
+        opts.encoding (1,1) prodserver.mcp.WireEncoding = "Invertible";
+        opts.typemap struct {mustBeScalarOrEmpty} = []
+        opts.defs struct {mustBeScalarOrEmpty} = []
+        opts.stage (1,1) prodserver.mcp.BuildStage = "Definition"
+    end
 
     import prodserver.mcp.MCPConstants
     import prodserver.mcp.internal.hasField
-    import prodserver.mcp.internal.parameterDescription
-
-    % Optional mapping of MATLAB types to JSONRPC types.
-    if nargin < 3
-        typemap = [];
-    end
+    import prodserver.mcp.internal.parameterDescription    
 
     if exist(fcn,"file") == false
         error("prodserver:mcp:ToolFcnNotFound", "MCP function %s " + ...
@@ -40,34 +44,79 @@ function definition = mcpDefinition(tool,fcn,typemap)
         dd = [ {d}; dd ];
     end
 
-    definition.tools.description = strjoin(dd," ");
-
-    % Tool description must be a non-empty string.
-    txt = definition.tools.description;
-    if isempty(txt) || (isstring(txt) && strlength(text) == 0) 
+    % Tool description must be a non-empty string. isstring() test because
+    % [ {d}; string.empty ] creates a string -- so if
+    % mf.DetailedDescription ever comes back as an empty string, we'll
+    % still error correctly.
+    if (iscell(dd) && isempty(dd{1})) || (isstring(dd) && strlength(dd) == 0)
         error("prodserver:mcp:EmptyToolDescription", "Empty tool " + ...
             "description for %s. Add descriptive comment to %s following " + ...
             "the function line.", fcn, mf.FullPath);
     end
+
+    % Add a statement requiring the LLM to read the wire-encoding resource
+    % before making any calls to the tool. Don't add it twice. But add it
+    % after the check for empty description above, or we'll never detect
+    % undescribed functions.
+    if opts.encoding == prodserver.mcp.WireEncoding.Invertible && ...
+            any(contains(dd,MCPConstants.WireEncodingResourceURI)) == false
+        dd = [ dd; {char(prodserver.mcp.MCPConstants.WireEncodingRequiredMsg)} ];
+    end
+
+    dd = strjoin(dd," ");
+    definition.tools.description = dd;
 
     % MPS mapping of tool name to callable MATLAB function
     definition.signatures.(tool).function = mf.Name;
 
     % Heuristic searching about for comments that describe each input and
     % output argument.
-    [in,out] = parameterDescription(mf);
+    [in,out,inHasNVP] = parameterDescription(mf);
+
+    % Enumerate externalized inputs and outputs
+    externalIn = string.empty; 
+    externalOut = string.empty;
+    if ~isempty(opts.defs)
+        if hasField(opts.defs,"inputSchema")
+            externalIn = fieldnames(opts.defs.inputSchema);
+        end
+        if hasField(opts.defs,"outputSchema")
+            externalOut = fieldnames(opts.defs.outputSchema);
+        end
+    end
 
     % Define inputs
     definition = defineParameters(definition,tool,"input",in, ...
-        mf.Signature.Inputs,typemap);
+        mf.Signature.Inputs,opts.typemap,opts.stage,opts.encoding,...
+        externalIn);
  
     % Define outputs
     definition = defineParameters(definition,tool,"output",out, ...
-        mf.Signature.Outputs,typemap);
+        mf.Signature.Outputs,opts.typemap,opts.stage,opts.encoding, ...
+        externalOut);
+
+    % Add $defs to the definition. Since the definition is a structure,
+    % we can't use $defs as a field name, as it is not a valid MATLAB
+    % variable name. (This will require fix-up when description is returned
+    % as JSON from server.)
+    if ~isempty(opts.defs)
+        definition.tools.(MCPConstants.DefsField) = opts.defs;
+        if hasField(opts.defs,"outputSchema")
+            external = fieldnames(opts.defs.outputSchema);
+            for n = 1:numel(external)
+                definition.tools.inputSchema.properties.(external{n}).writeOnly = true;
+            end
+        end
+    end
+
+    % Remove annotations in the parameter definitions of the description.
+    % We use them internally to manage some wire-encoding decisions, but
+    % they apparently confuse Claude, so we remove them here.
+    %definition = prodserver.mcp.internal.removeField(definition,"annotation");
 end
 
 function definition = defineParameters(definition,tool,io,descriptions, ...
-    signature,typemap)
+    signature,typemap,stage,encoding,external)
 % Define a set of parameters, either input or output. Use introspection to
 % collect parameter names and types. metafunction doesn't support parameter
 % descriptions yet so they are extracted using a heuristic process.
@@ -79,23 +128,34 @@ function definition = defineParameters(definition,tool,io,descriptions, ...
 %  descriptions: Parameter descriptions extracted from function text.
 %  signature: metafunction data on the group of parameters.
 %  typemap: Maps "extra" MATLAB types to JSONRPC types. A structure.
+%  stage: Stage of the build process.
 
+    import prodserver.mcp.MCPConstants
     import prodserver.mcp.internal.ParameterKind
-    
+    import prodserver.mcp.jsonrpc.argumentDeclaration
+    import prodserver.mcp.jsonrpc.explainWireEncoding
+    import prodserver.mcp.jsonrpc.argumentSchema
+
     % Set schema name based on parameter group -- input or output.
     if strcmp(io,"input")
-        schema = "inputSchema";
+        schemaName = "inputSchema";
     elseif strcmp(io,"output")
-        schema = "outputSchema";
+        schemaName = "outputSchema";
     end
 
-    % Collect input argument information from metafunction data.
-    [parameters,required,kind,order] = argumentDeclaration(signature);
-    
-    % Update parameter structure with descriptions.
+    % User-specified schema data may be present in the description. Extract
+    % it from the comments and insert it into the descriptions structure.
+    % Also inject a comment explaining how to manage the wire encoding.
     if ~isempty(descriptions)
-        parameters = addDescription(parameters,descriptions);
+        descriptions = argumentSchema(descriptions);
+        if encoding == prodserver.mcp.WireEncoding.Invertible
+            descriptions = explainWireEncoding(descriptions,io,external);
+        end
     end
+
+    % Collect argument information from metafunction data.
+    [parameters,required,kind,order,group,validation,default] = ...
+        argumentDeclaration(signature,descriptions,encoding,stage);
     
     % Populate MATLAB signature structure with MATLAB native types.
     if ~isempty(parameters)
@@ -104,43 +164,84 @@ function definition = defineParameters(definition,tool,io,descriptions, ...
         definition.signatures.(tool).(io).type = type;
         definition.signatures.(tool).(io).kind = kind;
         definition.signatures.(tool).(io).order = order;
+        definition.signatures.(tool).(io).group = group;
+        definition.signatures.(tool).(io).validation = validation;
+        definition.signatures.(tool).(io).default = default;
     end
-    
+
     % Convert MATLAB types to compatible JSON types
     parameters = mcpArgumentTypes(parameters,typemap);
     
     % Description of parameters
-    definition.tools.(schema).type = "object";
+    definition.tools.(schemaName).type = "object";
     if isempty(fieldnames(parameters)) == false
-        definition.tools.(schema).properties = parameters;
-        definition.tools.(schema).required = required;
+        definition.tools.(schemaName).properties = parameters;
+        definition.tools.(schemaName).required = required;
         [minArgs, maxArgs] = ParameterKind.NargRange(kind);
-        definition.tools.(schema).minProperties = minArgs;
-        definition.tools.(schema).maxProperties = maxArgs;
+        definition.tools.(schemaName).minProperties = minArgs;
+        definition.tools.(schemaName).maxProperties = maxArgs;
     end
-    definition.tools.(schema).additionalProperties = false;
+    % Ideally we'd add this, but some LLMs (Gemini!) choke on the
+    % "additionalProperties" field.
+    %definition.tools.(schemaName).additionalProperties = false;
 end
 
+function pt = parameterTypeName(param,name)
+% Get or set parameter type name. 
+%    pt = parameterTypeName(param)      : Get name of parameter's type
+%        Returns existing name.
+%
+%    pt = parameterTypeName(param,name) : Set name of parameter's type
+%        Returns modified parameter structure.
 
-function parameters = addDescription(parameters,ad)
-% Copy the description text into the "description" field of each parameter.
-% ad is a dictionary: name -> description. If the description has multiple 
-% lines, join the lines together into a single line.
-    for arg = keys(ad)'
-        parameters.(arg).description = strjoin(ad(arg).description," ");
-    end
-end
-
-function t = parameterTypeName(type)
     import prodserver.mcp.MCPConstants
 
-    % type will be simple string for scalar parameters and a
-    % structure for array parameters. Return the type name of the
-    % elements of the array or the scalar type name.
-    if strcmpi(type.type,MCPConstants.Array)
-        t = type.items.type;
+    % The location of the actual type of the parameter depends on the wire
+    % encoding. If we're using the invertible encoding, the type is in the
+    % properties sub-structure of the wrapper. Surface it. Use the
+    % annotation field to determine if we're using the invertible encoding.
+    % The contains test is looking for text in the
+    % wireEncodingArgTemplate.json. So if you change that, change this.
+   
+    wireEncoding = false;
+    if isfield(param,"annotation") && ...
+            contains(param.annotation,"Invertible wire encoding")
+        wireEncoding = true;
+    end
+
+    if nargin == 1
+
+        % Remove wireEncoding wrapper, because we're looking for the actual
+        % type, the wrapped type, not the wrapper type.
+        if wireEncoding
+            type = param.properties.data;
+        else
+            type = param;
+        end
+
+        % type will be simple string for scalar parameters and a
+        % structure for array parameters. Return the type name of the
+        % elements of the array or the scalar type name.
+        if strcmpi(type.type,MCPConstants.Array)
+            pt = type.items.type;
+        else
+            pt = type.type;
+        end
     else
-        t = type.type;
+        if wireEncoding
+            if strcmpi(param.properties.data.type,MCPConstants.Array)
+                param.properties.data.items.type = name;
+            else
+                param.properties.data.type = name;
+            end
+        else
+            if strcmpi(param.type,MCPConstants.Array)
+                param.itmes.type = name;
+            else
+                param.type = name;
+            end
+        end
+        pt = param;
     end
 end
 
@@ -150,175 +251,47 @@ function [name,type] = mpsArguments(schema)
 end
 
 function parameters = mcpArgumentTypes(parameters,typemap)
+% Final adjustment to create MCP-compatible schema. 
+
     import prodserver.mcp.MCPConstants
+    import prodserver.mcp.internal.SchemaOrigin
+    import prodserver.mcp.jsonrpc.jsonParameterType
 
     name = string(fieldnames(parameters));
     for n = 1:numel(name)
-        t = jsonParameterType(parameterTypeName(parameters.(name(n))), ...
-            typemap);
-        if isempty(t)
-            error("prodserver:mcp:IncompatibleArgumentType", ...
-                "Parameter '%s' has unsupported type '%s'. Valid types " + ...
-                "include numeric types, strings, cell arrays and " + ...
-                "structures.", name(n), parameters.(name(n)).type);
-        end
+        % Find the type name for this parameter.
+        t = parameterTypeName(parameters.(name(n)));
 
-        % Array and scalar have different representation.
-        if strcmpi(parameters.(name(n)).type, MCPConstants.Array)
-            % Array
-            parameters.(name(n)).items.type = t;
-        else
-            % Scalar
-            parameters.(name(n)).type = t;
-        end
-
-    end
-end
-
-function [properties,required,kind,order] = argumentDeclaration(args)
-% Extract argument names and types, but not descriptions from an argument
-% block. Return an MCP properties structure and an array of the names of
-% the required arguments.
-
-    import prodserver.mcp.MCPConstants
-    import prodserver.mcp.internal.hasField
-    import prodserver.mcp.internal.ParameterKind
-
-    names = cell(1,numel(args));
-    decl = cell(size(names));
-    required = false(size(names));
-    kind = repmat(ParameterKind.Unknown,size(names));
-    for i = 1:numel(args)
-        names{i} = args(i).Identifier.Name;
-        required(i) = args(i).Required;
-        kind(i) = ParameterKind.FromMetaData(required(i),args(i).Identifier);
-        t = MCPConstants.DefaultArgType;
-        if hasField(args(i),"Validation.Class")
-            if ~isempty(args(i).Validation.Class)
-                t = args(i).Validation.Class.Name;
-            end
-        end
-
-        % Array or scalar? Everything is an array (because MATLAB) unless 
-        % explicitly declared otherwise. Create a structure that will 
-        % result in one of two JSON encodings.
-        %
-        % For array parameters:
-        %   {
-        %       "type": "array",
-        %       "items": { "type": "<MATLAB type name>" }
-        %   }
-        % If the parameter has a size validation like (1,3,2), the
-        % structure will include the "maxItems" field (with value 6 in this
-        % case.)
-        %
-        % For scalar parameters (where the size is explicitly (1,1)):
-        %   {
-        %       "type": "<MATLAB type name>" 
-        %   }
-        %
-        % Some MCP hosts appear to validate against the schema. Others do
-        % not. YMMV. For the ones that do, the schema must be correct.
-
-        d.type = "array";
-        d.items.type = t;
-        if hasField(args(i),"Validation.Size") && ...
-            ~isempty(args(i).Validation.Size)
-            % If any dimension is unrestricted, there is no size limit.
-            % Otherwise, maxItems is the product of the dimensions.
-
-            dims = args(i).Validation.Size;
-            maxItems = 1;
-            for dI = 1:numel(dims)
-                if isa(dims(dI),'matlab.metadata.UnrestrictedDimension')
-                    sz = Inf;
-                elseif isa(dims(dI),'matlab.metadata.FixedDimension')
-                    sz = dims(dI).Length;
+        switch parameters.(name(n)).schema.origin
+            case SchemaOrigin.Introspection
+                % Expect MATLAB type
+                t = jsonParameterType(t,typemap);
+            case SchemaOrigin.Hybrid
+                % Allow MATLAB or JSON type
+                if prodserver.mcp.validation.isJsonSchemaType(t) == false
+                    t = jsonParameterType(t,typemap);
                 end
-                maxItems = maxItems * sz;
-            end
-            if ~isinf(maxItems) && maxItems > 1
-                d.maxItems = maxItems;
-            end
-
-            % Check for scalar -- and undo all work above, if so. Create
-            % the much simpler scalar declaration.
-            if maxItems == 1
-                d = [];
-                d.type = t;
-            end
-          
+            case SchemaOrigin.Client
+                % Require JSON type.
+                prodserver.mcp.validation.mustBeJsonSchemaType(t);
         end
 
-        % No time-frame for mf.Signature.Inputs(i).Description, so
-        % placeholder for now and fix-up later.
-        d.description = t;
+        % Remove the schema field because it is not part of the JSON
+        % schema. Take the schema out of the schema. :-)
+        parameters.(name(n)) = rmfield(parameters.(name(n)),"schema");
 
-        decl{i} = d;
-        d = [];   % To allow it to be string or structure again.
-    end
-
-    % Structure with one field per argument. name -> (type, description)
-    % Except description is empty right now -- to be filled in later.
-    args = [ names; decl ];
-    properties = struct(args{:});
-    required = names(required);
-    count = ParameterKind.CountType(kind);
-    % How many positional arguments?
-    pN = count(ParameterKind.Required) + count(ParameterKind.Optional);
-    order = string(names(1:pN));
-end
-
-function jsonType = jsonParameterType(matlabType,typemap)
-% Map MATLAB types to JSON RPC types. The only valid types for JSON are:
-% array, boolean, integer, null, number, object, string. In this list,
-% "object" means struct.
-% 
-% Return a "" string if there is no compatible JSON type.
-
-    arguments
-        matlabType string
-        typemap struct
-    end
-
-    intType = textBoundary("start") + ("int" | "uint") + ...
-        ("8" | "16" | "32" | "64" | "128") + textBoundary("end");
-    
-    jsonType = strings(1,numel(matlabType));
-
-    for n = 1:numel(matlabType)
-
-        % Special case types first -- user specified these conversions, so
-        % honor them.
-        if ismember(matlabType(n),fieldnames(typemap))
-            jsonType(n) = typemap.(matlabType(n));
-        % Character types become string
-        elseif strcmp(matlabType(n),"char") || strcmp(matlabType(n),"string")
-            jsonType(n) = "string";
-    
-        % All integer types become "integer"
-        elseif matches(matlabType(n),intType)
-            jsonType(n) = "integer";
-    
-        % Floating point types are "number"
-        elseif strcmp(matlabType(n),"double") || strcmp(matlabType(n),"float")
-            jsonType(n) = "number";
-    
-        % Data with named fields is an "object"
-        elseif strcmp(matlabType(n),"struct")
-            jsonType(n) = "object";
-    
-        % logical -> boolean
-        elseif strcmp(matlabType(n),"logical")
-            jsonType(n) = "boolean";
-    
-        % cell arrays are JSON arrays
-        elseif strcmp(matlabType(n),"cell")
-            jsonType(n) = "array";
-    
-        % No compatible JSON type for this MATLAB type. 
-        else
-            jsonType(n) = "";
+        if isempty(t) || strlength(t) == 0
+            badType = parameterTypeName(parameters.(name(n)));
+            error("prodserver:mcp:IncompatibleArgumentType", ...
+                "Parameter '%s' has unsupported MATLAB type '%s'. Valid " + ...
+                "types include numeric types, strings, cell arrays and " + ...
+                "structures.", name(n), badType);
         end
+
+        % Array and scalar have different representation. And wireEncoding
+        % stores the type name in a more complex structure. So defer to a
+        % method that knows all about the structure.
+        parameters.(name(n)) = parameterTypeName(parameters.(name(n)),t);
     end
 end
+

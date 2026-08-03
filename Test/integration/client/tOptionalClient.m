@@ -1,5 +1,7 @@
 classdef tOptionalClient < MockCaller
 
+% Copyright 2025-2026 The MathWorks, Inc.
+
     properties
         toolFolder
     end
@@ -43,9 +45,10 @@ classdef tOptionalClient < MockCaller
             endpoint = startMcpServer(test,"tOptionalScalarOptions.yaml");
 
             for n = numel(args):-1:1
-                % Call original for expected value
-                expected = feval(fcn,args{1:n});
-    
+                % Call original for expected value -- all strings returned
+                % via HTTP are chars, so cast.
+                expected = char(feval(fcn,args{1:n}));
+
                 % Call the function on the mock server.
                 actual = prodserver.mcp.call(endpoint,fcn,args{1:n});
     

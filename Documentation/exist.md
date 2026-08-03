@@ -40,3 +40,5 @@ Determine if the tools `toolOne`, `toolTwo` and `toolThree` exist on the server 
 tf = exist("http://localhost:9910/primeSequence/mcp",["toolOne", "toolTwo", "toolThree"], "tool")
 ```
 The return value `tf` will be a three-element vector of logical values. `tf(1)` indicates the existence of `toolOne`, `tf(2)` the existence of `toolTwo` and `tf(3)` the existence of `toolThree`.
+
+--- Copyright 2025-2026 The MathWorks, Inc. ---

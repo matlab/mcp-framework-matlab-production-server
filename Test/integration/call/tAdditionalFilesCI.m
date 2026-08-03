@@ -1,7 +1,7 @@
 classdef tAdditionalFilesCI < MCPCaller & ...
         prodserver.mcp.test.mixin.ExternalData 
 
-% Copyright 2026 The MathWorks, Inc.
+% Copyright 2026-2026 The MathWorks, Inc.
 
     methods (TestMethodSetup)
         function scratchSpace(test)
@@ -71,9 +71,9 @@ classdef tAdditionalFilesCI < MCPCaller & ...
             %
 
             dataURL = stow(test,test.dataFolder,"data",dataFile);
-            summaryURL = locate(test,"summary",test.dataFolder);
-            prodserver.mcp.call(endpoint,fcn(2),dataURL,summaryURL);
-            aSummary= fetch(test,summaryURL);
+            summaryURL = sink(test,"summary",test.dataFolder);
+            prodserver.mcp.call(endpoint,fcn(2),dataURL,answerURL=summaryURL);
+            aSummary = fetch(test,summaryURL);
             test.verifyEqual(aSummary,eSummary);
 
             %
@@ -81,13 +81,14 @@ classdef tAdditionalFilesCI < MCPCaller & ...
             %
 
             % Create the file URL inputs in the temporary folder.
-            xURL = locate(test,"x",test.dataFolder);
-            yURL = locate(test,"y",test.dataFolder);
-            zURL = locate(test,"z",test.dataFolder);
+            xURL = sink(test,"x",test.dataFolder);
+            yURL = sink(test,"y",test.dataFolder);
+            zURL = sink(test,"z",test.dataFolder);
             bURL = stow(test,test.dataFolder,"b",b);
 
             % Invoke - x,y,z and b are externalized.
-            prodserver.mcp.call(endpoint,fcn(3),a,bURL,xURL,yURL,zURL);
+            prodserver.mcp.call(endpoint,fcn(3),a,bURL,xURL=xURL,...
+                yURL=yURL,zURL=zURL);
 
             % Fetch outputs from their URLs.
             aX = fetch(test,xURL);

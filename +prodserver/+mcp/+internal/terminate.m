@@ -1,7 +1,7 @@
 function terminate(endpoint, session)
 % terminate End a Model Context Protocol session at a given endpoint.
 
-% Copyright 2025, The MathWorks, Inc.
+% Copyright 2025-2026 The MathWorks, Inc.
 
     arguments
         endpoint string { prodserver.mcp.validation.mustBeMCPServer }

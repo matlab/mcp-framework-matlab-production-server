@@ -3,6 +3,13 @@ licenses/**
 mocks/**
 go.sum
 SECURITY.md
-*.pem
+*.csv
+*.jpeg
+*.mat
 *.mltbx
+*.mlx
+*.pem
 *.sources-hash
+*.txt
+*.wrap
+*.yaml

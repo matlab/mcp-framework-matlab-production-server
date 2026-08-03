@@ -35,8 +35,14 @@ routes:
             year: 1999
             mpg: 1001
             range: 100000
-            make: Polaris
-            model: Zeta
+            make: 
+              type: string
+              size: [1,1]
+              data: Polaris
+            model: 
+              type: string
+              size: [1,1]
+              data: Zeta
         response:
           status: 200
           headers: 
@@ -51,7 +57,10 @@ routes:
             year: 1999
             mpg: 1001
             range: 100000
-            make: Polaris
+            make: 
+              type: string
+              size: [1,1]
+              data: Polaris
         response:
           status: 200
           headers: 

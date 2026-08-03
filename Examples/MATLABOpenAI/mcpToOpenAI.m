@@ -1,7 +1,7 @@
 function tools = mcpToOpenAI(mcp)
 % mcpToOpenAI Convert MCP tool definitions to openAIFunction objects.
 
-% Copyright 2025, The MathWorks, Inc.
+% Copyright 2025-2026 The MathWorks, Inc.
 
     % Dictionary mapping name to structure. 
     names = string({mcp.name});

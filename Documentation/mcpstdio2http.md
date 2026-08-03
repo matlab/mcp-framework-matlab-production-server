@@ -17,3 +17,5 @@ python mcpstdio2http.py -url http://localhost:9910/primeSequence/mcp
 ```
 
 Note that `mcpstdio2http.py` requires the `requests` Python package.
+
+--- Copyright 2025-2026 The MathWorks, Inc. ---

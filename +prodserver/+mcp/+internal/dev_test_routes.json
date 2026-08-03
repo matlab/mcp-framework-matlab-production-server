@@ -1,0 +1,33 @@
+{
+    "version": "1.0.0",
+    "pathmap": [
+      {
+        "match": "^/<Archive>/mcp$",
+            "webhandler": {
+                "component": "<Archive>",
+                "function": "mcpHandler"
+            }
+      },
+      {
+          "match": "^/<Archive>/sse$",
+          "webhandler": {
+              "component": "<Archive>",
+              "function": "mcpHandler"
+          }
+      },
+      {
+          "match": "^/<Archive>/signature$",
+          "webhandler": {
+              "component": "<Archive>",
+              "function": "signatureHandler"
+          }
+      },
+      {
+        "match": "^/<Archive>/ping$",
+            "webhandler": {
+                "component": "<Archive>",
+                "function": "pingHandler"
+            }
+      }      
+    ]
+}

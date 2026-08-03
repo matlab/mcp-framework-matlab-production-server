@@ -2,7 +2,7 @@ function mustBeServer(x)
 %mustBeServer Argument validation function for arguments that must be
 %MATLAB Production Server addresses. 
 
-% Copyright 2025, The MathWorks, Inc.
+% Copyright 2025-2026 The MathWorks, Inc.
 
     % Must be a MATLAB Production Server endpoint.
     

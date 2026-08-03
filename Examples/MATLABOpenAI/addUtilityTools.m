@@ -3,7 +3,7 @@ function tools = addUtilityTools(tools)
 % registry. Create both openAIFunction objects and the MCP-format
 % structures required for taskOpenAI and evaluateToolCall.
 
-% Copyright 2025, The MathWorks, Inc.
+% Copyright 2025-2026 The MathWorks, Inc.
 
     %
     % Find current directory

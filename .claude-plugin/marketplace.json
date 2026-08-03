@@ -1,0 +1,18 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "mcp-framework-matlab-production-server",
+  "owner": { "name": "MathWorks" },
+  "plugins": [
+    {
+      "name": "mcp-framework",
+      "version": "1.0.0",
+      "description": "Build and deploy MCP tools from MATLAB functions to MATLAB Production Server",
+      "author": { "name": "MathWorks" },
+      "keywords": ["mcp", "matlab-production-server", "deploy"],
+      "source": "./skills-catalog/mcp-framework",
+      "category": "development",
+      "strict": false,
+      "skills": "./"
+    }
+  ]
+}
