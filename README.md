@@ -79,6 +79,7 @@ The Examples folder contains several complete MCP tools of varying complexity. E
 * [Earthquake](./Examples/Earthquake/Earthquake.md): Generates plots of earthquake data. Demonstates use of a user-written wrapper function.
 * [Multiple Tools](./Examples/MultiTool/MultipleTools.md): Build a server hosting multiple MCP tools.
 * [Materials](./Examples/Materials/Materials.md): Engineering material properties as MCP Resources paired with structural and thermal analysis tools. Demonstrates how resources enhance server usability.
+* [Structured Data](./Examples/StructuredData/StructuredData.md): Nested struct inputs with JSON Schema annotations via the [`%#schema` pragma](./Documentation/Schemas.md). Demonstrates how to describe complex structured parameters for LLM consumption.
 
 To become effective MCP tools, MATLAB functions must accommodate the MCP environment. In particular,
 your functions must: 

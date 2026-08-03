@@ -1,4 +1,4 @@
-classdef tArgOrder < MCPHandlerBase
+classdef tArgOrder < prodserver.mcp.test.base.MCPHandlerBase
 % Test how mcpHandler manages JRPC's argument ordering.
 
 % Copyright 2025-2026 The MathWorks, Inc.

@@ -1,4 +1,4 @@
-classdef tSignature < MCPHandlerBase
+classdef tSignature < prodserver.mcp.test.base.MCPHandlerBase
 % Test signature handler
 
 % Copyright 2025-2026 The MathWorks, Inc.
