@@ -69,17 +69,13 @@ The `## Review Response` section is left as a placeholder for the user to fill i
 
 ## Step 4: Push to the Reviews Branch
 
-Use a git worktree to push the review file to the `reviews` branch without switching the user's current branch. Use a path relative to the repo root for cross-platform compatibility:
+Use a git worktree to push the review file to the `reviews` branch without switching the user's current branch. Use `mktemp -d` for the worktree path — this works on both Windows (Git Bash) and Linux, and avoids UNC path issues with mapped drives:
 
 ```bash
-# Get the worktree path adjacent to the repo
-REPO_ROOT=$(git rev-parse --show-toplevel)
-WT_PATH="${REPO_ROOT}/../.reviews-wt"
+# Create a temporary directory for the worktree
+WT_PATH=$(mktemp -d)
 
-# Clean up any stale worktree
-git worktree remove "$WT_PATH" 2>/dev/null || rm -rf "$WT_PATH"
-
-# Create a temporary worktree for the reviews branch
+# Create a worktree for the reviews branch
 git worktree add "$WT_PATH" reviews
 
 # Ensure the reviews directory exists in the worktree
@@ -96,7 +92,8 @@ git push origin reviews
 cd -
 
 # Clean up the worktree
-git worktree remove "$WT_PATH"
+git worktree remove "$WT_PATH" || rm -rf "$WT_PATH"
+git worktree prune
 ```
 
 ## Step 5: Inform the User
