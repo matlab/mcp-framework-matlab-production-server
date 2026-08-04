@@ -15,8 +15,7 @@ matlab-release: ">=R2024b"
 
 required-tools: []
 
-required-skills:
-  - review
+required-skills: []
 
 required-products: []
 

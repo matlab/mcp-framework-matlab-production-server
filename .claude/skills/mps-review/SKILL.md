@@ -2,7 +2,7 @@
 name: mps-review
 description: Run a code review and publish it to the reviews branch for the review-gate CI check
 argument-hint: <PR number>
-allowed-tools: Read Write Bash(git *) Bash(grep *) Bash(mkdir *) Bash(rm *) Bash(cat *) Skill(review)
+allowed-tools: Read Write Bash(git *) Bash(grep *) Bash(mkdir *) Bash(rm *) Bash(cat *)
 ---
 
 # Code Review and Publish to Reviews Branch
@@ -16,12 +16,6 @@ If the user provided a PR number as an argument, use that.
 Otherwise, derive it from the current branch:
 
 ```bash
-git log --oneline main..HEAD
-```
-
-Then find the associated PR by checking if the current branch tracks a remote and looking for its PR number. Use:
-
-```bash
 git branch --show-current
 ```
 
@@ -29,9 +23,27 @@ The PR number may be embedded in the branch name (e.g., `feature/PR-21-descripti
 
 ## Step 2: Run the Code Review
 
-Invoke the built-in `/review` skill to review the current branch against `main`. This will produce a comprehensive code review.
+Review the current branch's changes against `main` directly. Do NOT use `gh` or the `/review` skill — they are unavailable in this environment.
 
-Capture the full review output. It will become the content of the review file.
+First, determine the review scope:
+
+```bash
+git log --oneline main..HEAD
+```
+
+**Scope rules:**
+- If there are **10 or fewer commits**, review the full diff: `git diff main..HEAD`
+- If there are **more than 10 commits**, ask the user which commits to review, or default to the most recent 5: `git diff HEAD~5..HEAD`
+- If the user specified a commit range, use that
+
+Then perform a thorough code review of the diff, covering:
+- Code correctness and potential bugs
+- Following project conventions
+- Performance implications
+- Test coverage
+- Security considerations
+
+Format the review with clear sections and bullet points.
 
 ## Step 3: Write the Review File
 
@@ -57,32 +69,34 @@ The `## Review Response` section is left as a placeholder for the user to fill i
 
 ## Step 4: Push to the Reviews Branch
 
-Use a git worktree to push the review file to the `reviews` branch without switching the user's current branch:
+Use a git worktree to push the review file to the `reviews` branch without switching the user's current branch. Use a path relative to the repo root for cross-platform compatibility:
 
 ```bash
+# Get the worktree path adjacent to the repo
+REPO_ROOT=$(git rev-parse --show-toplevel)
+WT_PATH="${REPO_ROOT}/../.reviews-wt"
+
+# Clean up any stale worktree
+git worktree remove "$WT_PATH" 2>/dev/null || rm -rf "$WT_PATH"
+
 # Create a temporary worktree for the reviews branch
-git worktree add /tmp/reviews-wt reviews
+git worktree add "$WT_PATH" reviews
 
 # Ensure the reviews directory exists in the worktree
-mkdir -p /tmp/reviews-wt/reviews
+mkdir -p "$WT_PATH/reviews"
 
 # Copy the review file into the worktree
-cp reviews/PR-<N>.md /tmp/reviews-wt/reviews/
+cp reviews/PR-<N>.md "$WT_PATH/reviews/"
 
 # Commit and push from the worktree
-cd /tmp/reviews-wt
+cd "$WT_PATH"
 git add reviews/PR-<N>.md
 git commit -m "Review for PR #<N>"
 git push origin reviews
 cd -
 
 # Clean up the worktree
-git worktree remove /tmp/reviews-wt
-```
-
-If the worktree creation fails because `/tmp/reviews-wt` already exists, remove it first:
-```bash
-git worktree remove /tmp/reviews-wt 2>/dev/null || rm -rf /tmp/reviews-wt
+git worktree remove "$WT_PATH"
 ```
 
 ## Step 5: Inform the User
@@ -97,4 +111,6 @@ Tell the user:
 
 - If the `reviews` branch does not exist on the remote, tell the user they need to create it first (one-time setup)
 - If git push fails due to permissions, tell the user to push manually
-- If the review skill produces no output, report the failure and stop
+- If the diff is empty, tell the user there are no changes to review
+
+--- Copyright 2026 The MathWorks, Inc. ---
