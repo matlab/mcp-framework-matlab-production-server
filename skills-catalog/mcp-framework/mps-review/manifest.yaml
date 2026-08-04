@@ -1,0 +1,23 @@
+# Copyright 2026 The MathWorks, Inc.
+# manifest.yaml -- Tooling metadata for mps-review
+
+schema-version: 1
+
+license: MathWorks BSD-3-Clause
+
+scope: cross-product
+
+version: "1.0"
+
+human-description: Run AI code review and publish to reviews branch for CI gate
+
+matlab-release: ">=R2024b"
+
+required-tools: []
+
+required-skills:
+  - review
+
+required-products: []
+
+toolkit: mcp-framework-matlab-production-server
