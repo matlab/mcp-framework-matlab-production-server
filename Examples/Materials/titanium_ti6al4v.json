@@ -1,0 +1,14 @@
+{
+  "name": "Titanium Ti-6Al-4V",
+  "category": "Titanium Alloy",
+  "properties": {
+    "density": {"value": 4430, "units": "kg/m^3"},
+    "youngs_modulus": {"value": 113.8e9, "units": "Pa"},
+    "yield_strength": {"value": 880e6, "units": "Pa"},
+    "ultimate_tensile_strength": {"value": 950e6, "units": "Pa"},
+    "poissons_ratio": {"value": 0.342, "units": "dimensionless"},
+    "thermal_conductivity": {"value": 6.7, "units": "W/(m*K)"},
+    "specific_heat": {"value": 526.3, "units": "J/(kg*K)"},
+    "thermal_expansion_coefficient": {"value": 8.6e-6, "units": "1/K"}
+  }
+}

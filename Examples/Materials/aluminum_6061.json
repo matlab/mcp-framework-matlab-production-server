@@ -1,0 +1,14 @@
+{
+  "name": "Aluminum 6061-T6",
+  "category": "Aluminum Alloy",
+  "properties": {
+    "density": {"value": 2700, "units": "kg/m^3"},
+    "youngs_modulus": {"value": 68.9e9, "units": "Pa"},
+    "yield_strength": {"value": 276e6, "units": "Pa"},
+    "ultimate_tensile_strength": {"value": 310e6, "units": "Pa"},
+    "poissons_ratio": {"value": 0.33, "units": "dimensionless"},
+    "thermal_conductivity": {"value": 167, "units": "W/(m*K)"},
+    "specific_heat": {"value": 896, "units": "J/(kg*K)"},
+    "thermal_expansion_coefficient": {"value": 23.6e-6, "units": "1/K"}
+  }
+}
