@@ -17,9 +17,9 @@ function mustBeText(x,var,constraint)
     validateattributes(x,["string","cell","char"],["nonempty","vector"],extra{:});
 
     if iscell(x) && ~iscellstr(x) %#ok<ISCLSTR> -- Already done.
-        error("prodserver:mcp:VarMustBeCellstr", ...
+        throwAsCaller(MException("prodserver:mcp:VarMustBeCellstr", ...
             "In order to be text, variable %s with type cell must be " + ...
-            "cellstr.", var);
+            "cellstr.", var));
     end
 
     if nargin > 2
@@ -29,9 +29,9 @@ function mustBeText(x,var,constraint)
             tf = false;
         end
         if tf == false
-            error("prodserver:mcp:ConstraintViolation", ...
+            throwAsCaller(MException("prodserver:mcp:ConstraintViolation", ...
                   "%s does not satisfy constraint %s.", ...
-                var, func2str(constraint));
+                var, func2str(constraint)));
         end
     end
 end

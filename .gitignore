@@ -1,4 +1,5 @@
 # Repo-wide ignorables
 *.asv
 **/deploy/
+reviews/
 

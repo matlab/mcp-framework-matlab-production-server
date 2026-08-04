@@ -7,9 +7,9 @@ function mustBeURI(x)
 
     if tf == false && prodserver.mcp.validation.istext(x) == false && ...
         isstruct(x) == false
-        error("prodserver:mcp:BadURIType", ...
+        throwAsCaller(MException("prodserver:mcp:BadURIType", ...
             "Invalid URI type %s. URIs must be a string or character vector.", ...
-            class(x));
+            class(x)));
     end
 
     if any(tf) == false
@@ -19,7 +19,7 @@ function mustBeURI(x)
             bad = sprintf("struct with fields: %s", ...
                 strjoin(fieldnames(bad),","));
         end
-        error("prodserver:mcp:BadURI", "Invalid URI: %s", bad(1));
+        throwAsCaller(MException("prodserver:mcp:BadURI", "Invalid URI: %s", bad(1)));
     end
 
 end

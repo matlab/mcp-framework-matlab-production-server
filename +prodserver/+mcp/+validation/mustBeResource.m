@@ -21,20 +21,20 @@ function mustBeResource(x)
         elseif iscell(x)
             r = x{n};
         else
-            error("prodserver:mcp:InvalidResource", ...
+            throwAsCaller(MException("prodserver:mcp:InvalidResource", ...
                 "Resource list must be structure or cell array, not %s.", ...
-                class(x));
+                class(x)));
         end
     
         try
             validateResource(r);
         catch me
             if isscalar(x)
-                rethrow(me);
+                throwAsCaller(me);
             else
-                error(me.identifier, ...
+                throwAsCaller(MException(me.identifier, ...
                     "Element %d of resource list invalid: '%s'", ...
-                    n, me.msg);
+                    n, me.msg));
             end
         end
      end

@@ -8,9 +8,9 @@ function mustMatchSchema(value,var,td,tool,io)
     import prodserver.mcp.internal.hasField
 
     if hasField(td,MCPConstants.DefinitionVariable) == false
-        error("prodserver:mcp:InvalidDefinition", ...
+        throwAsCaller(MException("prodserver:mcp:InvalidDefinition", ...
             "Tool definition structure lacks required field %s", ...
-            MCPConstants.DefinitionVariable);
+            MCPConstants.DefinitionVariable));
     end
 
     td = td.(MCPConstants.DefinitionVariable);
@@ -20,14 +20,14 @@ function mustMatchSchema(value,var,td,tool,io)
         toolNames = cellfun(@(t)t.name,td.tools);
         t = strcmp(toolNames,tool);
         if nnz(t) ~= 1
-            error("prodserver:mcp:WrongNumberOfTools", ...
+            throwAsCaller(MException("prodserver:mcp:WrongNumberOfTools", ...
                 "Expecting exactly 1 tool named '%s', but found %d", ...
-                tool,nnz(t));
+                tool,nnz(t)));
         end
         description = td.tools{t};
     else
-        error("prodserver:mcp:NoSchemaForTool", ...
-          "No schema found for tool %s.", tool);
+        throwAsCaller(MException("prodserver:mcp:NoSchemaForTool", ...
+          "No schema found for tool %s.", tool));
     end
 
     % Locate the input or output
