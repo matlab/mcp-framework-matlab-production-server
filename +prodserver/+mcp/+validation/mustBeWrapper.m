@@ -34,8 +34,8 @@ function mustBeWrapper(x)
             % The function must exist.
             f = which(func2str(w));
             if isempty(f)
-                error("prodserver:mcp:WrapperGeneratorNotFound", ...
-                    "Wrapper generator function %s not found.", func2str(w));
+                throwAsCaller(MException("prodserver:mcp:WrapperGeneratorNotFound", ...
+                    "Wrapper generator function %s not found.", func2str(w)));
             end
         end
     end

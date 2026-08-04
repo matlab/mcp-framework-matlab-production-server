@@ -11,8 +11,8 @@ function mustBeServer(x)
     if tf == false
         % So the error message prints nicely.
         if isempty(x), x = ""; end
-        error("prodserver:mcp:InvalidServerAddress", ...
-            "Invalid server address '%s'.",x);
+        throwAsCaller(MException("prodserver:mcp:InvalidServerAddress", ...
+            "Invalid server address '%s'.",x));
     end
    
 end
