@@ -418,3 +418,5 @@ Report to the user based on which path was taken:
 - Report: "Build is up to date. No changes detected since last build at `<manifest.timestamp>`."
 - Show the endpoint URL and confirm the server is responding
 - If the MCP server is already registered, confirm it. If not, register it and inform about restart.
+
+--- Copyright 2026 The MathWorks, Inc. ---

@@ -161,6 +161,19 @@ jobs:
           name: integration-test-results-${{ matrix.arch }}
           path: test-results/
 
+  check-skill-sync:
+    runs-on: [self-hosted, glnxa64]
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Verify skill files are in sync
+        run: |
+          diff .claude/skills/mps-mcp-build/SKILL.md skills-catalog/mcp-framework/mps-mcp-build/SKILL.md || {
+            echo "::error::SKILL.md copies have diverged. Edit one and copy to the other."
+            exit 1
+          }
+
   check-fingerprint:
     runs-on: [self-hosted, glnxa64]
     if: github.event_name == 'pull_request'
