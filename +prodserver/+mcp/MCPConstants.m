@@ -160,5 +160,11 @@ classdef MCPConstants
         % server's file access is limited.
         TestServerEnvVar = "MW_MCP_MPS_TEST_SERVER";
         TestDataFolderEnvVar = "MW_MCP_MPS_TEST_DATA_FOLDER";
+
+        %
+        % Discovery
+        %
+
+        DiscoverySchemaVersion = "1.1.0";
     end
 end
