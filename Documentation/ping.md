@@ -37,3 +37,4 @@ tf = exist("WWW://localhost:9910/primeSequence/mcp")
 ```
 The return value `tf` will be false, since WWW:// is an invalid MCP tool URL prefix.
 
+--- Copyright 2025-2026 The MathWorks, Inc. ---

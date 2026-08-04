@@ -7,6 +7,9 @@ function [one,two,three] = toyToolThree(three,two,one)
 %    Understanding grows.
 %
 % Brought to you, of course, by an LLM.
+
+% Copyright 2025-2026 The MathWorks, Inc.
+
     arguments(Input)
         % The first argument has the last name, numerically.
         three string  % First or third?

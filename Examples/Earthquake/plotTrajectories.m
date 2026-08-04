@@ -2,6 +2,9 @@ function plotTrajectories(quakeData,sampleRate,correction,start,stop,plotFile)
 %plotTrajectories Generate a 3x3 plot of trajectories from 3-axis 
 %seismometer data. Plot each axis against each other. On the diagonal place
 %histograms of the data from each axis.
+
+% Copyright 2025-2026 The MathWorks, Inc.
+
     arguments
         quakeData   % Table of uncorrected 3-axis seismometer accelerations
         sampleRate  % Seismometer sample rate in Hertz

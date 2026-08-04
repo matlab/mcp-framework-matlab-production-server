@@ -4,7 +4,7 @@ function data = exportVariable(uri, value, config)
 %values to files, Kafka streams or bytestreams (with scheme file://, 
 % kafka:// or bytestream://).
 
-% Copyright (C) 2022-2025, The MathWorks
+% Copyright 2022-2026 The MathWorks, Inc.
 
     import prodserver.mcp.internal.hasField
     import prodserver.mcp.internal.Constants
@@ -79,6 +79,9 @@ function data = exportVariable(uri, value, config)
                 case "writetable"
                     args = {};
                     writetable(value, pth, args{:});
+
+                otherwise
+                    feval(config.via, pth, value);
             end
 
         case "bytestream"

@@ -3,7 +3,7 @@ classdef tmultiTool < matlab.unittest.TestCase & ...
         prodserver.mcp.test.mixin.ExternalData
 % Test generation and execution of MCP server with multiple tools.
 
-% Copyright 2025, The MathWorks, Inc.
+% Copyright 2025-2026 The MathWorks, Inc.
 
     properties
         toolFolder  % Root tools folder
@@ -69,8 +69,9 @@ classdef tmultiTool < matlab.unittest.TestCase & ...
             def = load(fullfile(test.tempFolder,MCPConstants.DefinitionFile));
             def = def.(MCPConstants.DefinitionVariable);
 
-            test.verifyEqual(numel(def.tools),numel(test.tool),"Number of tools");
-            for n = 1:numel(def.tools)
+            % read_mcp_resource is the extra tool (+1)
+            test.verifyEqual(numel(def.tools),numel(test.tool)+1,"Number of tools");
+            for n = 1:numel(test.tool)
                 % Tool name correct
                 test.verifyEqual(def.tools{n}.name,test.tool(n),...
                     "Tool number: "+string(n));
@@ -85,6 +86,15 @@ classdef tmultiTool < matlab.unittest.TestCase & ...
                     test.fcn(n) + MCPConstants.WrapperFileSuffix, ...
                     def.tools{n}.name);
             end
+
+            % Check read_mcp_resource tool
+            test.verifyEqual(def.tools{end}.name,MCPConstants.ReadResourceTool);
+            test.verifyTrue(isfield(def.(MCPConstants.SignatureVariable),...
+                def.tools{end}.name), def.tools{end}.name);
+            sig = def.(MCPConstants.SignatureVariable).(def.tools{end}.name);
+            test.verifyEqual(string(sig.function), def.tools{end}.name, ...
+                def.tools{end}.name);
+
         end
 
         function listTools(test)
@@ -117,8 +127,10 @@ classdef tmultiTool < matlab.unittest.TestCase & ...
             % Basic verification
             test.verifyEqual(numel(resp.result.tools),numel(def.tools), ...
                 "Tool count");
-            test.verifyTrue(isempty(setxor({resp.result.tools.name},...
-                test.tool)),"Tool name mismatch");
+            names = cellfun(@(t)string(t.name),resp.result.tools);
+            test.verifyTrue(isempty(setxor(names,...
+                [test.tool,MCPConstants.ReadResourceTool])),...
+                "Tool name mismatch");
 
             % Every tool in the list should have an equivalent in the
             % definition data.
@@ -127,7 +139,7 @@ classdef tmultiTool < matlab.unittest.TestCase & ...
             etd = def.tools;          % Expected
             etd = jsondecode(jsonencode(etd));  % Strings -> char, mostly
 
-            eNames = string({etd.name});
+            eNames = cellfun(@(et)string(et.name),etd);
   
             % Probably could compare atd and etd directly (order is
             % probably the name). But that may not always be the case. And
@@ -135,11 +147,19 @@ classdef tmultiTool < matlab.unittest.TestCase & ...
             for n=1:numel(atd)
                 % Find the expected tool with the same name as the actual
                 % tool.
-                k = strcmp(atd(n).name,eNames);
+                k = strcmp(atd{n}.name,eNames);
                 test.verifyEqual(nnz(k),1,"Wrong number of tools names match");
 
+                % $defs field becomes x_defs in atd, and is dollarDefs in
+                % etd. This is a MALTAB / JSON impedance mistmatch, which
+                % we must explicitly correct here.
+                if isfield(atd{n},"x_defs")
+                    etd{k}.x_defs = etd{k}.dollarDefs;
+                    etd{k} = rmfield(etd{k},"dollarDefs");
+                end
+
                 % The actual and expected data must match.
-                test.verifyEqual(atd(n),etd(k),"Tool definition mismatch");
+                test.verifyEqual(atd{n},etd{k},"Tool definition mismatch");
             end
         end
 
@@ -165,14 +185,14 @@ classdef tmultiTool < matlab.unittest.TestCase & ...
             width = 600; height=600; n = 5;
             [vectors, bbox] = snowflake(n, width, height);
 
-            vectorsURL = locate(test,"vectors",test.tempFolder);
-            bboxURL = locate(test,"bbox",test.tempFolder);
+            vectorsURL = sink(test,"vectors",test.tempFolder);
+            bboxURL = sink(test,"bbox",test.tempFolder);
 
             t = findDefinition("snowflake",def);
             s = def.signatures;
 
             body = jsonToolCall(test,"snowflake",2,t,s,n, ...
-                width,height, vectorsURL,bboxURL);
+                width,height,vectorsURL=vectorsURL,bboxURL=bboxURL);
 
             req = mcpRequest(test,test.server,body=body);
             resp = handleRequest(test,req);
@@ -234,12 +254,12 @@ classdef tmultiTool < matlab.unittest.TestCase & ...
             n = 50000;
             dragon = chaosdragon(n);
 
-            dragonURL = locate(test,"twinDragon",test.tempFolder);
+            dragonURL = sink(test,"twinDragon",test.tempFolder);
 
             t = findDefinition("twinDragon",def);
             s = def.signatures;
 
-            body = jsonToolCall(test,"twinDragon",2,t,s,n,dragonURL);
+            body = jsonToolCall(test,"twinDragon",2,t,s,n,dragonURL=dragonURL);
 
             % Reset seed to guarantee same sequence of random points.
             rng(8675309,"twister");
@@ -262,14 +282,14 @@ classdef tmultiTool < matlab.unittest.TestCase & ...
             %
 
             jpg = fullfile(test.tempFolder,"dragonImage.jpg");
-            szURL = locate(test,"dragonSize",test.tempFolder);
+            szURL = sink(test,"dragonSize",test.tempFolder);
             color1 = "#EDB120";
             color2 = "#8516D1";
 
             t = findDefinition("dragonDraw",def);
 
             body = jsonToolCall(test,"dragonDraw",2,t,s,dragonURL,color1,...
-                color2,jpg,szURL);
+                color2,jpg,szURL=szURL);
 
             req = mcpRequest(test,test.server,body=body);
             resp = handleRequest(test,req);
@@ -314,13 +334,14 @@ classdef tmultiTool < matlab.unittest.TestCase & ...
             sides = 5;
             [xyExpected,hueExpected] = chaosfractal(n,sides);
 
-            xyURL = locate(test,"chaosXY",test.tempFolder);
-            hueURL = locate(test,"chaosHue",test.tempFolder);
+            xyURL = sink(test,"chaosXY",test.tempFolder);
+            hueURL = sink(test,"chaosHue",test.tempFolder);
 
             t = findDefinition("chaos",def);
             s = def.signatures;
 
-            body = jsonToolCall(test,"chaos",2,t,s,n,sides,xyURL,hueURL);
+            body = jsonToolCall(test,"chaos",2,t,s,n,sides,xyURL=xyURL,...
+                hueURL=hueURL);
 
             % Reset seed to guarantee same sequence of random points.
             rng(4171961,"twister");
@@ -386,12 +407,13 @@ classdef tmultiTool < matlab.unittest.TestCase & ...
             width = 600;
             m = mandelbrot(n, width);
 
-            mandelbrotSetURL = locate(test,"mandelbrotSet",test.tempFolder);
+            mandelbrotSetURL = sink(test,"mandelbrotSet",test.tempFolder);
 
             t = findDefinition("mandelbrot",def);
             s = def.signatures;
 
-            body = jsonToolCall(test,"mandelbrot",2,t,s,n,width,mandelbrotSetURL);
+            body = jsonToolCall(test,"mandelbrot",2,t,s,n,width,...
+                mURL=mandelbrotSetURL);
 
             req = mcpRequest(test,test.server,body=body);
             resp = handleRequest(test,req);

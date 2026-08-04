@@ -6,7 +6,7 @@ classdef JSON < prodserver.mcp.io.Scheme
 % Scheme-related errors belong in the storage category: storage.xml in the
 % resources/data_pipeline/en folder.
 
-% Copyright (c) 2024, The MathWorks, Inc.
+% Copyright 2024-2026 The MathWorks, Inc.
 
     methods
         function fs = JSON(varargin)
@@ -57,8 +57,3 @@ classdef JSON < prodserver.mcp.io.Scheme
 end
 
 
-% Introduced from / by JSON.yaml. Called indirectly. MATLAB Compiler will
-% never find them without this hint.
-
-%#function prodserver.mcp.io.importJSON
-%#function prodserver.mcp.io.exportJSON

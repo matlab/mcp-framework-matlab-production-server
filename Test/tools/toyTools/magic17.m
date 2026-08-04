@@ -2,7 +2,7 @@ function m17 = magic17(quote)
 % Generate a 17x17 magic square and print a pithy quote supplied by the
 % caller.
 
-% Copyright 2026 The MathWorks, Inc.
+% Copyright 2026-2026 The MathWorks, Inc.
 
     arguments (Input)
         % Sophisticated and intelligent quote. (Sadly, unenforceable.)

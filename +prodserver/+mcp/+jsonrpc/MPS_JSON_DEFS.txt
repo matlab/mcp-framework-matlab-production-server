@@ -1,0 +1,523 @@
+{
+  "$defs": {
+
+    "MatlabValue": {
+      "oneOf": [
+        { "$ref": "#/$defs/MatlabDouble" },
+        { "$ref": "#/$defs/MatlabSingle" },
+        { "$ref": "#/$defs/MatlabInt8" },
+        { "$ref": "#/$defs/MatlabUInt8" },
+        { "$ref": "#/$defs/MatlabInt16" },
+        { "$ref": "#/$defs/MatlabUInt16" },
+        { "$ref": "#/$defs/MatlabInt32" },
+        { "$ref": "#/$defs/MatlabUInt32" },
+        { "$ref": "#/$defs/MatlabInt64" },
+        { "$ref": "#/$defs/MatlabUInt64" },
+        { "$ref": "#/$defs/MatlabComplexDouble" },
+        { "$ref": "#/$defs/MatlabComplexSingle" },
+        { "$ref": "#/$defs/MatlabLogical" },
+        { "$ref": "#/$defs/MatlabChar" },
+        { "$ref": "#/$defs/MatlabString" },
+        { "$ref": "#/$defs/MatlabCell" },
+        { "$ref": "#/$defs/MatlabStruct" },
+        { "$ref": "#/$defs/MatlabEnum" },
+        { "$ref": "#/$defs/MatlabDatetime" },
+        { "$ref": "#/$defs/MatlabEmpty" }
+      ],
+      "description": "Any MATLAB value encoded in MATLAB Production Server large-format JSON. Every value is a JSON object with at minimum mwdata, mwsize, and mwtype fields. Small notation is NOT used — always use large format."
+    },
+
+
+    "MwSize": {
+      "type": "array",
+      "items": { "type": "integer", "minimum": 1 },
+      "minItems": 2,
+      "description": "Dimensions of the array. MUST have at least 2 elements (MATLAB arrays are always at least 2-dimensional). Scalar is [1,1]. All values MUST be >= 1. The product of all values MUST equal the number of elements in mwdata (or 2 * that count for complex types)."
+    },
+
+
+    "FloatElement": {
+      "oneOf": [
+        { "type": "number" },
+        { "type": "string", "enum": ["NaN", "Inf", "-Inf"] },
+        {
+          "type": "object",
+          "properties": {
+            "mwdata": { "type": "string", "enum": ["NaN", "Inf", "-Inf"] }
+          },
+          "required": ["mwdata"],
+          "additionalProperties": false
+        }
+      ],
+      "description": "A single float value: a JSON number, or NaN/Inf/-Inf represented as a string \"NaN\"/\"Inf\"/\"-Inf\" or as object {\"mwdata\":\"NaN\"} etc. NaN/Inf/-Inf are only valid for double and single types, never for integer types."
+    },
+
+
+    "MatlabDouble": {
+      "type": "object",
+      "required": ["mwdata", "mwsize", "mwtype"],
+      "additionalProperties": false,
+      "properties": {
+        "mwtype": { "type": "string", "const": "double" },
+        "mwsize": { "$ref": "#/$defs/MwSize" },
+        "mwdata": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/FloatElement" },
+          "description": "Flat array of double values in column-major order. product(mwsize) MUST equal length(mwdata). COLUMN-MAJOR EXAMPLE: MATLAB matrix [1 2 3; 4 5 6] has 2 rows and 3 columns. Correct mwdata is [1,4,2,5,3,6] and mwsize is [2,3]. Column 1 (1,4) comes first, then column 2 (2,5), then column 3 (3,6). WRONG (row-major): [1,2,3,4,5,6]. May contain NaN, Inf, or -Inf."
+        }
+      },
+      "description": "A MATLAB double array. Scalar double is mwsize:[1,1] with one element in mwdata."
+    },
+
+
+    "MatlabSingle": {
+      "type": "object",
+      "required": ["mwdata", "mwsize", "mwtype"],
+      "additionalProperties": false,
+      "properties": {
+        "mwtype": { "type": "string", "const": "single" },
+        "mwsize": { "$ref": "#/$defs/MwSize" },
+        "mwdata": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/FloatElement" },
+          "description": "Flat array of single-precision values in column-major order. product(mwsize) MUST equal length(mwdata). Same column-major ordering as MatlabDouble. May contain NaN, Inf, or -Inf."
+        }
+      },
+      "description": "A MATLAB single array. No small notation exists for single — always use large format."
+    },
+
+
+    "IntegerElement": {
+      "type": "number",
+      "description": "A plain JSON number. NaN, Inf, and -Inf are NOT permitted for integer types."
+    },
+
+
+    "MatlabInt8": {
+      "type": "object",
+      "required": ["mwdata", "mwsize", "mwtype"],
+      "additionalProperties": false,
+      "properties": {
+        "mwtype": { "type": "string", "const": "int8" },
+        "mwsize": { "$ref": "#/$defs/MwSize" },
+        "mwdata": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/IntegerElement" },
+          "description": "Flat array of int8 values [-128, 127] in column-major order. NaN/Inf/-Inf are NOT permitted. product(mwsize) MUST equal length(mwdata)."
+        }
+      },
+      "description": "A MATLAB int8 array. Values must be integers in [-128, 127]."
+    },
+
+
+    "MatlabUInt8": {
+      "type": "object",
+      "required": ["mwdata", "mwsize", "mwtype"],
+      "additionalProperties": false,
+      "properties": {
+        "mwtype": { "type": "string", "const": "uint8" },
+        "mwsize": { "$ref": "#/$defs/MwSize" },
+        "mwdata": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/IntegerElement" },
+          "description": "Flat array of uint8 values [0, 255] in column-major order. NaN/Inf/-Inf are NOT permitted. product(mwsize) MUST equal length(mwdata)."
+        }
+      },
+      "description": "A MATLAB uint8 array. Values must be integers in [0, 255]."
+    },
+
+
+    "MatlabInt16": {
+      "type": "object",
+      "required": ["mwdata", "mwsize", "mwtype"],
+      "additionalProperties": false,
+      "properties": {
+        "mwtype": { "type": "string", "const": "int16" },
+        "mwsize": { "$ref": "#/$defs/MwSize" },
+        "mwdata": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/IntegerElement" },
+          "description": "Flat array of int16 values [-32768, 32767] in column-major order. NaN/Inf/-Inf are NOT permitted. product(mwsize) MUST equal length(mwdata)."
+        }
+      },
+      "description": "A MATLAB int16 array. Values must be integers in [-32768, 32767]."
+    },
+
+
+    "MatlabUInt16": {
+      "type": "object",
+      "required": ["mwdata", "mwsize", "mwtype"],
+      "additionalProperties": false,
+      "properties": {
+        "mwtype": { "type": "string", "const": "uint16" },
+        "mwsize": { "$ref": "#/$defs/MwSize" },
+        "mwdata": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/IntegerElement" },
+          "description": "Flat array of uint16 values [0, 65535] in column-major order. NaN/Inf/-Inf are NOT permitted. product(mwsize) MUST equal length(mwdata)."
+        }
+      },
+      "description": "A MATLAB uint16 array. Values must be integers in [0, 65535]."
+    },
+
+
+    "MatlabInt32": {
+      "type": "object",
+      "required": ["mwdata", "mwsize", "mwtype"],
+      "additionalProperties": false,
+      "properties": {
+        "mwtype": { "type": "string", "const": "int32" },
+        "mwsize": { "$ref": "#/$defs/MwSize" },
+        "mwdata": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/IntegerElement" },
+          "description": "Flat array of int32 values [-2147483648, 2147483647] in column-major order. NaN/Inf/-Inf are NOT permitted. product(mwsize) MUST equal length(mwdata)."
+        }
+      },
+      "description": "A MATLAB int32 array. Values must be integers in [-2147483648, 2147483647]."
+    },
+
+
+    "MatlabUInt32": {
+      "type": "object",
+      "required": ["mwdata", "mwsize", "mwtype"],
+      "additionalProperties": false,
+      "properties": {
+        "mwtype": { "type": "string", "const": "uint32" },
+        "mwsize": { "$ref": "#/$defs/MwSize" },
+        "mwdata": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/IntegerElement" },
+          "description": "Flat array of uint32 values [0, 4294967295] in column-major order. NaN/Inf/-Inf are NOT permitted. product(mwsize) MUST equal length(mwdata)."
+        }
+      },
+      "description": "A MATLAB uint32 array. Values must be integers in [0, 4294967295]."
+    },
+
+
+    "MatlabInt64": {
+      "type": "object",
+      "required": ["mwdata", "mwsize", "mwtype"],
+      "additionalProperties": false,
+      "properties": {
+        "mwtype": { "type": "string", "const": "int64" },
+        "mwsize": { "$ref": "#/$defs/MwSize" },
+        "mwdata": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/IntegerElement" },
+          "description": "Flat array of int64 values in column-major order. Values are represented as JSON numbers WITHOUT conversion to double — full int64 precision is preserved. NaN/Inf/-Inf are NOT permitted. product(mwsize) MUST equal length(mwdata)."
+        }
+      },
+      "description": "A MATLAB int64 array. JSON number representation preserves full 64-bit integer precision (no double conversion)."
+    },
+
+
+    "MatlabUInt64": {
+      "type": "object",
+      "required": ["mwdata", "mwsize", "mwtype"],
+      "additionalProperties": false,
+      "properties": {
+        "mwtype": { "type": "string", "const": "uint64" },
+        "mwsize": { "$ref": "#/$defs/MwSize" },
+        "mwdata": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/IntegerElement" },
+          "description": "Flat array of uint64 values in column-major order. Values are represented as JSON numbers WITHOUT conversion to double — full uint64 precision is preserved. NaN/Inf/-Inf are NOT permitted. product(mwsize) MUST equal length(mwdata)."
+        }
+      },
+      "description": "A MATLAB uint64 array. JSON number representation preserves full 64-bit integer precision (no double conversion)."
+    },
+
+
+    "ComplexPair": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/FloatElement" },
+      "minItems": 2,
+      "maxItems": 2,
+      "description": "A [real, imaginary] pair representing one complex element. First element is the real part, second is the imaginary part. Both may independently be NaN, Inf, or -Inf."
+    },
+
+
+    "MatlabComplexDouble": {
+      "type": "object",
+      "required": ["mwcomplex", "mwdata", "mwsize", "mwtype"],
+      "additionalProperties": false,
+      "properties": {
+        "mwcomplex": { "type": "boolean", "const": true },
+        "mwtype": { "type": "string", "const": "double" },
+        "mwsize": { "$ref": "#/$defs/MwSize" },
+        "mwdata": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ComplexPair" },
+          "description": "Array of [real, imaginary] pairs in column-major order. length(mwdata) MUST equal product(mwsize). Each pair is one complex element. COLUMN-MAJOR EXAMPLE: complex matrix [(1+2i) (3+4i); (5+6i) (7+8i)] has mwsize [2,2] and mwdata [[1,2],[5,6],[3,4],[7,8]] — column 1 pairs (1+2i, 5+6i) first, then column 2 pairs (3+4i, 7+8i)."
+        }
+      },
+      "description": "A MATLAB complex double array. mwcomplex MUST be true and MUST appear as the first property. mwdata is an array of [re,im] pairs in column-major order."
+    },
+
+
+    "MatlabComplexSingle": {
+      "type": "object",
+      "required": ["mwcomplex", "mwdata", "mwsize", "mwtype"],
+      "additionalProperties": false,
+      "properties": {
+        "mwcomplex": { "type": "boolean", "const": true },
+        "mwtype": { "type": "string", "const": "single" },
+        "mwsize": { "$ref": "#/$defs/MwSize" },
+        "mwdata": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ComplexPair" },
+          "description": "Array of [real, imaginary] pairs in column-major order. length(mwdata) MUST equal product(mwsize). Same structure as MatlabComplexDouble."
+        }
+      },
+      "description": "A MATLAB complex single array. mwcomplex MUST be true and MUST appear as the first property."
+    },
+
+
+    "MatlabLogical": {
+      "type": "object",
+      "required": ["mwdata", "mwsize", "mwtype"],
+      "additionalProperties": false,
+      "properties": {
+        "mwtype": { "type": "string", "const": "logical" },
+        "mwsize": { "$ref": "#/$defs/MwSize" },
+        "mwdata": {
+          "type": "array",
+          "items": { "type": "boolean" },
+          "description": "Flat array of JSON true/false values in column-major order. Only true and false are permitted — no numbers, no strings. product(mwsize) MUST equal length(mwdata)."
+        }
+      },
+      "description": "A MATLAB logical array. mwdata elements MUST be JSON boolean true or false only."
+    },
+
+
+    "MatlabChar": {
+      "type": "object",
+      "required": ["mwdata", "mwsize", "mwtype"],
+      "additionalProperties": false,
+      "properties": {
+        "mwtype": { "type": "string", "const": "char" },
+        "mwsize": { "$ref": "#/$defs/MwSize" },
+        "mwdata": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1,
+          "maxItems": 1,
+          "description": "A JSON array containing exactly ONE string. For a scalar or 1-by-N char array the string is the characters directly. For an M-by-N array the string contains all M*N characters in column-major order: column 1 characters first, then column 2, etc. EXAMPLE: MATLAB ['ab';'cd'] (2-by-2) encodes as mwdata:[\"acbd\"] mwsize:[2,2] — column 1 chars (a,c) then column 2 chars (b,d). mwsize[0] * mwsize[1] MUST equal the length of the string."
+        }
+      },
+      "description": "A MATLAB char array. mwdata is always a single-element JSON array containing one string whose length equals product(mwsize)."
+    },
+
+
+    "MatlabString": {
+      "type": "object",
+      "required": ["mwdata", "mwsize", "mwtype"],
+      "additionalProperties": false,
+      "properties": {
+        "mwtype": { "type": "string", "const": "string" },
+        "mwsize": { "$ref": "#/$defs/MwSize" },
+        "mwdata": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              { "type": "string" },
+              {
+                "type": "object",
+                "properties": {
+                  "mwdata": { "type": "string", "const": "missing" }
+                },
+                "required": ["mwdata"],
+                "additionalProperties": false,
+                "description": "Represents a MATLAB missing string value."
+              }
+            ]
+          },
+          "description": "Flat array of JSON strings in column-major order. Missing string values are encoded as {\"mwdata\":\"missing\"}. product(mwsize) MUST equal length(mwdata)."
+        }
+      },
+      "description": "A MATLAB string array. Each element is a JSON string or {\"mwdata\":\"missing\"} for missing values. Column-major ordering applies."
+    },
+
+
+    "MatlabCell": {
+      "type": "object",
+      "required": ["mwdata", "mwsize", "mwtype"],
+      "additionalProperties": false,
+      "properties": {
+        "mwtype": { "type": "string", "const": "cell" },
+        "mwsize": { "$ref": "#/$defs/MwSize" },
+        "mwdata": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/MatlabValue" },
+          "description": "Flat array of MatlabValue elements in column-major order. Each element MUST use large format encoding (no small notation). Elements may be of different types, including nested MatlabCell or MatlabStruct. product(mwsize) MUST equal length(mwdata)."
+        }
+      },
+      "description": "A MATLAB cell array. mwdata is a flat column-major array of MatlabValue objects, each independently typed and large-format encoded."
+    },
+
+
+    "MatlabStructFieldValues": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/MatlabValue" },
+      "description": "Array of MatlabValue elements, one per struct array element, in column-major order across the struct array dimensions. Length MUST equal product(parent mwsize). Each element MUST use large format encoding."
+    },
+
+
+    "MatlabStruct": {
+      "type": "object",
+      "required": ["mwdata", "mwsize", "mwtype"],
+      "additionalProperties": false,
+      "properties": {
+        "mwtype": { "type": "string", "const": "struct" },
+        "mwsize": { "$ref": "#/$defs/MwSize" },
+        "mwdata": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/MatlabStructFieldValues" },
+          "description": "JSON object mapping field names to field-value arrays. Each field-value array MUST have the same length, equal to product(mwsize). Values are in column-major order across struct array elements. EXAMPLE: 2-by-1 struct with field 'x': mwdata:{\"x\":[val_s1, val_s2]} mwsize:[2,1]. All field-value arrays MUST be the same length."
+        }
+      },
+      "description": "A MATLAB struct array. mwdata is a JSON object where each key is a field name and each value is a MatlabStructFieldValues array. Empty struct arrays are not permitted (struct is excluded from MatlabEmpty)."
+    },
+
+
+    "MatlabEnum": {
+      "type": "object",
+      "required": ["mwdata", "mwsize", "mwtype"],
+      "additionalProperties": false,
+      "properties": {
+        "mwtype": {
+          "type": "string",
+          "description": "The MATLAB class name of the enumeration (e.g. \"Colors\"). MUST NOT be the literal string \"enumeration\" — use the actual class name."
+        },
+        "mwsize": { "$ref": "#/$defs/MwSize" },
+        "mwdata": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Flat array of enumeration member name strings in column-major order. Each string MUST be a valid member name of the enumeration class named in mwtype. product(mwsize) MUST equal length(mwdata)."
+        }
+      },
+      "description": "A MATLAB enumeration array. mwtype is the enumeration class name (not \"enumeration\"). mwdata contains member name strings in column-major order."
+    },
+
+
+    "MatlabDatetimeTimestamp": {
+      "type": "object",
+      "required": ["mwdata", "mwsize", "mwtype"],
+      "additionalProperties": false,
+      "properties": {
+        "mwtype": { "type": "string", "const": "double" },
+        "mwsize": { "$ref": "#/$defs/MwSize" },
+        "mwdata": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/FloatElement" },
+          "description": "POSIX time values in milliseconds since 1970-01-01T00:00:00 UTC, as a flat double array in column-major order. NaT is represented as NaN. datetime(Inf,...) is represented as Inf. mwsize MUST match the parent datetime mwsize. product(mwsize) MUST equal length(mwdata)."
+        }
+      },
+      "description": "A double array of POSIX millisecond timestamps. Used for TimeStamp and LowOrderTimeStamp within MatlabDatetime."
+    },
+
+
+    "MatlabDatetimeMetaString": {
+      "type": "object",
+      "required": ["mwdata", "mwsize", "mwtype"],
+      "additionalProperties": false,
+      "properties": {
+        "mwtype": { "type": "string", "const": "char" },
+        "mwsize": { "$ref": "#/$defs/MwSize" },
+        "mwdata": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1,
+          "maxItems": 1,
+          "description": "Single-element array containing the metadata string value. For empty TimeZone use mwdata:[\"\"] and mwsize:[0,0]."
+        }
+      },
+      "description": "A char-encoded metadata string for use in MatlabDatetime mwmetadata fields."
+    },
+
+
+    "MatlabDatetime": {
+      "type": "object",
+      "required": ["mwdata", "mwmetadata", "mwsize", "mwtype"],
+      "additionalProperties": false,
+      "properties": {
+        "mwtype": { "type": "string", "const": "datetime" },
+        "mwsize": { "$ref": "#/$defs/MwSize" },
+        "mwdata": {
+          "type": "object",
+          "required": ["TimeStamp"],
+          "additionalProperties": false,
+          "properties": {
+            "TimeStamp": {
+              "$ref": "#/$defs/MatlabDatetimeTimestamp",
+              "description": "POSIX millisecond timestamps. mwsize MUST match parent datetime mwsize."
+            },
+            "LowOrderTimeStamp": {
+              "$ref": "#/$defs/MatlabDatetimeTimestamp",
+              "description": "Optional sub-millisecond precision values. If present, mwsize MUST match TimeStamp mwsize. Omit when millisecond precision is sufficient."
+            }
+          },
+          "description": "Timestamp data object. Contains TimeStamp and optionally LowOrderTimeStamp, both as MatlabDatetimeTimestamp."
+        },
+        "mwmetadata": {
+          "type": "object",
+          "required": ["TimeZone", "Format"],
+          "additionalProperties": false,
+          "properties": {
+            "TimeZone": {
+              "$ref": "#/$defs/MatlabDatetimeMetaString",
+              "description": "IANA timezone name (e.g. \"America/New_York\") or empty string \"\" for unzoned datetime. Encode as MatlabDatetimeMetaString with mwdata:[\"\"] and mwsize:[0,0] when empty."
+            },
+            "Format": {
+              "$ref": "#/$defs/MatlabDatetimeMetaString",
+              "description": "MATLAB datetime display format string (e.g. \"dd-MMM-uuuu\" or \"dd-MMM-uuuu HH:mm:ss\"). mwsize MUST be [1, N] where N is the length of the format string."
+            }
+          },
+          "description": "Metadata required to reconstruct datetime values with correct timezone and display format."
+        }
+      },
+      "description": "A MATLAB datetime array. Always large format. TimeStamp values are POSIX milliseconds since 1970-01-01T00:00:00 UTC. NaT encodes as TimeStamp NaN; datetime(Inf,...) encodes as TimeStamp Inf. TimeZone may be empty for unzoned datetimes."
+    },
+
+
+    "MatlabEmpty": {
+      "type": "object",
+      "required": ["mwdata", "mwsize", "mwtype"],
+      "additionalProperties": false,
+      "properties": {
+        "mwtype": {
+          "oneOf": [
+            { "type": "string", "enum": [
+                "double", "single",
+                "int8", "uint8", "int16", "uint16",
+                "int32", "uint32", "int64", "uint64",
+                "logical", "char", "cell", "string"
+              ]
+            },
+            {
+              "type": "string",
+              "description": "Enumeration class name for empty enumeration arrays."
+            }
+          ],
+          "description": "Type of the empty array. struct is NOT permitted as an empty array type."
+        },
+        "mwsize": {
+          "type": "array",
+          "items": { "type": "integer", "const": 0 },
+          "minItems": 2,
+          "maxItems": 2,
+          "const": [0, 0],
+          "description": "MUST be [0,0] for empty arrays."
+        },
+        "mwdata": {
+          "type": "array",
+          "maxItems": 0,
+          "description": "MUST be an empty array []."
+        }
+      },
+      "description": "A MATLAB empty array []. mwdata MUST be [], mwsize MUST be [0,0]. struct is NOT a valid mwtype for empty arrays."
+    }
+
+  }
+}

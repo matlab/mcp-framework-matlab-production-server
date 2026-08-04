@@ -1,5 +1,8 @@
 function sz = renderDragon(dragon, color1, color2, jpg)
 % renderDragon Generate a JPEG image of the twin-dragon fractal.
+
+% Copyright 2025-2026 The MathWorks, Inc.
+
     arguments(Input)
         dragon double % Coordinates of the twin-dragon's points.
         % Color of the first of the twin dragons. A six-digit hexadecimal

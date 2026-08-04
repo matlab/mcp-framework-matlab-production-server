@@ -1,7 +1,7 @@
 classdef MarshallURI
 %MarshallURI Manage scheme marshalling configuration.
 
-% Copyright (c) 2024, The MathWorks, Inc.
+% Copyright 2024-2026 The MathWorks, Inc.
 
     properties (SetAccess = private)
         config     % Map: scheme name -> scheme marshalling object
@@ -431,6 +431,31 @@ classdef MarshallURI
             for n = 1:numel(names)
                 s.(names(n)) = mu.config{names(n)}.configuration;
             end
+        end
+
+        function fcns = delegates(mu)
+        %delegates Function names invoked dynamically by the marshaller.
+            import prodserver.mcp.internal.hasField
+            fcns = string.empty;
+            names = keys(mu.config);
+            for n = 1:numel(names)
+                cfg = mu.config{names(n)}.configuration;
+                for section = ["read","write"]
+                    if ~hasField(cfg, section), continue; end
+                    s = cfg.(section);
+                    if hasField(s, "fcn")
+                        fcns(end+1) = s.fcn; %#ok<AGROW>
+                    end
+                    if hasField(s, "config") && isstruct(s.config)
+                        for k = 1:numel(s.config)
+                            if isfield(s.config(k), "via")
+                                fcns(end+1) = s.config(k).via; %#ok<AGROW>
+                            end
+                        end
+                    end
+                end
+            end
+            fcns = unique(fcns);
         end
 
         function tf = persist(mu,uri,type)

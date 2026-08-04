@@ -9,7 +9,7 @@ function [cleanupMPS, cleanupDir, mps] = startMPS(options)
 %   writes env vars to $GITHUB_ENV for use in subsequent workflow steps.
 %   Use this mode when starting MPS in a run-command step before run-tests.
 
-% Copyright 2026 The MathWorks, Inc.
+% Copyright 2026-2026 The MathWorks, Inc.
 
     arguments
         options.persist (1,1) logical = false

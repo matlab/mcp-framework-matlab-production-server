@@ -3,7 +3,9 @@ name: mps-mcp-build
 description: Create and deploy MCP tools from MATLAB functions to MATLAB Production Server using the MCP Framework for MATLAB Production Server support package
 argument-hint: <function path(s), server address, optional files/resources>
 disable-model-invocation: true
+
 allowed-tools: Read Bash(matlab *) Bash(which matlab) Bash(ls *) Bash(grep *) Bash(sha256sum *) Bash(cat *) Bash(curl *) Bash(mkdir *) Bash(rm *) Bash(cp *)
+
 ---
 
 # Create MCP Tool from MATLAB Function
@@ -34,6 +36,7 @@ Extract the following from the user's request:
   - `"create the resource data://AuthorName with string value 'Mr. Author'"`
   - `"add the following resources: config://settings,settings.json, data://AuthorName,'Mr. Author'"`
 - **Force rebuild**: Whether the user explicitly wants a full rebuild regardless of input state. Triggered by keywords like "force", "rebuild", "clean", "from scratch", or "fresh".
+
 
 For resources, construct a MATLAB struct array where each element has:
 - `uri`: the resource URI (e.g. `"config://settings"`)
@@ -299,7 +302,8 @@ In all examples below, `<project-root>` is the absolute path to the directory co
 
 Single function, no extras:
 ```matlab
-matlab -batch "addpath('<project-root>'); fprintf('===STEP:prerequisite===\n'); try, help prodserver.mcp.build; fprintf('===OK:prerequisite===\n'); catch e, fprintf('===FAIL:prerequisite===\n%s\n', e.message); exit(1); end; fprintf('===STEP:build===\n'); try, cd('<folder>'); [ctf, endpoint] = prodserver.mcp.build('fcnName', server='http://localhost:9910', folder='<folder>'); fprintf('===OK:build===\n'); fprintf('CTF: %s\nEndpoint: %s\n', ctf, endpoint); catch e, fprintf('===FAIL:build===\n%s\n', e.message); exit(1); end; fprintf('===STEP:manifest===\n'); try, fw_root = prodserver.mcp.internal.packageFolder(); fp_file = fullfile(fw_root, '+prodserver', '+mcp', '+internal', 'frameworkFingerprint.txt'); if isfile(fp_file), fw_fp = strtrim(fileread(fp_file)); else, fw_fp = 'unavailable'; end; manifest = struct(); manifest.version = 1; manifest.timestamp = string(datetime('now', 'TimeZone', 'UTC', 'Format', 'yyyy-MM-dd''T''HH:mm:ss''Z''')); manifest.server = 'http://localhost:9910'; manifest.archive = 'fcnName'; manifest.framework_root = fw_root; manifest.framework_fingerprint = fw_fp; manifest.sources = struct('fcnName', '<hash>'); manifest.additional_files = struct(); manifest.outputs = struct('ctf', ctf, 'endpoint', endpoint); manifest.deployed = true; json = jsonencode(manifest, PrettyPrint=true); writelines(json, fullfile('<folder>', '.mcp-build-manifest.json')); fprintf('===OK:manifest===\n'); catch e, fprintf('===FAIL:manifest===\n%s\n', e.message); end"
+matlab -batch "addpath('<project-root>'); fprintf('===STEP:prerequisite===\n'); try, help prodserver.mcp.build; fprintf('===OK:prerequisite===\n'); catch e, fprintf('===FAIL:prerequisite===\n%s\n', e.message); exit(1); end; fprintf('===STEP:build===\n'); try, cd('<folder>'); [ctf, endpoint] = prodserver.mcp.build('fcnName', server='http://localhost:9910', folder='<folder>'); fprintf('===OK:build===\n'); fprintf('CTF: %s\nEndpoint: %s\n', ctf, endpoint); catch e, fprintf('===FAIL:build===\n%s\n', e.message); exit(1); end; fprintf('===STEP:manifest===\n'); try, fw_root = prodserver.mcp.internal.packageFolder(); fp_file = fullfile(fw_root, '+prodserver', '+mcp', '+internal', 'frameworkFingerprint.txt'); if isfile(fp_file), fw_fp = strip(readlines(fp_file)); else, fw_fp = 'unavailable'; end; manifest = struct(); manifest.version = 1; manifest.timestamp = string(datetime('now', 'Format', 'yyyy-MM-dd''T''HH:mm:ss''Z''')); manifest.server = 'http://localhost:9910'; manifest.archive = 'fcnName'; manifest.framework_root = fw_root; manifest.framework_fingerprint = fw_fp; manifest.sources = struct('fcnName', '<hash>'); manifest.additional_files = struct(); manifest.outputs = struct('ctf', ctf, 'endpoint', endpoint); manifest.deployed = true; json = jsonencode(manifest, PrettyPrint=true); writelines(json, fullfile('<folder>', '.mcp-build-manifest.json')); fprintf('===OK:manifest===\n'); catch e, fprintf('===FAIL:manifest===\n%s\n', e.message); end"
+
 ```
 
 With additional files:
@@ -418,3 +422,6 @@ Report to the user based on which path was taken:
 - Report: "Build is up to date. No changes detected since last build at `<manifest.timestamp>`."
 - Show the endpoint URL and confirm the server is responding
 - If the MCP server is already registered, confirm it. If not, register it and inform about restart.
+
+--- Copyright 2026 The MathWorks, Inc. ---
+

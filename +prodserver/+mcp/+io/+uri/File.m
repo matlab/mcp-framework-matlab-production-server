@@ -3,7 +3,7 @@ classdef File < prodserver.mcp.io.Scheme
 %
 %Minimal class required by scheme extension framework.
 
-% Copyright 2024-2025 The MathWorks, Inc.
+% Copyright 2024-2026 The MathWorks, Inc.
 
 % Scheme-related errors belong in the storage category: storage.xml in the
 % resources/data_pipeline/en folder.
@@ -77,12 +77,11 @@ classdef File < prodserver.mcp.io.Scheme
         end
 
         function pth = FileURI2Path(uri)
-        %FileURI2Path Convert a File URI to a platform-specific filesystem
+        %FileURI2Path Convert a File URI to a platform-specific file system
         %path. For example:
         %  file:/C:/path/to/storage/X.mat  
         %becomes
         %  C:/path/to/storage/X.mat
-
             
             import prodserver.mcp.validation.istext
 
@@ -113,13 +112,14 @@ classdef File < prodserver.mcp.io.Scheme
                     class(uri(1)));
             end
 
+            % Change prefix /C:/ to C:/ -- remove leading /. Only valid on
+            % Windows platform.
             if ispc
-                % Change prefix /C:/ to C:/ -- remove leading /
                 startsWithDriveLetter = startsWith(pth,driveLetter);
                 pth(startsWithDriveLetter) = ...
                     extractAfter(pth(startsWithDriveLetter),1);
             end
-
+            
             % Restore percent-encoded characters
             pth = prodserver.mcp.io.percentDecode(pth);
         end
@@ -393,8 +393,3 @@ function tokens = fileTokens()
     tokens(File.persistRootToken) = persistFolder;
 end
 
-% Introduced from / by File.yaml. Called indirectly. MATLAB Compiler will
-% never find them without this hint.
-
-%#function prodserver.mcp.io.importVariable
-%#function prodserver.mcp.io.exportVariable

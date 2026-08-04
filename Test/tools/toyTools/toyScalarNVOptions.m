@@ -1,6 +1,9 @@
 function report = toyScalarNVOptions(year, opts)
 % All inputs scalars, most optional. The comments in this file are bad
 % examples of descriptive comments. They are mostly just lorem ipsum.
+
+% Copyright 2025-2026 The MathWorks, Inc.
+
     arguments(Input)
         year (1,1) double   % The year of manufacture
         opts.mpg (1,1) double = 3.49  % Known miles per gallon

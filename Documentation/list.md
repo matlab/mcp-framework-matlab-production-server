@@ -80,3 +80,5 @@ inputSchema
             description: 'The filtered signal after removing the periodic noise, as a file: URI.'
 ```
 The `outputSchema` has an analogous structure.
+
+--- Copyright 2025-2026 The MathWorks, Inc. ---

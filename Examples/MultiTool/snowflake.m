@@ -32,6 +32,8 @@ function [vectors, bbox] = snowflake(n, width, height)
 % Return a vector list and bounding box for the 6th iteration of the
 % Koch snowflake, scaled to fit inside a 300 x 300 rectangle.
 
+% Copyright 2025-2026 The MathWorks, Inc.
+
   arguments(Input)
       n (1,1) double      % Number of iterations used to create the fractal.
       width (1,1) double  % Maximum width of the bounding box.

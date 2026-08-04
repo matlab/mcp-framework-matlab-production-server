@@ -1,7 +1,7 @@
 function tf = isOnPath(folder)
 %isOnPath Which of the members of folder are on the MATLAB path?
 
-% Copyright 2025, The MathWorks, Inc.
+% Copyright 2025-2026 The MathWorks, Inc.
 
     arguments
         folder string

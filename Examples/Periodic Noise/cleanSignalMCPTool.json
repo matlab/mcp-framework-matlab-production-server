@@ -2,7 +2,7 @@
   "signatures": [
       {
         "cleanSignal": { 
-            "function": "cleanSignalMCP",
+            "function": "cleanSignalMCPEx",
             "input": {
                 "name": ["noisy","frequency","clean"],
                 "type": ["string", "number", "string"],

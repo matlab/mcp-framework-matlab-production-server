@@ -91,3 +91,5 @@ fcn = ["chaosdragon", "snowflake", "renderDragon", "drawvector"];
 server = "Fractals";
 ctf = prodserver.mcp.build(fcn, tool=tool, archive=server, folder="./deploy")
 ```
+
+--- Copyright 2025-2026 The MathWorks, Inc. ---

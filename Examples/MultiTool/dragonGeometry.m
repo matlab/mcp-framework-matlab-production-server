@@ -1,7 +1,7 @@
 function varargout = dragonGeometry(tdragon,properties)
 % Compute geometric properties of the twin dragon fractal.
 
-% Copyright 2025, The MathWorks, Inc.
+% Copyright 2025-2026 The MathWorks, Inc.
 
     % tdragon must be an Nx2 matrix, where each row is (X,Y). So
     % tdragon(:,1) is all the Xs and tdragon(:,2) is all the Ys. Transpose

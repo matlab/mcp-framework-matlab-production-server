@@ -20,6 +20,10 @@ read:
       type: matrix
       via: readmatrix
       threadpool: false
+    - ext: json
+      type: any
+      via: prodserver.mcp.io.loadJSON
+      threadpool: false
 write:
   fcn: prodserver.mcp.io.exportVariable
   config:
@@ -35,3 +39,9 @@ write:
       type: matrix
       via: writematrix
       threadpool: false
+    - ext: json
+      type: any
+      via: prodserver.mcp.io.saveJSON
+      threadpool: false
+      
+      

@@ -2,7 +2,7 @@ function [cs,d] = toyScalarTwo(s,n)
 %toyScalarTwo A test function that takes two scalars and returns two
 %scalars. 
 
-% Copyright 2026, The MathWorks, Inc.
+% Copyright 2026-2026 The MathWorks, Inc.
 
     arguments(Input)
         s (1,1) string   % Input string

@@ -1,14 +1,16 @@
-function wrappers = wrapForMCP(fcns,wrappers,folder,opts)
+function [wrappers,indirect] = wrapForMCP(fcns,wrappers,folder,opts)
 % wrapForMCP Generate wrapper function for deployment as an MCP tool.
 % Write the wrapper function into folder. fcns and wrappers must be the
 % same length. Return full paths to generated files.
 
-% Copyright 2025, The MathWorks, Inc.
+% Copyright 2025-2026 The MathWorks, Inc.
 
     arguments
         fcns { prodserver.mcp.validation.mustBeText }
         wrappers { prodserver.mcp.validation.mustBeText }
         folder { mustBeFolder }
+        opts.typemap struct = [];
+        opts.maxLiteralSize = prodserver.mcp.MCPConstants.MaxLiteralSize
         opts.import string = string.empty
         opts.AI = []
         opts.timeout double = 30
@@ -20,6 +22,7 @@ function wrappers = wrapForMCP(fcns,wrappers,folder,opts)
     prodserver.mcp.validation.mustBeSameSize(1,{wrappers,fcns});
 
     % Generate or copy wrapper for each function.
+    indirect = cell(size(fcns));
     for n = 1:numel(fcns)
         % Choose wrapper generation mechanism if wrapper is empty.
         if strlength(wrappers(n)) == 0
@@ -28,11 +31,30 @@ function wrappers = wrapForMCP(fcns,wrappers,folder,opts)
             % metafunction.
             [~,name] = fileparts(fcns(n));
             wrapFcn = name+MCPConstants.WrapperFileSuffix;
-            code = prodserver.mcp.internal.mcpWrapper(fcns(n), wrapFcn, ...
-                import=opts.import);
+            [code,def] = prodserver.mcp.internal.mcpWrapper(fcns(n), wrapFcn, ...
+                import=opts.import,maxLiteralSize=opts.maxLiteralSize, ...
+                typemap=opts.typemap);
+
+            % Name of the wrapper file to fill with the wrapper code.
             wrappers(n) = fullfile(folder,wrapFcn+".m");
+
+            % May be empty if there are no indirect references to parameter
+            % schemas.
+            indirect{n} = def;
+
+            % Will need to rehash to reference metafunction's cache if
+            % we're overwriting the wrapper function.
+            refreshCache = false;
+            if exist(wrappers(n),"file") == 2
+                refreshCache = true;
+            end
+            
             % Generated code already ends with a newline.
             writelines(code,wrappers(n),TrailingLineEndingRule="never");
+
+            if refreshCache
+                rehash;
+            end
             
         else
             if strcmpi(wrappers(n),MCPConstants.NoWrapper) == true

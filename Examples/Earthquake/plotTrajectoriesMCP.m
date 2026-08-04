@@ -1,8 +1,11 @@
 function [status,msg] = plotTrajectoriesMCP(quakeURL,sampleRate, ...
-    correction,start,stop,plotURL)
+   correction,start,stop,plotURL)
 %plotTrajectoriesMCP Generate a 3x3 plot of trajectories from 3-axis 
 %seismometer data. Plot each axis against each other. On the diagonal place
 %histograms of the data from each axis. 
+
+% Copyright 2025-2026 The MathWorks, Inc.
+
     arguments (Input)
         % file: URL containing a table of uncorrected 3-axis seismometer accelerations
         quakeURL string

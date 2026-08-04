@@ -2,7 +2,7 @@ function requireSuccess(response,uri,opts)
 % requireSuccess Require that an HTTP response has code lower than
 % failure and that response is free of JSON-RPC errors.
 
-% Copyright 2025, The MathWorks, Inc.
+% Copyright 2025-2026 The MathWorks, Inc.
 
     arguments
         response matlab.net.http.ResponseMessage
@@ -27,6 +27,12 @@ function requireSuccess(response,uri,opts)
                     "error: %s (code %d).", opts.request, uri, ...
                     response.Body.Data.error.message, ...
                     response.Body.Data.error.code);
+                throwAsCaller(ex);
+            elseif hasField(response,"Body.Data.result.isError") && ...
+                response.Body.Data.result.isError == 1
+                ex = MException("prodserver:mcp:RemoteError", ...
+                    "Request %s to %s generated error: %s", opts.request, ...
+                    uri, response.Body.Data.result.content.text);
                 throwAsCaller(ex);
             end
         end

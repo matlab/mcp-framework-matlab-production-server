@@ -25,6 +25,14 @@ Install this add-on to MATLAB with the Add-On Explorer:
 2. In the Add-On Explorer, search for "MCP Framework for MATLAB Production Server".
 3. Select **Install**.
 
+If you use an AI coding agent such as Claude Code, register the MCP Framework build skill so the agent can build and deploy tools on your behalf:
+
+```MATLAB
+prodserver.mcp.agent.setup
+```
+
+This makes the `/mps-mcp-build` command available in your agent regardless of your working directory. Restart your agent session after running this command.
+
 ## Step 2: Build An MCP Tool 
 To create an MCP tool from one of your MATLAB functions:
 1. Package the function into a deployable archive.
@@ -58,6 +66,7 @@ same idea: identifying the location of each MCP tool and the communication proto
 MCP Framework has been tested against these MCP clients, using the configuration each of these links describes.
 * [LLMs with MATLAB](./Examples/MATLABOpenAI/MATLABOpenAI.md) with OpenAI LLMs
 * [Claude&reg; Desktop](./Documentation/ConfigureClaude.md)
+* [Claude Code](./Documentation/ConfigureClaude.md) — run `prodserver.mcp.agent.setup` to install the build skill automatically
 * [Microsoft&reg; VS Code with GitHub&reg; Copilot](./Documentation/ConfigureVSCode.md)
 
 Any client that supports pure HTTP-based MCP servers should work. Note that MCP Framework for MATLAB Production Server does not support streamable HTTP -- connections are transient and transactional, not persistent.
@@ -90,7 +99,9 @@ calling them in MATLAB. For example, call `build` using its full name: `prodserv
 | [deploy](./Documentation/deploy.md) | Upload tool to MATLAB Production Server | `deploy(tool, "localhost", 9910)` |
 | [exist](./Documentation/exist.md) | Check existence of tool on MATLAB Production Server | `exist("http://localhost:9910/primes/mcp", "primeSequenceMCP", "tool")` |
 | [list](./Documentation/list.md) | List MCP primitives available at `endpoint` | `list(endpoint, "Tools")` |
+| [metrics](./Documentation/metrics.md) | Retrieve usage metrics from MATLAB Productin Server at `endpoint` | `metrics(endpoint)` |
 | [ping](./Documentation/ping.md) | Send a ping to server at `endpoint`. Return true if server responsive. | `ping(endpoint)` |
+| [agent.setup](./Documentation/agent.setup.md) | Install MCP Framework skills for AI coding agents | `agent.setup` |
 
 ## Utilities
 | Name | Description |  
@@ -124,3 +135,5 @@ Contact us at <https://www.mathworks.com/support/contact_us.html>
 # License
 
 The license is available in the [license.txt](./license.txt) file.
+
+--- Copyright 2025-2026 The MathWorks, Inc. ---

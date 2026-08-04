@@ -13,3 +13,5 @@ Logging is optional, but highly recommended. Your MCP host must have write acces
  `linePlot` primarily exists to demonstrate how to integrate multiple MCP tools into a single solution. The [cleanSignal](../Examples/Periodic%20Noise/PeriodicNoise.md) example combines file system access with the `linePlot` and `cleanSignal` MCP tools to show that LLMs can manage intermediate results automatically.
 
 Note that `linePlot` requires the `FastMCP` and `matplotlib` Python packages.
+
+--- Copyright 2025-2026 The MathWorks, Inc. ---

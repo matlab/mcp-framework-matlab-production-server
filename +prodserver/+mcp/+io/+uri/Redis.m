@@ -6,7 +6,7 @@ classdef Redis < prodserver.mcp.io.Scheme
 % Scheme-related errors belong in the storage category: storage.xml in the
 % resources/data_pipeline/en folder.
 
-% Copyright (c) 2024, The MathWorks, Inc.
+% Copyright 2024-2026 The MathWorks, Inc.
 
     methods
         function fs = Redis(varargin)

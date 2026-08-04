@@ -1,0 +1,171 @@
+{
+  "$schema": "http://json-schema.org/draft/2019-09/schema",
+  "$id": "https://example.com/matlab-mps-logical-schema",
+  "title": "MATLAB Production Server Logical Schema",
+  "description": "Vocabulary for declaring MATLAB API types independently of their physical wire encoding. x-matlab-class values are the literal return values of the MATLAB class() function.",
+
+  "$defs": {
+
+    "MatlabType": {
+      "description": "A MATLAB API type declaration. Use these keywords on any parameter or field to declare its MATLAB type, shape, and constraints.",
+      "type": "object",
+      "properties": {
+
+        "x-matlab-class": {
+          "description": "The MATLAB class of the value. MUST be the literal return value of class(x) in MATLAB. For enumeration types this is the specific class name (e.g. 'Colors'), not the string 'enum'.",
+          "type": "string",
+          "examples": [
+            "double", "single",
+            "int8", "uint8", "int16", "uint16",
+            "int32", "uint32", "int64", "uint64",
+            "logical", "char", "string",
+            "struct", "cell", "datetime",
+            "Colors"
+          ]
+        },
+
+        "x-matlab-shape": {
+          "description": "The shape (dimensions) of the MATLAB array. 'scalar' means [1,1]. 'any' means unconstrained. An array of dimension descriptors specifies each dimension explicitly. Named letters (e.g. 'N') denote free dimensions; the same letter in multiple positions means those dimensions must be equal. ':' denotes an anonymous unconstrained dimension. A fixed integer means that dimension has exactly that size.",
+          "oneOf": [
+            {
+              "type": "string",
+              "enum": ["scalar", "any"],
+              "description": "'scalar' = [1,1]. 'any' = fully unconstrained shape."
+            },
+            {
+              "type": "array",
+              "minItems": 2,
+              "items": {
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Fixed dimension size. 0 means empty in this dimension."
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^[A-Z]$",
+                    "description": "Named free dimension. Same letter = same size."
+                  },
+                  {
+                    "type": "string",
+                    "const": ":",
+                    "description": "Anonymous free dimension — any positive integer."
+                  }
+                ]
+              }
+            }
+          ]
+        },
+
+        "x-matlab-complex": {
+          "description": "If true, the value is a complex numeric array. Only valid for x-matlab-class 'double' or 'single'. Defaults to false.",
+          "type": "boolean",
+          "default": false
+        },
+
+        "x-matlab-fields": {
+          "description": "For x-matlab-class 'struct' only. Declares the named fields of the struct and their types. Each key is a field name; each value is a nested MatlabType declaration. Applies recursively.",
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/MatlabType" }
+        },
+
+        "x-matlab-fields-open": {
+          "description": "For x-matlab-class 'struct' only. If true, the struct may have fields beyond those in x-matlab-fields. Defaults to false (closed — only declared fields permitted).",
+          "type": "boolean",
+          "default": false
+        },
+
+        "x-matlab-element-type": {
+          "description": "For x-matlab-class 'cell' only. Declares the type of all cell elements. If omitted, elements are heterogeneous (unconstrained MatlabValues).",
+          "$ref": "#/$defs/MatlabType"
+        },
+
+        "x-matlab-enum-members": {
+          "description": "For enumeration classes only. The valid member names of the enumeration. If omitted, any string is accepted as a member name.",
+          "type": "array",
+          "items": { "type": "string" }
+        },
+
+        "x-matlab-constraints": {
+          "description": "Optional value-level constraints applied after type and shape checking.",
+          "$ref": "#/$defs/MatlabConstraints"
+        },
+
+        "x-matlab-optional": {
+          "description": "If true, this parameter or field may be omitted. Corresponds to MATLAB functions using nargin/nargout or varargin. Defaults to false.",
+          "type": "boolean",
+          "default": false
+        },
+
+        "x-matlab-description": {
+          "description": "Human-readable description of this parameter or field in MATLAB terms.",
+          "type": "string"
+        }
+
+      }
+    },
+
+    "MatlabConstraints": {
+      "description": "Value-level constraints on MATLAB arrays. Applied element-wise unless noted.",
+      "type": "object",
+      "properties": {
+        "finite": {
+          "description": "No element may be NaN, Inf, or -Inf.",
+          "type": "boolean"
+        },
+        "nonnan": {
+          "description": "No element may be NaN. Inf and -Inf are still permitted.",
+          "type": "boolean"
+        },
+        "nonnegative": {
+          "description": "All elements must be >= 0.",
+          "type": "boolean"
+        },
+        "positive": {
+          "description": "All elements must be > 0.",
+          "type": "boolean"
+        },
+        "integer-valued": {
+          "description": "All elements must be integer-valued (no fractional part), even if class is double or single.",
+          "type": "boolean"
+        },
+        "nonempty": {
+          "description": "The array must have at least one element.",
+          "type": "boolean"
+        },
+        "square": {
+          "description": "The array must be 2-D with equal dimensions: mwsize[0] == mwsize[1].",
+          "type": "boolean"
+        },
+        "vector": {
+          "description": "The array must be 1-D in the MATLAB sense: either 1-by-N or N-by-1.",
+          "type": "boolean"
+        },
+        "real": {
+          "description": "No element may have a nonzero imaginary part.",
+          "type": "boolean"
+        },
+        "min": {
+          "description": "Inclusive minimum value. All elements must be >= min.",
+          "type": "number"
+        },
+        "max": {
+          "description": "Inclusive maximum value. All elements must be <= max.",
+          "type": "number"
+        },
+        "numel": {
+          "description": "Exact required number of elements. Must equal product(mwsize).",
+          "type": "integer",
+          "minimum": 0
+        },
+        "ndims": {
+          "description": "Exact required number of dimensions. Must equal length(mwsize).",
+          "type": "integer",
+          "minimum": 2
+        }
+      }
+    }
+
+  }
+}

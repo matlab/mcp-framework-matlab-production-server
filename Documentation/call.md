@@ -34,3 +34,4 @@ edges = "file:/image/data/circuit_edges.jpg";
 prodserver.mcp.call("http://localhost:9910/edges/mcp","detectEdge",image,edges,...
           algorithm="Canny", aperture=7)
 ```
+--- Copyright 2025-2026 The MathWorks, Inc. ---

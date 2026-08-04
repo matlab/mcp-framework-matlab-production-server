@@ -1,0 +1,127 @@
+MATLAB JSON Encoding — v1.1
+
+## The rules that cause most mistakes
+
+1. ARRAYS ARE NEVER BARE JSON ARRAYS. Any MATLAB array (even a 1×3 vector)
+   uses a wrapper object: {"type":"double","size":[1,3],"data":[1,2,3]}.
+   A bare [1,2,3] is always an encoding error.
+
+2. DATA IS ROW-MAJOR. For a 2×3 matrix [[1,2,3],[4,5,6]], data is
+   [1,2,3,4,5,6] — row 1 left-to-right, then row 2. Not column-by-column.
+
+3. SIZE IS [ROWS, COLS, ...]. Always MATLAB convention. A 3-element column
+   vector has size [3,1], not [3].
+
+4. SPECIAL FLOATS ARE STRINGS. JSON has no NaN or Inf literals.
+   Use "NaN", "Inf", "-Inf" — as strings, including inside data arrays.
+
+5. SCALAR STRUCTS NEED NO WRAPPER. {"name":"Alice","age":30} is a valid
+   scalar struct. Only struct arrays add a {"type":"struct","size":...} wrapper.
+
+## Bare values (no wrapper)
+
+| MATLAB value         | JSON                        |
+|----------------------|-----------------------------|
+| double scalar        | 3.14                        |
+| logical scalar       | true / false                |
+| char/string scalar   | "hello"                     |
+| char row vector      | "hello"  (most common case) |
+| NaN                  | "NaN"                       |
+| +Inf                 | "Inf"                       |
+| -Inf                 | "-Inf"                      |
+| complex scalar       | {"re":3.0,"im":-1.5}        |
+| scalar struct        | {"field":value,...}         |
+| scalar datetime      | "2024-03-15T09:30:00Z"      |
+
+## Wrapped values — schema
+
+{
+  "type":  <string — see type table below>,
+  "size":  [rows, cols, ...]   // always >= 2 elements
+  "data":  [...]               // flat, row-major
+}
+
+Additional rules by type:
+  complex arrays  : add "im": [...]  (parallel to "data", same length)
+  string arrays   : set null in "data" for missing values
+  char matrix     : "data" contains individual characters
+  categorical     : "categories": ["a","b","c"], "ordinal": true or false
+  datetime array  : add "tz": "America/New_York"  (omit for UTC or unzoned)
+  duration scalar : {"type":"duration","seconds":5400}  (no "size" or "data")
+  struct array    : "data" contains scalar-struct objects, row-major
+  empty struct    : add "fields":["name","age"] to preserve schema
+
+## Examples
+
+// 2×3 matrix [1 2 3; 4 5 6]
+{"type":"double","size":[2,3],"data":[1,2,3,4,5,6]}
+
+// 3×1 column vector [1;2;3]
+{"type":"double","size":[3,1],"data":[1,2,3]}
+
+// 2×2 uint8 [1 2; 3 4]
+{"type":"uint8","size":[2,2],"data":[1,2,3,4]}
+
+// 1×4 logical
+{"type":"logical","size":[1,4],"data":[true,false,true,true]}
+
+// 2×2 complex [1+2i, 3+4i; 5+6i, 7+8i]
+{"type":"double","size":[2,2],"data":[1,3,5,7],"im":[2,4,6,8]}
+
+// 1×3 string with missing
+{"type":"string","size":[1,3],"data":["hello",null,"world"]}
+
+// 2×2 char ['ab';'cd']
+{"type":"char","size":[2,2],"data":["a","b","c","d"]}
+
+// 1×2 struct array
+{"type":"struct","size":[1,2],"data":[{"name":"Alice","age":30},{"name":"Bob","age":25}]}
+
+// 1×3 cell {42, 'hello', [1 2 3]}
+{"type":"cell","size":[1,3],"data":[42,"hello",{"type":"double","size":[1,3],"data":[1,2,3]}]}
+
+// categorical
+{"type":"categorical","size":[1,3],"categories":["low","medium","high"],
+ "ordinal":true,"data":["low","high","low"]}
+
+// datetime array
+{"type":"datetime","size":[1,2],"tz":"UTC",
+ "data":["2024-01-01T00:00:00Z","2024-06-01T00:00:00Z"]}
+
+// table
+{"type":"table","rows":2,
+ "variables":[
+   {"name":"Name","value":{"type":"string","size":[2,1],"data":["Alice","Bob"]}},
+   {"name":"Age", "value":{"type":"double","size":[2,1],"data":[30,25]}}
+ ]}
+
+## Type discriminator table
+
+"double"    double
+"single"    single
+"int8"      int8       "uint8"     uint8
+"int16"     int16      "uint16"    uint16
+"int32"     int32      "uint32"    uint32
+"int64"     int64      "uint64"    uint64
+"logical"   logical
+"char"      char matrix (M>1 rows)
+"string"    string array
+"struct"    struct array
+"cell"      cell array
+"datetime"  datetime array
+"duration"  duration / array
+"categorical" categorical
+"table"     table
+"timetable" timetable
+
+## Decoding — apply in order
+
+1. null generates error (only valid inside string/categorical data)
+2. boolean becomes logical scalar
+3. number becomes double scalar
+4. "NaN"/"Inf"/"-Inf" become double special value
+5. string in ISO 8601 format becomes datetime scalar : char row vector
+6. object with "type" dispatch on type table
+7. object with "re","im" becomes complex double scalar
+8. object without "type" becomes scalar struct
+9. JSON array always an error (never produced by this encoding)

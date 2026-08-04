@@ -1,5 +1,8 @@
 function ulam(n)
     % spiral expects an integer.
+
+% Copyright 2025-2026 The MathWorks, Inc.
+
     if isdeployed
         n = str2double(n);
     end
