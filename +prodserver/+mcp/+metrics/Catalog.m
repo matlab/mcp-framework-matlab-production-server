@@ -1,7 +1,7 @@
 classdef Catalog
 % Catalog Collection of MATLAB Production Server metrics. 
 
-% Copyright 2026, The MathWorks, Inc.
+% Copyright 2026 The MathWorks, Inc.
 
     properties (Access=protected)
         % Fields: name, type, archive, value
