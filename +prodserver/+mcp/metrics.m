@@ -75,6 +75,6 @@ function measurements = metrics(uri,opts)
         result = result(1:end-1);
     end
 
-    measurements = prodserver.mcp.metrics.Catalog(result);
+    measurements = prodserver.mcp.metrics.Catalog(result,uri.uri);
 
 end

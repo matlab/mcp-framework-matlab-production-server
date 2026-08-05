@@ -6,10 +6,12 @@ classdef Catalog
     properties (Access=protected)
         % Fields: name, type, archive, value
         metrics struct
+        % Name of the server from which these metrics derive
+        server
     end
 
     methods
-        function mc = Catalog(data)
+        function mc = Catalog(data,uri)
 
             % Insist on an even number of lines.
             if mod(numel(data),2) ~= 0
@@ -17,6 +19,12 @@ classdef Catalog
                     "Metrics report must have an even number of lines. It " + ...
                     "has %d which is not an even number.", numel(data));
             end
+
+            serverPattern = "/" + wildcardPattern(except="/") + ...
+                prodserver.mcp.MCPConstants.MCP + textBoundary("end");
+            serverName = extract(uri, serverPattern);
+            serverName = split(serverName, "/");
+            mc.server = serverName(2);
 
             % Parse data into a structure. Each metric consists of two lines:
             % 
@@ -89,37 +97,37 @@ classdef Catalog
 
             arguments
                 mc prodserver.mcp.metrics.Catalog
-                opts.archive string = string.empty
-                opts.name string = string.empty
+                opts.archive pattern = pattern.empty
+                opts.name pattern = pattern.empty
                 opts.type prodserver.mcp.metrics.Type = "Any"
                 opts.match prodserver.mcp.metrics.Match = "Exact"
             end
 
             metrics = mc.metrics;
 
-            if ~isempty(opts.name)
+            if ~isempty(opts.name) && ~isempty(metrics)
                 n = [metrics.name];
                 switch opts.match
                     case "Exact"
-                        i = strcmp(n,opts.name);
+                        i = matches(n,opts.name);
                     case "Contains"
                         i = contains(n,opts.name);
                 end
                 metrics = metrics(i);
             end
 
-            if ~isempty(opts.archive) > 0
+            if ~isempty(opts.archive) && ~isempty(metrics)
                 a = [metrics.archive];
                 switch opts.match
                     case "Exact"
-                        i = strcmp(a,opts.archive);
+                        i = matches(a,opts.archive);
                     case "Contains"
                         i = contains(a,opts.archive);
                 end
                 metrics = metrics(i);
             end
 
-            if opts.type ~= prodserver.mcp.metrics.Type.Any
+            if opts.type ~= prodserver.mcp.metrics.Type.Any && ~isempty(metrics)
                 t = [metrics.type];
                 i = strcmpi(t,opts.type);
                 metrics = metrics(i);
@@ -135,7 +143,7 @@ classdef Catalog
 
             arguments
                 mc prodserver.mcp.metrics.Catalog
-                n string { mustBeNonempty }
+                n pattern { mustBeNonempty }
                 opts.match prodserver.mcp.metrics.Match = "Exact"
             end
 
@@ -150,7 +158,7 @@ classdef Catalog
 
             arguments
                 mc prodserver.mcp.metrics.Catalog
-                a string
+                a pattern
                 opts.match prodserver.mcp.metrics.Match = "Exact"
             end
 
@@ -194,13 +202,14 @@ classdef Catalog
                         prodserver.mcp.MCPConstants.MCPMetricPrefix);
                     metrics = mc.metrics(i);
 
+                case prodserver.mcp.metrics.Scope.Tool
+                    toolPattern = prodserver.mcp.MCPConstants.MCPMetricPrefix + ...
+                        wildcardPattern + prodserver.mcp.MCPConstants.MCPToolCallSuffix;
+                    metrics = name(mc,toolPattern);
+
                 case prodserver.mcp.metrics.Scope.Server
-                    serverPattern = "/" + wildcardPattern(except="/") + ...
-                        prodserver.mcp.MCPConstants.MCP + textBoundary("end");
-                    serverName = extract(uri.uri, serverPattern);
-                    serverName = split(serverName, "/");
-                    serverName = serverName(2);
-                    metrics = name(mc, "_" + serverName + "_", ...
+                    
+                    metrics = name(mc, "_" + mc.server + "_", ...
                         match="Contains");
 
                 otherwise

@@ -18,7 +18,8 @@ classdef tCatalog < matlab.unittest.TestCase
             if strlength(data(end)) == 0
                 data = data(1:end-1);
             end
-            test.catalog = prodserver.mcp.metrics.Catalog(data);
+            test.catalog = prodserver.mcp.metrics.Catalog(data, ...
+                "http://localhost:9910/AlphaServer/mcp");
         end
 
     end
@@ -164,6 +165,26 @@ classdef tCatalog < matlab.unittest.TestCase
             test.verifyNumElements(m, 12);
             for k = 1:numel(m)
                 test.verifyTrue(startsWith(m(k).name, "MCP_"));
+            end
+        end
+
+        function scopeServerReturnsOnlyServerMetrics(test)
+            m = test.catalog.scope(prodserver.mcp.metrics.Scope.Server);
+            test.verifyNotEmpty(m);
+            for k = 1:numel(m)
+                test.verifyTrue( ...
+                    contains(m(k).name, "_AlphaServer_"), ...
+                    "Server scope metric should contain _AlphaServer_");
+            end
+        end
+
+        function scopeToolReturnsOnlyToolCallMetrics(test)
+            m = test.catalog.scope(prodserver.mcp.metrics.Scope.Tool);
+            test.verifyNotEmpty(m);
+            for k = 1:numel(m)
+                test.verifyTrue( ...
+                    endsWith(m(k).name, "_Call"), ...
+                    "Tool scope metric should end with _Call");
             end
         end
 
