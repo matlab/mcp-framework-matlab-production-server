@@ -7,7 +7,7 @@ function mustBeJsonSchemaType(x)
         if ischar(x)== false && isstring(x) == false
             x = "object of type " + class(x);
         end
-        error("prodserver:mcp:InvalidJSONSchemaType", ...
-            "Invalid JSON schema type: %s.", x);
+        throwAsCaller(MException("prodserver:mcp:InvalidJSONSchemaType", ...
+            "Invalid JSON schema type: %s.", x));
     end
 end
