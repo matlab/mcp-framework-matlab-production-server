@@ -1,4 +1,4 @@
-classdef tOptionalHandlers < MCPHandlerBase
+classdef tOptionalHandlers < prodserver.mcp.test.base.MCPHandlerBase
 % Call the mcpHandler to invoke a function that has optional inputs.
 
 % Copyright 2025-2026 The MathWorks, Inc.
