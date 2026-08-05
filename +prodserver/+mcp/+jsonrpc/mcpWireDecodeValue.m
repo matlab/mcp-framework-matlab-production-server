@@ -112,7 +112,7 @@ if isfield(j, 're') && isfield(j, 'im') && ~isfield(j, 'type')
 end
 
 % Rule 6: typed wrapper.
-if isfield(j, 'type')
+if prodserver.mcp.jsonrpc.isMcpTypedWrapper(j)
     value = decodeTyped(j);
     return
 end
@@ -126,51 +126,51 @@ end
 % =========================================================================
 function value = decodeTyped(j)
 
-t = j.type;
-
-switch t
-    case {'double','single', ...
-          'int8','int16','int32','int64', ...
-          'uint8','uint16','uint32','uint64'}
-        value = decodeNumericArray(j);
-
-    case 'logical'
-        value = decodeLogicalArray(j);
-
-    case 'char'
-        value = decodeCharMatrix(j);
-
-    case 'string'
-        value = decodeStringArray(j);
-
-    case 'struct'
-        value = decodeStructArray(j);
-
-    case 'cell'
-        value = decodeCellArray(j);
-
-    case 'datetime'
-        value = decodeDatetimeArray(j);
-
-    case 'duration'
-        value = decodeDurationArray(j);
-
-    case 'categorical'
-        value = decodeCategoricalArray(j);
-
-    case 'table'
-        value = decodeTable(j);
-
-    case 'timetable'
-        value = decodeTimetable(j);
-
-    otherwise
-        error('prodserver:mcp:unknownType', ...
-            'Unknown MCP type discriminator "%s". ' +  ...
-            'Supported types are: double, single, int8/16/32/64, ' + ...
-            'uint8/16/32/64, logical, char, string, struct, cell, ' + ...
-            'datetime, duration, categorical, table, timetable.', t);
-end
+    t = j.type;
+    
+    switch t
+        case {'double','single', ...
+              'int8','int16','int32','int64', ...
+              'uint8','uint16','uint32','uint64'}
+            value = decodeNumericArray(j);
+    
+        case 'logical'
+            value = decodeLogicalArray(j);
+    
+        case 'char'
+            value = decodeCharMatrix(j);
+    
+        case 'string'
+            value = decodeStringArray(j);
+    
+        case 'struct'
+            value = decodeStructArray(j);
+    
+        case 'cell'
+            value = decodeCellArray(j);
+    
+        case 'datetime'
+            value = decodeDatetimeArray(j);
+    
+        case 'duration'
+            value = decodeDurationArray(j);
+    
+        case 'categorical'
+            value = decodeCategoricalArray(j);
+    
+        case 'table'
+            value = decodeTable(j);
+    
+        case 'timetable'
+            value = decodeTimetable(j);
+    
+        otherwise
+            error('prodserver:mcp:unknownType', ...
+                "Unknown MCP type discriminator '%s'. " +  ...
+                "Supported types are: double, single, int8/16/32/64, " + ...
+                "uint8/16/32/64, logical, char, string, struct, cell, " + ...
+                "datetime, duration, categorical, table, timetable.", t);
+    end
 end
 
 % =========================================================================

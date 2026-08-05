@@ -1,0 +1,20 @@
+{
+    "type": "array",
+    "items": {
+        "type": "object",
+        "properties": {
+            "type": {
+                "type": "string",
+                "description": "Load type: point (concentrated force at a single location) or distributed (uniform load along entire span)"
+            },
+            "magnitude": {
+                "type": "number",
+                "description": "Load magnitude. For point loads: force in Newtons. For distributed loads: force per unit length in N/m."
+            },
+            "position": {
+                "type": "number",
+                "description": "Distance from left support to the point of load application, in meters. Required for point loads, ignored for distributed loads."
+            }
+        }
+    }
+}

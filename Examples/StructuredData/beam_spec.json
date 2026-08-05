@@ -1,0 +1,48 @@
+{
+    "type": "array",
+    "items": {
+        "type": "object",
+        "properties": {
+            "material": {
+                "type": "object",
+                "description": "Material properties of the beam",
+                "properties": {
+                    "youngs_modulus": {
+                        "type": "number",
+                        "description": "Young's modulus (elastic modulus) in Pascals"
+                    },
+                    "density": {
+                        "type": "number",
+                        "description": "Material density in kg/m^3"
+                    }
+                }
+            },
+            "cross_section": {
+                "type": "object",
+                "description": "Cross-section geometry. Provide shape plus the relevant dimensions: width and height for rectangular, or diameter for circular.",
+                "properties": {
+                    "shape": {
+                        "type": "string",
+                        "description": "Cross-section shape: rectangular or circular"
+                    },
+                    "width": {
+                        "type": "number",
+                        "description": "Width of rectangular cross-section in meters"
+                    },
+                    "height": {
+                        "type": "number",
+                        "description": "Height of rectangular cross-section in meters"
+                    },
+                    "diameter": {
+                        "type": "number",
+                        "description": "Diameter of circular cross-section in meters"
+                    }
+                }
+            },
+            "length": {
+                "type": "number",
+                "description": "Beam span (distance between supports) in meters"
+            }
+        }
+    }
+}

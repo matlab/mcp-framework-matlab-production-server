@@ -4,61 +4,39 @@ on:
   pull_request:
     branches: [main]
     types: [opened, edited, synchronize]
-  issue_comment:
-    types: [created, edited]
 
 permissions:
-  pull-requests: read
+  contents: read
 
 jobs:
   review-gate:
-    # For issue_comment events, only run if the comment is on a PR
-    if: >-
-      github.event_name == 'pull_request' ||
-      (github.event_name == 'issue_comment' && github.event.issue.pull_request)
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, runner-source=AWS]
     steps:
-      - name: Determine PR number
-        id: pr
-        run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            echo "number=${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "number=${{ github.event.issue.number }}" >> "$GITHUB_OUTPUT"
-          fi
+      - name: Checkout reviews branch
+        uses: actions/checkout@v3
+        with:
+          ref: reviews
+          sparse-checkout: reviews
+          sparse-checkout-cone-mode: true
 
       - name: Check for review and response
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
-          PR=${{ steps.pr.outputs.number }}
-          REPO="${{ github.repository }}"
+          PR=${{ github.event.pull_request.number }}
+          REVIEW_FILE="reviews/PR-${PR}.md"
 
-          # Fetch all comments on the PR
-          COMMENTS=$(gh api "repos/${REPO}/issues/${PR}/comments" --paginate --jq '.[].body')
-
-          # Check for the review marker
-          if echo "$COMMENTS" | grep -q "^## Claude Code Review"; then
-            echo "Found Claude Code Review"
-            REVIEW_FOUND=true
-          else
-            echo "::error::Missing '## Claude Code Review' comment on this PR."
-            REVIEW_FOUND=false
-          fi
-
-          # Check for the response marker
-          if echo "$COMMENTS" | grep -q "^## Review Response"; then
-            echo "Found Review Response"
-            RESPONSE_FOUND=true
-          else
-            echo "::error::Missing '## Review Response' comment on this PR."
-            RESPONSE_FOUND=false
-          fi
-
-          # Fail if either is missing
-          if [ "$REVIEW_FOUND" = true ] && [ "$RESPONSE_FOUND" = true ]; then
-            echo "Review gate passed."
-          else
-            echo "Review gate failed. Post both a '## Claude Code Review' and a '## Review Response' comment."
+          if [ ! -f "$REVIEW_FILE" ]; then
+            echo "::error::Review file ${REVIEW_FILE} not found on 'reviews' branch."
             exit 1
           fi
+
+          if ! grep -q "^## Claude Code Review" "$REVIEW_FILE"; then
+            echo "::error::Missing '## Claude Code Review' section in ${REVIEW_FILE}."
+            exit 1
+          fi
+
+          if ! grep -q "^## Review Response" "$REVIEW_FILE"; then
+            echo "::error::Missing '## Review Response' section in ${REVIEW_FILE}."
+            exit 1
+          fi
+
+          echo "Review gate passed."

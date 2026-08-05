@@ -1,4 +1,4 @@
-classdef tmcpHandler < MCPHandlerBase 
+classdef tmcpHandler < prodserver.mcp.test.base.MCPHandlerBase
 % Wide selection of tests for the mcpHandler function. 
 
 % Copyright 2026-2026 The MathWorks, Inc.

@@ -212,7 +212,7 @@ function [ctf,endpoint] = build(fcn, opts)
     % structure, so test required. Cell array because fields of each
     % resource structure may vary.
     if ~isempty(opts.resource)
-        resourceList = { resourceList, opts.resource };
+        resourceList = [ {resourceList}, num2cell(opts.resource) ];
     end
     
     % Generate resource definitions and add them to the structure saved

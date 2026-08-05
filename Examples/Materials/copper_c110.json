@@ -1,0 +1,14 @@
+{
+  "name": "Copper C110 (ETP)",
+  "category": "Copper",
+  "properties": {
+    "density": {"value": 8940, "units": "kg/m^3"},
+    "youngs_modulus": {"value": 117e9, "units": "Pa"},
+    "yield_strength": {"value": 70e6, "units": "Pa"},
+    "ultimate_tensile_strength": {"value": 220e6, "units": "Pa"},
+    "poissons_ratio": {"value": 0.34, "units": "dimensionless"},
+    "thermal_conductivity": {"value": 388, "units": "W/(m*K)"},
+    "specific_heat": {"value": 385, "units": "J/(kg*K)"},
+    "thermal_expansion_coefficient": {"value": 16.9e-6, "units": "1/K"}
+  }
+}

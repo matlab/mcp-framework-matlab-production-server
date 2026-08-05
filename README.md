@@ -78,11 +78,15 @@ The Examples folder contains several complete MCP tools of varying complexity. E
 * [Periodic Noise](./Examples/Periodic%20Noise/PeriodicNoise.md): Eliminates periodic noise from a measured signal. Demonstrates explicit use of an automatically generated wrapper function.
 * [Earthquake](./Examples/Earthquake/Earthquake.md): Generates plots of earthquake data. Demonstates use of a user-written wrapper function.
 * [Multiple Tools](./Examples/MultiTool/MultipleTools.md): Build a server hosting multiple MCP tools.
+* [Materials](./Examples/Materials/Materials.md): Engineering material properties as MCP Resources paired with structural and thermal analysis tools. Demonstrates how resources enhance server usability.
+* [Structured Data](./Examples/StructuredData/StructuredData.md): Nested struct inputs with JSON Schema annotations via the [`%#schema` pragma](./Documentation/Schemas.md). Demonstrates how to describe complex structured parameters for LLM consumption.
 
 To become effective MCP tools, MATLAB functions must accommodate the MCP environment. In particular,
 your functions must: 
 * Provide an LLM (and human!) readable [description](./Documentation/DescribingFunctions.md) of their purpose and capabilities.
 * Process large or complex data via [external sources and sinks](./Documentation/ExternalData.md).
+
+MCP servers may also expose [Resources](./Documentation/Resources.md) -- read-only data that provides context for tools. Resources allow an LLM to discover and read reference data (material properties, calibration tables, configuration) instead of hallucinating values or requiring the user to supply them.
 
 If you add comments and function argument blocks to your code, MCP Framework can automate most
 of this process. See the links for details.
@@ -99,7 +103,7 @@ calling them in MATLAB. For example, call `build` using its full name: `prodserv
 | [deploy](./Documentation/deploy.md) | Upload tool to MATLAB Production Server | `deploy(tool, "localhost", 9910)` |
 | [exist](./Documentation/exist.md) | Check existence of tool on MATLAB Production Server | `exist("http://localhost:9910/primes/mcp", "primeSequenceMCP", "tool")` |
 | [list](./Documentation/list.md) | List MCP primitives available at `endpoint` | `list(endpoint, "Tools")` |
-| [metrics](./Documentation/metrics.md) | Retrieve usage metrics from MATLAB Productin Server at `endpoint` | `metrics(endpoint)` |
+| [metrics](./Documentation/metrics.md) | Retrieve metrics catalog from MATLAB Production Server at `endpoint` | `metrics(endpoint)` |
 | [ping](./Documentation/ping.md) | Send a ping to server at `endpoint`. Return true if server responsive. | `ping(endpoint)` |
 | [agent.setup](./Documentation/agent.setup.md) | Install MCP Framework skills for AI coding agents | `agent.setup` |
 

@@ -1,0 +1,54 @@
+# TYPE matlabprodserver_up_time_seconds counter
+matlabprodserver_up_time_seconds 68140.5
+# TYPE matlabprodserver_queue_time_seconds gauge
+matlabprodserver_queue_time_seconds 0.0312
+# TYPE matlabprodserver_cpu_time_seconds counter
+matlabprodserver_cpu_time_seconds 18.2188
+# TYPE matlabprodserver_memory_working_set_bytes gauge
+matlabprodserver_memory_working_set_bytes 5.17153e+08
+# TYPE matlabprodserver_requests_accepted_total counter
+matlabprodserver_requests_accepted_total 47
+# TYPE matlabprodserver_requests_in_queue gauge
+matlabprodserver_requests_in_queue 0
+# TYPE matlabprodserver_requests_processing gauge
+matlabprodserver_requests_processing 1
+# TYPE matlabprodserver_requests_succeeded_total counter
+matlabprodserver_requests_succeeded_total 45
+# TYPE matlabprodserver_requests_failed_total counter
+matlabprodserver_requests_failed_total 2
+# TYPE matlabprodserver_requests_canceled_total counter
+matlabprodserver_requests_canceled_total 0
+# TYPE MCP_Framework_Request counter
+MCP_Framework_Request{archive="AlphaServer_3"} 42
+# TYPE MCP_AlphaServer_Request counter
+MCP_AlphaServer_Request{archive="AlphaServer_3"} 12
+# TYPE MCP_doWork_Call counter
+MCP_doWork_Call{archive="AlphaServer_3"} 5
+# TYPE MCP_Framework_Request counter
+MCP_Framework_Request{archive="BetaServer_1"} 42
+# TYPE MCP_BetaServer_Request counter
+MCP_BetaServer_Request{archive="BetaServer_1"} 9
+# TYPE MCP_doWork_Call counter
+MCP_doWork_Call{archive="BetaServer_1"} 3
+# TYPE active_sessions gauge
+active_sessions{archive="BetaServer_1"} 7
+# TYPE MCP_Framework_Request counter
+MCP_Framework_Request{archive="GammaServer_2"} 42
+# TYPE MCP_GammaServer_Request counter
+MCP_GammaServer_Request{archive="GammaServer_2"} 14
+# TYPE active_sessions gauge
+active_sessions{archive="GammaServer_2"} 2
+# TYPE MCP_Framework_Request counter
+MCP_Framework_Request{archive="DeltaServer_5"} 42
+# TYPE MCP_DeltaServer_Request counter
+MCP_DeltaServer_Request{archive="DeltaServer_5"} 6
+# TYPE queue_depth gauge
+queue_depth{archive="DeltaServer_5"} 44
+# TYPE MCP_Framework_Request counter
+MCP_Framework_Request{archive="EpsilonServer_4"} 42
+# TYPE MCP_EpsilonServer_Request counter
+MCP_EpsilonServer_Request{archive="EpsilonServer_4"} 8
+# TYPE queue_depth gauge
+queue_depth{archive="EpsilonServer_4"} 19
+# TYPE memory_usage_bytes gauge
+memory_usage_bytes{archive="EpsilonServer_4"} 1.5e+08

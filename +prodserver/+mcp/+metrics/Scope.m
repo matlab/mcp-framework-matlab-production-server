@@ -1,7 +1,7 @@
-classdef MetricsScope
-% MetricsScope The names of the available metrics sets.
+classdef Scope
+% Scope The names of the available metrics sets.
 
-% Copyright 2026-2026 The MathWorks, Inc.
+% Copyright 2026 The MathWorks, Inc.
 
     enumeration
         All      % All metrics on the MATLAB Production Server instance

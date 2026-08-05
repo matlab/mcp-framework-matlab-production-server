@@ -34,7 +34,7 @@ function mustBeResource(x)
             else
                 throwAsCaller(MException(me.identifier, ...
                     "Element %d of resource list invalid: '%s'", ...
-                    n, me.msg));
+                    n, me.message));
             end
         end
      end

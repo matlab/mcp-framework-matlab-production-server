@@ -170,7 +170,11 @@ jobs:
       - name: Verify skill files are in sync
         run: |
           diff .claude/skills/mps-mcp-build/SKILL.md skills-catalog/mcp-framework/mps-mcp-build/SKILL.md || {
-            echo "::error::SKILL.md copies have diverged. Edit one and copy to the other."
+            echo "::error::mps-mcp-build SKILL.md copies have diverged. Edit one and copy to the other."
+            exit 1
+          }
+          diff .claude/skills/mps-review/SKILL.md skills-catalog/mcp-framework/mps-review/SKILL.md || {
+            echo "::error::mps-review SKILL.md copies have diverged. Edit one and copy to the other."
             exit 1
           }
 

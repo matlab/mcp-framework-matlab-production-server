@@ -66,9 +66,9 @@ function j = encodeValue(value)
         j = encodeTimetable(value);
     else
         error('prodserver:mcp:unsupportedType', ...
-            'Cannot encode value of class "%s". Supported classes are: ' + ...
-            'numeric, logical, char, string, struct, cell, datetime, ' + ...
-            'duration, calendarDuration, categorical, table, timetable.', ...
+            "Cannot encode value of class '%s'. Supported classes are: " + ...
+            "numeric, logical, char, string, struct, cell, datetime, " + ...
+            "duration, calendarDuration, categorical, table, timetable.", ...
             class(value));
     end
 end
@@ -223,11 +223,25 @@ function j = encodeStruct(value)
     fields = fieldnames(value);
 
     if isscalar(value)
-        % Scalar struct — plain JSON object.
-        j = struct();
-        for k = 1:numel(fields)
-            f = fields{k};
-            j.(f) = encodeValue(value.(f));
+        if prodserver.mcp.jsonrpc.isMcpTypedWrapper(value)
+            % Scalar struct whose fields collide with MCP typed-wrapper
+            % fields — force struct-array encoding to avoid ambiguity.
+            j = struct();
+            j.type = 'struct';
+            j.size = [1 1];
+            el = struct();
+            for k = 1:numel(fields)
+                f = fields{k};
+                el.(f) = encodeValue(value.(f));
+            end
+            j.data = {el};
+        else
+            % Scalar struct — plain JSON object.
+            j = struct();
+            for k = 1:numel(fields)
+                f = fields{k};
+                j.(f) = encodeValue(value.(f));
+            end
         end
         return
     end
