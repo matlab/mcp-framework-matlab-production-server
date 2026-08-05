@@ -4,7 +4,7 @@ function measurements = metrics(uri,opts)
 %    measurements = metrics(URI,SCOPE) returns the metrics recorded by the
 %    MATLAB Production Server at URI, filtered by SCOPE.
 
-% Copyright 2026-2026 The MathWorks, Inc.
+% Copyright 2026 The MathWorks, Inc.
 
     arguments(Input)
         % Server address or MCP tool endpoint
