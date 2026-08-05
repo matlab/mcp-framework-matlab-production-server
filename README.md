@@ -103,7 +103,7 @@ calling them in MATLAB. For example, call `build` using its full name: `prodserv
 | [deploy](./Documentation/deploy.md) | Upload tool to MATLAB Production Server | `deploy(tool, "localhost", 9910)` |
 | [exist](./Documentation/exist.md) | Check existence of tool on MATLAB Production Server | `exist("http://localhost:9910/primes/mcp", "primeSequenceMCP", "tool")` |
 | [list](./Documentation/list.md) | List MCP primitives available at `endpoint` | `list(endpoint, "Tools")` |
-| [metrics](./Documentation/metrics.md) | Retrieve usage metrics from MATLAB Productin Server at `endpoint` | `metrics(endpoint)` |
+| [metrics](./Documentation/metrics.md) | Retrieve metrics catalog from MATLAB Production Server at `endpoint` | `metrics(endpoint)` |
 | [ping](./Documentation/ping.md) | Send a ping to server at `endpoint`. Return true if server responsive. | `ping(endpoint)` |
 | [agent.setup](./Documentation/agent.setup.md) | Install MCP Framework skills for AI coding agents | `agent.setup` |
 

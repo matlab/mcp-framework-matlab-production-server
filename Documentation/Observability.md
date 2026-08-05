@@ -26,27 +26,45 @@ MCP_analyzeBeam_Call      = 2
 
 ## Querying Metrics
 
-Use `prodserver.mcp.metrics` to retrieve metrics from a running MPS instance:
+Use `prodserver.mcp.metrics` to retrieve a metrics catalog from a running MPS instance:
 
 ```MATLAB
-m = prodserver.mcp.metrics("http://localhost:9910/BeamAnalysis/mcp");
-m.MCP_Framework_Request.value    % Total framework requests
-m.MCP_BeamAnalysis_Request.value % Requests to this server
-m.MCP_analyzeBeam_Call.value     % Calls to this tool
+catalog = prodserver.mcp.metrics("http://localhost:9910/BeamAnalysis/mcp");
+catalog.name("MCP_Framework_Request").value      % Total framework requests
+catalog.name("MCP_BeamAnalysis_Request").value   % Requests to this server
+catalog.name("MCP_analyzeBeam_Call").value       % Calls to this tool
 ```
 
-See [metrics.md](metrics.md) for the full function reference including scopes and options.
+See [metrics.md](metrics.md) for the full function reference including filter methods and options.
 
 ## Scopes
 
-The `MetricsScope` enumeration controls which metrics are returned:
+The `prodserver.mcp.metrics.Scope` enumeration controls which metrics are returned when filtering with the `scope()` method:
+
+```MATLAB
+catalog = prodserver.mcp.metrics("http://localhost:9910/BeamAnalysis/mcp");
+m = catalog.scope(prodserver.mcp.metrics.Scope.Instance);
+```
 
 | Scope | Returns |
 | :--- | :--- |
 | `All` | Every metric on the MPS instance (MCP + instance-level) |
 | `Instance` | Only MPS instance metrics (prefix `matlabprodserver_`) |
-| `MCP` | Only MCP framework metrics (prefix `MCP_`). **Default.** |
+| `MCP` | Only MCP framework metrics (prefix `MCP_`) |
 | `Server` | Only metrics matching the archive name from the endpoint URI |
+| `Tool` | Only metrics for the specific tool |
+
+## Filtering
+
+The metrics catalog also supports filtering by `name`, `archive`, and `type`. Both exact and substring matching are available via the `match` option:
+
+```MATLAB
+catalog.name("Request", match="Contains")       % All metrics with "Request" in name
+catalog.archive("BeamAnalysis")                  % All metrics from one archive
+catalog.type(prodserver.mcp.metrics.Type.Counter) % All counter metrics
+```
+
+See [metrics.md](metrics.md) for the complete Catalog API reference.
 
 ## Enabling Metrics
 

@@ -1,4 +1,4 @@
-function measurements = metrics(uri,scope,opts)
+function measurements = metrics(uri,opts)
 % metrics Retrieve metrics from MATLAB Production Server instance at URI.
 % 
 %    measurements = metrics(URI,SCOPE) returns the metrics recorded by the
@@ -9,8 +9,6 @@ function measurements = metrics(uri,scope,opts)
     arguments(Input)
         % Server address or MCP tool endpoint
         uri (1,1) string { prodserver.mcp.validation.mustBeURI }
-        % Filter reported metrics by scope
-        scope (1,1) prodserver.mcp.MetricsScope = prodserver.mcp.MetricsScope.MCP
         % Number of seconds to wait for HTTP requests to complete.
         opts.timeout double {prodserver.mcp.validation.mustBePositiveInteger} = 180;
         % How many times to retry HTTP requests.
@@ -19,7 +17,6 @@ function measurements = metrics(uri,scope,opts)
         opts.delay double = 2
     end
 
-    import prodserver.mcp.MetricsScope
     import prodserver.mcp.internal.Constants
     import prodserver.mcp.MCPConstants
 
@@ -78,93 +75,6 @@ function measurements = metrics(uri,scope,opts)
         result = result(1:end-1);
     end
 
-    % Insist on an even number of lines.
-    if mod(numel(result),2) ~= 0
-        error("prodserver:mcp:UnevenMetricsReport", ...
-            "Metrics report must have an even number of lines. It " + ...
-            "has %d which is not an even number.", numel(result));
-    end
-
-    %   % Parse result into a structure. Each metric consists of two lines:
-    %   # TYPE matlabprodserver_up_time_seconds counter
-    %   matlabprodserver_up_time_seconds 46.0555
-    %
-    % Create structure with one field per metric. The value of each metric
-    % field is a structure with fields "archive", "type" and "value".
-    %
-    %   m.matlabprodserver_up_time_seconds.archive = "toyToolOne_8";
-    %   m.matlabprodserver_up_time_seconds.type = "counter";
-    %   m.matlabprodserver_up_time_seconds.value = 46.0555;
-    %
-    % archive may be empty, if the metrics service does not report an
-    % archive for a given metric.
-
-    archivePattern = "{" + wildcardPattern(except="}") + "}";
-    for n = 1:2:numel(result)
-        nvp = split(result(n+1));
-        name = nvp(1);
-        archive = extract(name,archivePattern);
-        name = erase(name,archive);
-        if strlength(archive) > 0
-            archive = extractBetween(archive,2,strlength(archive)-1);
-            archive = extractBetween(archive,"archive=""","""");
-        end
-        value = nvp(2);
-        type = split(result(n)); 
-        type = type(end);
-        measurements.(name).type = type;
-        if strcmpi(type,"counter") || strcmpi(type,"gauge")
-            value = double(value);
-        end
-        measurements.(name).value = value;
-        measurements.(name).archive = archive;
-    end
-
-    % Filter metrics by name
-
-    fields = fieldnames(measurements);
-
-    switch scope
-        case MetricsScope.All
-            % Absolutely every metric known to the MPS instance.
-            % That's what the metrics struct already contains.
-
-        case MetricsScope.Instance
-            % Only those metrics which start with matlabprodserver_
-            instanceFields = startsWith(fields,"matlabprodserver_",...
-                IgnoreCase=true);
-            remove = instanceFields == false;
-            if nnz(remove) > 0
-                measurements = rmfield(measurements,fields(remove));
-            end
-
-        case MetricsScope.MCP
-            % None of the instance fields
-            mcpFields = startsWith(fields,"mcp_",IgnoreCase=true);
-            remove = mcpFields == false;
-            if nnz(remove) > 0
-                measurements = rmfield(measurements,fields(remove));
-            end
-
-        case MetricsScope.Server
-            % Only the fields that contain the tool server name
-            serverPattern = "/" + wildcardPattern(except="/") + ...
-                MCPConstants.MCP + textBoundary("end");
-            serverName = extract(uri.uri,serverPattern);
-            serverName = split(serverName,"/");
-            serverName = serverName(2); % First string is "" because /
-            serverFields = contains(fields,"_" + serverName + "_");
-            remove = serverFields == false;
-            if nnz(remove) > 0
-                measurements = rmfield(measurements,fields(remove));
-            end
-
-        otherwise
-            % This may happen if somebody adds a scope but forgets to
-            % update this function.
-            error("prodserver:mcp:UnhandledMetricsScope", ...
-                "MetricsScope '%s' unknown.", scope);
-    end
-
+    measurements = prodserver.mcp.metrics.Catalog(result);
 
 end
