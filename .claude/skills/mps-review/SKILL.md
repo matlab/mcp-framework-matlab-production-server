@@ -69,44 +69,46 @@ The `## Review Response` section is left as a placeholder for the user to fill i
 
 ## Step 4: Push to the Reviews Branch
 
-Use a git worktree to push the review file to the `reviews` branch without switching the user's current branch. Use `mktemp -d` for the worktree path — this works on both Windows (Git Bash) and Linux, and avoids UNC path issues with mapped drives:
+This repo may be on a CIFS/SMB network share where git's atomic ref-file renames fail. Do NOT use `git worktree` or `git commit` to update the reviews branch — they will fail with `couldn't set 'refs/branches/reviews'`. Instead, use git plumbing commands to build a commit and push it directly:
 
 ```bash
-# Create a temporary directory for the worktree
-WT_PATH=$(mktemp -d)
+# Fetch the latest reviews branch state
+git fetch origin reviews
 
-# Create a worktree for the reviews branch
-git worktree add "$WT_PATH" reviews
+# Get the current reviews branch HEAD
+REVIEWS_HEAD=$(git rev-parse origin/reviews)
 
-# Ensure the reviews directory exists in the worktree
-mkdir -p "$WT_PATH/reviews"
+# Hash the review file as a git blob
+BLOB=$(git hash-object -w reviews/PR-<N>.md)
 
-# Copy the review file into the worktree
-cp reviews/PR-<N>.md "$WT_PATH/reviews/"
+# Build the reviews/ subtree: existing entries + new/updated file
+SUBTREE=$( (git ls-tree "$REVIEWS_HEAD:reviews" | grep -v "PR-<N>.md"; echo "100644 blob $BLOB	PR-<N>.md") | git mktree )
 
-# Commit and push from the worktree
-cd "$WT_PATH"
-git add reviews/PR-<N>.md
-git commit -m "Review for PR #<N>"
-git push origin reviews
-cd -
+# Build the root tree: existing root entries with updated reviews subtree
+ROOT_TREE=$( (git ls-tree "$REVIEWS_HEAD" | grep -v "^.*	reviews$"; echo "040000 tree $SUBTREE	reviews") | git mktree )
 
-# Clean up the worktree
-git worktree remove "$WT_PATH" || rm -rf "$WT_PATH"
-git worktree prune
+# Create a commit object
+COMMIT=$(git commit-tree "$ROOT_TREE" -p "$REVIEWS_HEAD" -m "Review for PR #<N>")
+
+# Push to remote (ignore harmless local tracking ref update error)
+git push origin "$COMMIT:refs/heads/reviews" 2>&1 | grep -v "update_ref failed" || true
 ```
+
+**Important:** The `grep -v` at the end suppresses the CIFS error `update_ref failed for ref 'refs/remotes/origin/reviews'`. This error means the local tracking ref could not be updated, but the push itself succeeded — the remote has the correct commit.
 
 ## Step 5: Inform the User
 
 Tell the user:
 1. The review has been published to the `reviews` branch as `reviews/PR-<N>.md`
 2. They need to add their response under the `## Review Response` section
-3. They can edit the file locally in `reviews/PR-<N>.md` and push again using the same worktree technique, or you can help them do it
+3. They can edit the file locally in `reviews/PR-<N>.md` and push again using the same plumbing technique, or you can help them do it
 4. Once both sections are present, the review-gate CI check will pass
 
 ## Error Handling
 
 - If the `reviews` branch does not exist on the remote, tell the user they need to create it first (one-time setup)
+- If `git push` reports `update_ref failed for ref 'refs/remotes/origin/reviews'` but the push line shows the remote accepted it (e.g., `3b02741..3d01904 ... -> reviews`), the push succeeded. This is a harmless CIFS/SMB artifact.
+- If the push is rejected (non-fast-forward), re-fetch `origin/reviews` and rebuild the commit on top of the new HEAD.
 - If git push fails due to permissions, tell the user to push manually
 - If the diff is empty, tell the user there are no changes to review
 

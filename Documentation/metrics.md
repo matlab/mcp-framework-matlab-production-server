@@ -1,8 +1,8 @@
 # prodserver.mcp.metrics
 ```MATLAB
-measurements = metrics(uri,scope)
+catalog = metrics(uri)
 ```
-Retrieve [metrics](https://www.mathworks.com/help/mps/restfuljson/restful-api-for-discovery-and-diagnostics.html#mw_205ec106-f8b5-4100-8845-da1db3a17dd3) from a MATLAB Production Server instance at `uri`. Returns a structure containing the metrics recorded by the server, filtered by `scope`. The `uri` may be either a MATLAB Production Server (MPS) address or an Model Context Protocol (MCP) tool endpoint; the server address is derived automatically.
+Retrieve [metrics](https://www.mathworks.com/help/mps/restfuljson/restful-api-for-discovery-and-diagnostics.html#mw_205ec106-f8b5-4100-8845-da1db3a17dd3) from a MATLAB Production Server instance at `uri`. Returns a `prodserver.mcp.metrics.Catalog` object that provides methods for filtering and querying the metrics recorded by the server. The `uri` may be either a MATLAB Production Server (MPS) address or a Model Context Protocol (MCP) tool endpoint; the server address is derived automatically.
 
 Metrics must be enabled on the server. If metrics are disabled, the function throws an error with the identifier `prodserver:mcp:MetricsDisabled`.
 
@@ -10,20 +10,11 @@ Metrics must be enabled on the server. If metrics are disabled, the function thr
 | Argument | Type | Description | Example
 | :---     | :--- | :---        | :---    |
 | uri | string | Server address or MCP tool endpoint. | "http://localhost:9910/primeSequence/mcp" |
-| scope | MetricsScope | Filter reported metrics by scope. | prodserver.mcp.MetricsScope.MCP |
 
 ### Outputs
-| Argument | Type | Description | Example
-| :---     | :--- | :---        | :---    |
-| measurements | struct | Structure with one field per metric. Each field value is a structure with fields `type`, `value` and `archive`. | measurements.MCP_Framework_Request.value |
-
-### MetricsScope enumeration
-| Value | Description |
-| :---  | :---        |
-| All | All metrics known to the MATLAB Production Server instance. |
-| Instance | Only metrics starting with `matlabprodserver_`. |
-| MCP | Only MCP framework metrics (starting with `MCP_`). This is the default. |
-| Server | Only metrics containing the tool server (archive) name derived from the URI. |
+| Argument | Type | Description |
+| :---     | :--- | :---        |
+| catalog | prodserver.mcp.metrics.Catalog | Catalog object with methods for filtering metrics by name, archive, type, and scope. |
 
 ### Optional Inputs (Name/Value pairs)
 Pass optional arguments with *argument=value* syntax following required inputs. For example: `timeout=60`.
@@ -33,50 +24,133 @@ Pass optional arguments with *argument=value* syntax following required inputs. 
 | retry | integer | Number of times to retry on connection errors | 30 |
 | timeout | integer | Number of seconds to wait for a reply | 180 |
 
-### Output Structure
+## Catalog API
 
-Each field in the returned `measurements` structure corresponds to a single metric. The field value is itself a structure with three fields:
+The returned `Catalog` object provides the following filter methods. Each method returns a struct array with fields `name`, `type`, `archive`, `suffix`, and `value`.
+
+### Filter Methods
+
+| Method | Signature | Description |
+| :---   | :---      | :---        |
+| filter | `m = catalog.filter(name=n, archive=a, type=t, match=m)` | Combined filter — all options are optional |
+| name | `m = catalog.name(n)` | All metrics with name exactly matching `n` |
+| name | `m = catalog.name(n, match="Contains")` | All metrics whose name contains `n` |
+| archive | `m = catalog.archive(a)` | All metrics from archive `a` exactly |
+| archive | `m = catalog.archive(a, match="Contains")` | All metrics from archives containing `a` |
+| type | `m = catalog.type(t)` | All metrics of type `t` |
+| scope | `m = catalog.scope(s)` | All metrics matching scope `s` |
+
+The `filter` method accepts any combination of `name`, `archive`, `type`, and `match` as name-value arguments. Omitted criteria are not applied. The `name`, `archive`, and `type` methods are convenience wrappers around `filter`.
+
+### Return Value
+
+Each filter method returns a struct array. Each element has five fields:
 
 | Field | Type | Description |
 | :---  | :--- | :---        |
-| type | string | The metric type as reported by the server (e.g., "counter" or "gauge"). |
+| name | string | The metric name (e.g., "MCP_Framework_Request"). |
+| type | string | The metric type ("counter" or "gauge"). |
+| archive | string | The archive (deployed CTF) that generated the metric. Empty for instance-level metrics. |
+| suffix | string or [] | The numeric deployment suffix (e.g., "3" from "AlphaServer_3"). Empty for instance-level metrics. |
 | value | double or string | Numeric value for counter and gauge types; string otherwise. |
-| archive | string | The archive (deployed CTF) that generated the metric. May be empty. |
+
+A metric name may appear multiple times when the same metric is reported by different archives.
+
+### Enumerations
+
+#### prodserver.mcp.metrics.Scope
+| Value | Description |
+| :---  | :---        |
+| All | All metrics known to the MATLAB Production Server instance. |
+| Instance | Only MPS instance metrics (prefix `matlabprodserver_`). |
+| MCP | Only MCP framework metrics (prefix `MCP_`). |
+| Server | Only metrics matching the archive name derived from the URI. |
+| Tool | Only metrics for the specific tool. |
+
+#### prodserver.mcp.metrics.Type
+| Value | Description |
+| :---  | :---        |
+| Any | Do not filter by type (default for `filter` method). |
+| Counter | Monotonically increasing counters. Reset on server restart. |
+| Gauge | Point-in-time measurements that can increase or decrease. |
+
+#### prodserver.mcp.metrics.Match
+| Value | Description |
+| :---  | :---        |
+| Exact | Exact string match (default). |
+| Contains | Substring match. |
 
 # Examples
 
-Retrieve all MCP-scoped metrics from a running server:
+Retrieve a metrics catalog from a running server:
 ```MATLAB
-m = prodserver.mcp.metrics("http://localhost:9910/primeSequence/mcp")
+catalog = prodserver.mcp.metrics("http://localhost:9910/primeSequence/mcp")
 ```
-Returns a structure with fields for each MCP metric. This call uses the default scope:  `MetricsScope.MCP`.
+Returns a Catalog object. Use filter methods to query specific metrics.
 
 ***
 
-Retrieve metrics scoped to a specific MCP tool server:
+Get all MCP-scoped metrics:
 ```MATLAB
-m = prodserver.mcp.metrics("http://localhost:9910/primeSequence/mcp", ...
-    prodserver.mcp.MetricsScope.Server)
+catalog = prodserver.mcp.metrics("http://localhost:9910/primeSequence/mcp");
+m = catalog.scope(prodserver.mcp.metrics.Scope.MCP)
 ```
-Returns only those metrics whose names contain the MCP server name, which is derived from the endpoint URI -- `primeSequence`, in this example.
+Returns a struct array of all metrics with the `MCP_` prefix.
 
 ***
 
 Check the total MCP framework request count:
 ```MATLAB
-m = prodserver.mcp.metrics("http://localhost:9910/primeSequence/mcp", ...
-    prodserver.mcp.MetricsScope.MCP);
-m.MCP_Framework_Request.value
+catalog = prodserver.mcp.metrics("http://localhost:9910/primeSequence/mcp");
+m = catalog.name("MCP_Framework_Request");
+m(1).value
 ```
-The `value` field is a numeric count of requests handled by the MCP framework. This includes all requests to every MCP server hosted by the MPS instance at `localhost:9910` and all of the MCP tools hosted by those MCP servers.
+The `value` field is a numeric count of requests handled by the MCP framework across all archives on the instance.
 
 ***
 
-Retrieve all metrics from the server instance with a shorter timeout:
+Get all metrics from a specific archive:
 ```MATLAB
-m = prodserver.mcp.metrics("http://localhost:9910/primeSequence/mcp", ...
-    prodserver.mcp.MetricsScope.All, timeout=30, retry=5)
+catalog = prodserver.mcp.metrics("http://localhost:9910/primeSequence/mcp");
+m = catalog.archive("primeSequence")
 ```
-Returns every metric reported by the MATLAB Production Server, including both instance-level and MCP metrics.
+Returns all metrics reported by the `primeSequence` archive.
+
+***
+
+Filter by type:
+```MATLAB
+catalog = prodserver.mcp.metrics("http://localhost:9910/primeSequence/mcp");
+m = catalog.type(prodserver.mcp.metrics.Type.Counter)
+```
+Returns only counter metrics.
+
+***
+
+Substring matching on metric names:
+```MATLAB
+catalog = prodserver.mcp.metrics("http://localhost:9910/primeSequence/mcp");
+m = catalog.name("Request", match="Contains")
+```
+Returns all metrics whose name contains "Request".
+
+***
+
+Combined filtering with the `filter` method:
+```MATLAB
+catalog = prodserver.mcp.metrics("http://localhost:9910/primeSequence/mcp");
+m = catalog.filter(archive="primeSequence", type=prodserver.mcp.metrics.Type.Counter)
+```
+Returns only counter metrics from the `primeSequence` archive.
+
+***
+
+Retrieve metrics with a shorter timeout:
+```MATLAB
+catalog = prodserver.mcp.metrics("http://localhost:9910/primeSequence/mcp", ...
+    timeout=30, retry=5)
+```
+Returns a Catalog for every metric reported by the MATLAB Production Server.
+
 
 --- Copyright 2025-2026 The MathWorks, Inc. ---
