@@ -115,11 +115,18 @@ classdef tMetrics < MCPCaller
             % Make one tool call
             prodserver.mcp.call(test.endpoint, test.toolName, 7);
 
-            % After
-            m2 = prodserver.mcp.metrics(test.endpoint, MetricsScope.MCP);
-            test.assertTrue(isfield(m2, toolMetric), ...
-                "Tool call metric should exist after call");
-            after = m2.(toolMetric).value;
+            % After — poll until the metric increments (CI can be slow)
+            after = before;
+            for attempt = 1:10
+                m2 = prodserver.mcp.metrics(test.endpoint, MetricsScope.MCP);
+                test.assertTrue(isfield(m2, toolMetric), ...
+                    "Tool call metric should exist after call");
+                after = m2.(toolMetric).value;
+                if after > before
+                    break
+                end
+                pause(0.5);
+            end
 
             test.verifyEqual(after, before + 1, ...
                 "Tool call metric should increment by 1");
