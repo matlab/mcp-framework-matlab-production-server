@@ -64,6 +64,12 @@ catalog.archive("BeamAnalysis")                  % All metrics from one archive
 catalog.type(prodserver.mcp.metrics.Type.Counter) % All counter metrics
 ```
 
+The `filter` method combines multiple criteria in a single call:
+
+```MATLAB
+catalog.filter(archive="BeamAnalysis", type=prodserver.mcp.metrics.Type.Counter)
+```
+
 See [metrics.md](metrics.md) for the complete Catalog API reference.
 
 ## Enabling Metrics

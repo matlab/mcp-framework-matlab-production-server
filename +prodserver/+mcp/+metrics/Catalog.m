@@ -30,11 +30,12 @@ classdef Catalog
             %
             % Multiple archives may have a metric with the same name. 
             %
-            % Create structure array with fields "name", "archive", "type" 
-            % and "value".
+            % Create structure array with fields "name", "archive", "suffix", 
+            % "type" and "value".
             %
             %   name = "matlabprodserver_up_time_seconds";
             %   archive = "";
+            %   suffix = [];
             %   type = "counter";
             %   value = 46.0555;
             %
@@ -51,7 +52,7 @@ classdef Catalog
             N = numel(data)/2;
             void = cell(N,1);
             mc.metrics = struct("name", void, "type", void, ...
-                "archive", void, "value", void);
+                "archive", void, "suffix", void, "value", void);
 
             % Parse the data
             archivePattern = "{" + wildcardPattern(except="}") + "}";
@@ -67,9 +68,12 @@ classdef Catalog
                         archiveLabel, 2, strlength(archiveLabel)-1);
                     archiveLabel = extractBetween(...
                         archiveLabel, "archive=""", """");
-                    mc.metrics(idx).archive = erase(archiveLabel, suffixPattern);
+                    mc.metrics(idx).suffix = erase(extract(archiveLabel, ...
+                        suffixPattern),"_");
+                    mc.metrics(idx).archive = erase(archiveLabel,suffixPattern);
                 else
                     mc.metrics(idx).archive = "";
+                    mc.metrics(idx).suffix = [];
                 end
                 mc.metrics(idx).value = nvp(2);
                 mc.metrics(idx).type = split(data(n));
@@ -78,6 +82,47 @@ classdef Catalog
                         strcmpi(mc.metrics(idx).type, "gauge")
                     mc.metrics(idx).value = double(mc.metrics(idx).value);
                 end
+            end
+        end
+
+        function metrics = filter(mc, opts)
+
+            arguments
+                mc prodserver.mcp.metrics.Catalog
+                opts.archive string = string.empty
+                opts.name string = string.empty
+                opts.type prodserver.mcp.metrics.Type = "Any"
+                opts.match prodserver.mcp.metrics.Match = "Exact"
+            end
+
+            metrics = mc.metrics;
+
+            if ~isempty(opts.name)
+                n = [metrics.name];
+                switch opts.match
+                    case "Exact"
+                        i = strcmp(n,opts.name);
+                    case "Contains"
+                        i = contains(n,opts.name);
+                end
+                metrics = metrics(i);
+            end
+
+            if ~isempty(opts.archive) > 0
+                a = [metrics.archive];
+                switch opts.match
+                    case "Exact"
+                        i = strcmp(a,opts.archive);
+                    case "Contains"
+                        i = contains(a,opts.archive);
+                end
+                metrics = metrics(i);
+            end
+
+            if opts.type ~= prodserver.mcp.metrics.Type.Any
+                t = [metrics.type];
+                i = strcmpi(t,opts.type);
+                metrics = metrics(i);
             end
         end
 
@@ -94,14 +139,7 @@ classdef Catalog
                 opts.match prodserver.mcp.metrics.Match = "Exact"
             end
 
-            list = [ mc.metrics.name ];
-            switch opts.match
-                case "Exact"
-                    i = strcmp(list,n);
-                case "Contains"
-                    i = contains(list,n);
-            end
-            metrics = mc.metrics(i);
+            metrics = filter(mc,name=n,match=opts.match);
         end
 
         function metrics = archive(mc, a, opts)
@@ -116,14 +154,7 @@ classdef Catalog
                 opts.match prodserver.mcp.metrics.Match = "Exact"
             end
 
-            list = [ mc.metrics.archive ];
-            switch opts.match
-                case "Exact"
-                    i = strcmp(list,a);
-                case "Contains"
-                    i = contains(list,a);
-            end
-            metrics = mc.metrics(i);
+            metrics = filter(mc,archive=a,match=opts.match);
         end
 
         function metrics = type(mc, t)
@@ -138,9 +169,7 @@ classdef Catalog
                 t prodserver.mcp.metrics.Type
             end
 
-            list = [ mc.metrics.type ];
-            i = strcmp(list, lower(string(t)));
-            metrics = mc.metrics(i);
+            metrics = filter(mc,type=t);
         end
 
         function metrics = scope(mc, s)

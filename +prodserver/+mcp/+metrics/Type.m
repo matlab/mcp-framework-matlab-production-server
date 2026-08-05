@@ -4,6 +4,7 @@ classdef Type
  % Copyright 2026 The MathWorks, Inc.
 
     enumeration
+        Any
         Counter
         Gauge
     end

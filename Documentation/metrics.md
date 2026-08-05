@@ -26,12 +26,13 @@ Pass optional arguments with *argument=value* syntax following required inputs. 
 
 ## Catalog API
 
-The returned `Catalog` object provides the following filter methods. Each method returns a struct array with fields `name`, `type`, `archive`, and `value`.
+The returned `Catalog` object provides the following filter methods. Each method returns a struct array with fields `name`, `type`, `archive`, `suffix`, and `value`.
 
 ### Filter Methods
 
 | Method | Signature | Description |
 | :---   | :---      | :---        |
+| filter | `m = catalog.filter(name=n, archive=a, type=t, match=m)` | Combined filter — all options are optional |
 | name | `m = catalog.name(n)` | All metrics with name exactly matching `n` |
 | name | `m = catalog.name(n, match="Contains")` | All metrics whose name contains `n` |
 | archive | `m = catalog.archive(a)` | All metrics from archive `a` exactly |
@@ -39,15 +40,18 @@ The returned `Catalog` object provides the following filter methods. Each method
 | type | `m = catalog.type(t)` | All metrics of type `t` |
 | scope | `m = catalog.scope(s)` | All metrics matching scope `s` |
 
+The `filter` method accepts any combination of `name`, `archive`, `type`, and `match` as name-value arguments. Omitted criteria are not applied. The `name`, `archive`, and `type` methods are convenience wrappers around `filter`.
+
 ### Return Value
 
-Each filter method returns a struct array. Each element has four fields:
+Each filter method returns a struct array. Each element has five fields:
 
 | Field | Type | Description |
 | :---  | :--- | :---        |
 | name | string | The metric name (e.g., "MCP_Framework_Request"). |
 | type | string | The metric type ("counter" or "gauge"). |
 | archive | string | The archive (deployed CTF) that generated the metric. Empty for instance-level metrics. |
+| suffix | string or [] | The numeric deployment suffix (e.g., "3" from "AlphaServer_3"). Empty for instance-level metrics. |
 | value | double or string | Numeric value for counter and gauge types; string otherwise. |
 
 A metric name may appear multiple times when the same metric is reported by different archives.
@@ -66,6 +70,7 @@ A metric name may appear multiple times when the same metric is reported by diff
 #### prodserver.mcp.metrics.Type
 | Value | Description |
 | :---  | :---        |
+| Any | Do not filter by type (default for `filter` method). |
 | Counter | Monotonically increasing counters. Reset on server restart. |
 | Gauge | Point-in-time measurements that can increase or decrease. |
 
@@ -128,6 +133,15 @@ catalog = prodserver.mcp.metrics("http://localhost:9910/primeSequence/mcp");
 m = catalog.name("Request", match="Contains")
 ```
 Returns all metrics whose name contains "Request".
+
+***
+
+Combined filtering with the `filter` method:
+```MATLAB
+catalog = prodserver.mcp.metrics("http://localhost:9910/primeSequence/mcp");
+m = catalog.filter(archive="primeSequence", type=prodserver.mcp.metrics.Type.Counter)
+```
+Returns only counter metrics from the `primeSequence` archive.
 
 ***
 

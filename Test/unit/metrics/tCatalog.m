@@ -167,6 +167,115 @@ classdef tCatalog < matlab.unittest.TestCase
             end
         end
 
+        % --- suffix tests ---
+
+        function suffixParsedFromArchiveName(test)
+            m = test.catalog.archive("AlphaServer");
+            test.verifyNumElements(m, 3);
+            for k = 1:numel(m)
+                test.verifyEqual(m(k).suffix, "3");
+            end
+        end
+
+        function suffixVariesByArchive(test)
+            suffixes = string.empty;
+            archives = ["AlphaServer","BetaServer","GammaServer",...
+                "DeltaServer","EpsilonServer"];
+            expected = ["3","1","2","5","4"];
+            for k = 1:numel(archives)
+                m = test.catalog.archive(archives(k));
+                suffixes(k) = m(1).suffix;
+            end
+            test.verifyEqual(suffixes, expected);
+        end
+
+        function suffixEmptyForInstanceMetrics(test)
+            m = test.catalog.name("matlabprodserver_up_time_seconds");
+            test.verifyEmpty(m.suffix);
+        end
+
+        % --- filter() tests ---
+
+        function filterByNameExact(test)
+            m = test.catalog.filter(name="MCP_Framework_Request");
+            test.verifyNumElements(m, 5);
+            for k = 1:numel(m)
+                test.verifyEqual(m(k).name, "MCP_Framework_Request");
+            end
+        end
+
+        function filterByNameContains(test)
+            m = test.catalog.filter(name="doWork", ...
+                match="Contains");
+            test.verifyNumElements(m, 2);
+        end
+
+        function filterByArchiveExact(test)
+            m = test.catalog.filter(archive="BetaServer");
+            test.verifyNumElements(m, 4);
+            for k = 1:numel(m)
+                test.verifyEqual(m(k).archive, "BetaServer");
+            end
+        end
+
+        function filterByTypeCounter(test)
+            m = test.catalog.filter( ...
+                type=prodserver.mcp.metrics.Type.Counter);
+            test.verifyNumElements(m, 18);
+            for k = 1:numel(m)
+                test.verifyEqual(m(k).type, "counter");
+            end
+        end
+
+        function filterByTypeGauge(test)
+            m = test.catalog.filter( ...
+                type=prodserver.mcp.metrics.Type.Gauge);
+            test.verifyNumElements(m, 9);
+        end
+
+        function filterCombinesNameAndArchive(test)
+            m = test.catalog.filter(name="MCP_Framework_Request", ...
+                archive="AlphaServer");
+            test.verifyNumElements(m, 1);
+            test.verifyEqual(m.name, "MCP_Framework_Request");
+            test.verifyEqual(m.archive, "AlphaServer");
+        end
+
+        function filterCombinesArchiveAndType(test)
+            m = test.catalog.filter(archive="EpsilonServer", ...
+                type=prodserver.mcp.metrics.Type.Gauge);
+            test.verifyNumElements(m, 2);
+            for k = 1:numel(m)
+                test.verifyEqual(m(k).archive, "EpsilonServer");
+                test.verifyEqual(m(k).type, "gauge");
+            end
+        end
+
+        function filterCombinesAllThreeCriteria(test)
+            m = test.catalog.filter(name="MCP_Framework_Request", ...
+                archive="GammaServer", ...
+                type=prodserver.mcp.metrics.Type.Counter);
+            test.verifyNumElements(m, 1);
+            test.verifyEqual(m.value, 42);
+        end
+
+        function filterNoMatchReturnsEmpty(test)
+            m = test.catalog.filter(name="nonexistent", ...
+                archive="AlphaServer");
+            test.verifyEmpty(m);
+        end
+
+        function filterWithContainsMatch(test)
+            m = test.catalog.filter(name="Request", ...
+                archive="Server", match="Contains");
+            test.verifyNumElements(m, 10);
+        end
+
+        function filterWithNoOptionsReturnsAll(test)
+            m = test.catalog.filter();
+            test.verifyNumElements(m, 27);
+        end
+
         % --- Value correctness ---
 
         function duplicateCounterPreservesAllValues(test)
