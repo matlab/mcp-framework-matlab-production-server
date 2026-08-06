@@ -25,6 +25,9 @@ function [cleanupMPS, cleanupDir, mps] = startMPS(options)
     dataFolder = fullfile(workDir, "data");
     mkdir(dataFolder);
 
+    % Make each worker host only one CTF archive.
+    setenv("MW_MULTIMCOS_MODE", true);
+
     fprintf("Starting MPS instance in %s\n", workDir);
     mps = qeDeployMADSWebServer(workDir);
     mps.protocol = 'http';
