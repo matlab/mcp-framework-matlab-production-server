@@ -1,0 +1,54 @@
+# Outdoor temperature sensor with cellular modem (2-day deployment)
+# Location: rooftop weather station, mid-latitude summer
+# Hourly readings. NaN = cellular modem communication failure.
+# Diurnal range approximately 15-25 C, peak near solar noon.
+# Use with: interpolateWithMissing
+hour,temperature_c
+0,15.1
+1,15.2
+2,15.6
+3,16.5
+4,17.6
+5,18.7
+6,19.7
+7,NaN
+8,NaN
+9,23.5
+10,24.4
+11,24.7
+12,24.9
+13,25.1
+14,24.3
+15,23.6
+16,22.4
+17,21.3
+18,19.9
+19,NaN
+20,NaN
+21,NaN
+22,15.6
+23,15.0
+24,15.3
+25,15.3
+26,15.6
+27,16.8
+28,17.9
+29,19.4
+30,20.1
+31,21.1
+32,22.4
+33,23.8
+34,23.9
+35,NaN
+36,24.7
+37,25.3
+38,24.4
+39,23.9
+40,22.0
+41,21.2
+42,19.9
+43,19.0
+44,17.5
+45,16.1
+46,15.5
+47,14.8
