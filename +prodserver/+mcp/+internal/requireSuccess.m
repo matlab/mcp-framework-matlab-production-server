@@ -52,7 +52,7 @@ function requireSuccess(response,uri,opts)
 end
 
 function summary = errorResponseBody(response)
-    summary = "";
+    summary = " (empty)";
     if isempty(response.Body) || isempty(response.Body.Data)
         return
     end
