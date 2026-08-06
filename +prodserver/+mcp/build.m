@@ -68,6 +68,9 @@ function [ctf,endpoint] = build(fcn, opts)
 
         % Stage at which to stop the build process. Useful for testing.
         opts.stop (1,1) prodserver.mcp.BuildStage = prodserver.mcp.BuildStage.Deploy
+
+        % Include discovery metadata in archive for /api/discovery endpoint.
+        opts.discovery (1,1) logical = true
     end
 
     import prodserver.mcp.MCPConstants
@@ -226,7 +229,7 @@ function [ctf,endpoint] = build(fcn, opts)
 
     % Build the MCP-enabled CTF archive unless stop-stage prevents it.
     ctf = buildMCP(files,opts.folder,opts.archive,definitionFile, ...
-        opts.routes, opts.stop);
+        opts.routes, opts.stop, opts.discovery);
 
     % If a server was provided, publish the archive to the server.
     if opts.stop < prodserver.mcp.BuildStage.Deploy, return; end
@@ -263,7 +266,7 @@ function name = basename(fcn)
     name = arrayfun(@(f)fcnName(f),fcn);
 end
 
-function ctf = buildMCP(files, folder, archive, definition, routesType, stop)
+function ctf = buildMCP(files, folder, archive, definition, routesType, stop, discovery)
 %buildMCP Create a Model Context Protocol-enabled CTF archive for MATLAB
 %Production Server.
 
@@ -363,6 +366,13 @@ function ctf = buildMCP(files, folder, archive, definition, routesType, stop)
         binFiles(ad*2-1:ad*2) = bf;
     end
 
+    discoveryArgs = {};
+    if discovery
+        discoveryFile = prodserver.mcp.internal.discoverySignatures( ...
+            folder, archive);
+        discoveryArgs = {"FunctionSignatures", discoveryFile};
+    end
+
     if stop < prodserver.mcp.BuildStage.Archive, return; end
 
     % This is a terrible, temporary, solution to a complex problem. It must
@@ -371,15 +381,17 @@ function ctf = buildMCP(files, folder, archive, definition, routesType, stop)
     excludeState = warning('off','Compiler:compiler:COM_WARN_EXCLUDED_FILE');
     restoreWarning = onCleanup(@()warning(excludeState));
 
-    % Can't suppress the text emitted by MATLAB Compiler, since 
-    % ProductionServerArchiveOptions has no way to suppress a warning. 
-    % This is the way to suppress it when calling MCC directly: 
-    %      -w disable:Compiler:compiler:COM_WARN_EXCLUDED_FILE 
+    % Can't suppress the text emitted by MATLAB Compiler, since
+    % ProductionServerArchiveOptions has no way to suppress a warning.
+    % This is the way to suppress it when calling MCC directly:
+    %      -w disable:Compiler:compiler:COM_WARN_EXCLUDED_FILE
 
     hFiles = arrayfun(@(fcn)string(which(fcn)),handlers);
+
     opts = compiler.build.ProductionServerArchiveOptions(hFiles, ...
-        args{:}, ArchiveName=archive, AdditionalFiles=[definition, ...
-        files, schemes, binFiles], OutputDir=folder);
+        args{:}, discoveryArgs{:}, ArchiveName=archive, ...
+        AdditionalFiles=[definition, files, schemes, binFiles], ...
+        OutputDir=folder);
     results = compiler.build.productionServerArchive(opts);
     ctf = string(results.Files{1});
 end

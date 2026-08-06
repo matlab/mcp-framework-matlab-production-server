@@ -107,6 +107,9 @@ calling them in MATLAB. For example, call `build` using its full name: `prodserv
 | [ping](./Documentation/ping.md) | Send a ping to server at `endpoint`. Return true if server responsive. | `ping(endpoint)` |
 | [agent.setup](./Documentation/agent.setup.md) | Install MCP Framework skills for AI coding agents | `agent.setup` |
 
+## Discovery
+Archives built with MCP Framework include metadata for the MATLAB Production Server [discovery endpoint](https://www.mathworks.com/help/mps/restfuljson/restful-api-for-discovery-and-diagnostics.html). This makes deployed MCP tools visible via `GET /api/discovery`. To disable, set `discovery=false` in the call to `build`.
+
 ## Utilities
 | Name | Description |  
 | :---     | :---    |

@@ -35,6 +35,7 @@ function [cleanupMPS, cleanupDir, mps] = startMPS(options)
     mps.start();
     mps.updateConfigFile(mps.configFile,'enable-archive-management',true);
 	mps.updateConfigFile(mps.configFile,'enable-metrics',true);
+	mps.updateConfigFile(mps.configFile,'enable-discovery',true);
     mps.restart();
 
     serverUrl = regexprep(mps.getBrowserUrl(), '/$', '');

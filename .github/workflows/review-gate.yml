@@ -4,6 +4,12 @@ on:
   pull_request:
     branches: [main]
     types: [opened, edited, synchronize]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'Pull request number to check'
+        required: true
+        type: number
 
 permissions:
   contents: read
@@ -21,7 +27,11 @@ jobs:
 
       - name: Check for review and response
         run: |
-          PR=${{ github.event.pull_request.number }}
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            PR=${{ inputs.pr_number }}
+          else
+            PR=${{ github.event.pull_request.number }}
+          fi
           REVIEW_FILE="reviews/PR-${PR}.md"
 
           if [ ! -f "$REVIEW_FILE" ]; then

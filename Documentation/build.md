@@ -37,6 +37,7 @@ Pass optional arguments with *argument=value* syntax following required inputs. 
 | retry | integer | Number of times to retry network operations that have timed out. Total attempts will be retry + 1. | 2 | 0 |
 | routes | enumeration | Embed routes(in archive or use global routes? | "Archive" | "Global" | 
 | server | string | Network address of active MATLAB Production Server | "" | "http<!-- -->://localhost:9910" | 
+| discovery | logical | Include discovery metadata in the archive for the MPS [/api/discovery](https://www.mathworks.com/help/mps/restfuljson/restful-api-for-discovery-and-diagnostics.html) endpoint. | true | false |
 | timeout | integer | Timeout, in seconds, for server interactions. | 30 | 17 |
 | tool | string | Name by which the tool will be known on the server. | Base name of `fcn`. | "primeMCP" | 
 | wrapper | string | Path to [data marshaling wrapper](./ExternalData.md) function | "" | "primeMCP.m" |
