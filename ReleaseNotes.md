@@ -12,4 +12,12 @@ Initial release. Features:
 * Support for optional inputs and outputs in automatically generated wrapper functions.
 * Handwritten wrapper functions still supported (and will remain supported for the foreseeable future).
 
+# 2.0: Aug. 2026
+* Wire-encoding for data types plain JSON can't handle.
+* Metrics & Observability
+* Integration with MPS discovery API
+* MCP Resources fully supported.
+* build() method supports additional files.
+* AI agent skills for tool building and deployment.
 
+--- Copyright 2025-2026 The MathWorks, Inc. ---

@@ -4,3 +4,6 @@ suitable for deployment as MCP tools. These tools are used for testing,
 so don't be surprised if they do things that are unconventinal or wrong. 
 
 * **fractals**: Functions to generate various fractals.
+
+--- Copyright 2025-2026 The MathWorks, Inc. ---
+

@@ -13,3 +13,6 @@ SECURITY.md
 *.txt
 *.wrap
 *.yaml
+*.prompt
+.gitattributes
+Test/unit/definition/notMATLAB
