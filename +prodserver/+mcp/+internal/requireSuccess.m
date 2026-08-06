@@ -37,9 +37,44 @@ function requireSuccess(response,uri,opts)
             end
         end
 
-        ex = MException("prodserver:mcp:HttpError",...
-            "Request %s to %s failed with error code %s: %s", ...
-            opts.request,uri,string(sc),getReasonPhrase(sc));
+        body = errorResponseBody(response);
+        if strlength(body) > 0
+            ex = MException("prodserver:mcp:HttpError",...
+                "Request %s to %s failed with error code %s: %s\nBody: %s", ...
+                opts.request,uri,string(sc),getReasonPhrase(sc),body);
+        else
+            ex = MException("prodserver:mcp:HttpError",...
+                "Request %s to %s failed with error code %s: %s", ...
+                opts.request,uri,string(sc),getReasonPhrase(sc));
+        end
         throwAsCaller(ex);
+    end
+end
+
+function summary = errorResponseBody(response)
+    summary = "";
+    if isempty(response.Body) || isempty(response.Body.Data)
+        return
+    end
+    data = response.Body.Data;
+    if isstruct(data)
+        encoded = string(jsonencode(data));
+        if strlength(encoded) <= 80
+            summary = encoded;
+        else
+            summary = "JSON object with fields: " + ...
+                strjoin(string(fieldnames(data)), ", ");
+        end
+    elseif ischar(data) || isstring(data)
+        txt = string(data);
+        if strlength(txt) <= 80
+            summary = txt;
+        else
+            summary = extractBefore(txt, 78) + "...";
+        end
+    elseif isa(data, 'uint8')
+        summary = sprintf("binary data (%d bytes)", numel(data));
+    else
+        summary = sprintf("%s value", class(data));
     end
 end
