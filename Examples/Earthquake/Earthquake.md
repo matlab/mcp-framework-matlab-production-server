@@ -72,3 +72,4 @@ plotURL = "file:" + plotFile;
 [status,msg] = prodserver.mcp.call(endpoint, "plotTrajectories", quakeData, 200,0.098,8,15, ...
     plotURL)
 ```
+--- Copyright 2025-2026 The MathWorks, Inc. ---

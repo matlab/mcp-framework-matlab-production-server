@@ -60,3 +60,4 @@ epr = prodserver.mcp.call(endpoint, "primeSequence", 9, "eisenstein")'
     epr = 1×9
         2     5    11    17    23    29    41    47    53
 ```
+--- Copyright 2025-2026 The MathWorks, Inc. ---

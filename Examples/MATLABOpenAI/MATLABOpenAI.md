@@ -37,3 +37,5 @@ plot(data);
 The ReAct AI agent interaction paradigm was introduced in 2023:
 
 Shunyu Yao, Jeffrey Zhao, Dian Yu, Nan Du, Izhak Shafran, Karthik Narasimhan, and Yuan Cao. "ReAct: Synergizing Reasoning and Acting in Language Models". ArXiv, 10 March 2023. https://doi.org/10.48550/arXiv.2210.03629.
+
+--- Copyright 2025-2026 The MathWorks, Inc. ---

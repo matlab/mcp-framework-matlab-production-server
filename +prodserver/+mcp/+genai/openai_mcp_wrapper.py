@@ -4,7 +4,7 @@
 # Usage:
 #    openai_mcp_wrapper.py --for <function> -- in <folder> 
 
-# Copyright 2025, The MathWorks, Inc.
+# Copyright 2025 The MathWorks, Inc.
 
 import argparse
 from agents import Agent, Runner
