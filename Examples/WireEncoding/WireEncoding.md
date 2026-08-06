@@ -307,7 +307,7 @@ mcp://protocol/tools/wire-format/parameters/encoding_rules
 LLMs read this resource to learn the encoding rules. The key rules are:
 - Arrays are **never** bare `[1,2,3]` — always wrapped with `type`, `size`, `data`
 - `size` preserves orientation: `[1,3]` for row, `[3,1]` for column
-- Data is **column-major** (MATLAB convention)
+- Data is **row-major** (last index varies fastest)
 - Complex values use `"mwcomplex":true` with `[real, imag]` pairs
 - NaN, Inf, -Inf are encoded as strings: `"NaN"`, `"Inf"`, `"-Inf"`
 - Integer types are explicit: `"type":"uint8"`, `"type":"int16"`, etc.
