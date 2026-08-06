@@ -85,6 +85,11 @@ classdef tDiscoveryCI < MCPCaller
 
             prodserver.mcp.deploy(ctf, test.host, test.port);
 
+            % Verify the archive is deployed and responsive
+            endpoint = test.server + "/" + archive + "/mcp";
+            test.assertTrue(prodserver.mcp.ping(endpoint), ...
+                "Archive should be deployed and responsive");
+
             discoveryUrl = test.server + "/api/discovery";
             response = webread(discoveryUrl);
 

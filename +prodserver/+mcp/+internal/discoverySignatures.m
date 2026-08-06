@@ -18,6 +18,7 @@ function filePath = discoverySignatures(folder, archive)
             "purpose","MCP JSON-RPC response") };
 
     json = jsonencode(entry, PrettyPrint=true);
+    json = regexprep(json, '\n', '\n    ');
 
     % Build the full JSON manually because:
     %  - _schemaVersion is not a valid MATLAB struct field name
@@ -28,6 +29,10 @@ function filePath = discoverySignatures(folder, archive)
 
     filePath = fullfile(folder, archive + "_functionSignatures.json");
     fid = fopen(filePath, "w");
+    if fid == -1
+        error("prodserver:mcp:CannotWriteDiscovery", ...
+            "Cannot write discovery signatures to '%s'.", filePath);
+    end
     closeFile = onCleanup(@()fclose(fid));
     fwrite(fid, json);
 end
