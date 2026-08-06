@@ -15,4 +15,4 @@ SECURITY.md
 *.yaml
 *.prompt
 .gitattributes
-Test/unit/defintion/notMATLAB
+Test/unit/definition/notMATLAB

@@ -1,6 +1,6 @@
 # Determine if all of the given packages are installed.
 
-# Copyright 2025 The MathWorks, Inc.
+# Copyright 2026-2025 The MathWorks, Inc.
 
 from importlib.util import find_spec
 import sys
