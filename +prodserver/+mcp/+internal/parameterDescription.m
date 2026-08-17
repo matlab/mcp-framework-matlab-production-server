@@ -1,4 +1,4 @@
-function [input,output,inHasNVP] = parameterDescription(mf)
+function [input,output,inHasNVP] = parameterDescription(mf,opts)
 % parameterDescription Determine input and output parameter descriptions.
 %
 % Search the file for arguments blocks (which must be present) and extract
@@ -14,15 +14,25 @@ function [input,output,inHasNVP] = parameterDescription(mf)
 % (Output) modifier are BOTH on the same line.
 %
 % Like this:
-%    arguments(Input) 
+%    arguments(Input)
 % NOT like this:
 %    arguments ...
 %        (Input)
 %
 % (I don't even know if MATLAB allows that ... syntax. It shouldn't. But if
 % it does, I explicitly disallow it here.)
+%
+% When strict=false, missing argument blocks or missing descriptions do not
+% error — empty dictionaries or empty description fields are returned
+% instead. This allows schema() to extract whatever comments are available
+% without requiring full documentation.
 
 % Copyright 2025-2026 The MathWorks, Inc.
+
+    arguments
+        mf
+        opts.strict (1,1) logical = true
+    end
 
     file = mf.FullPath;
     text = readlines(file);
@@ -82,31 +92,44 @@ function [input,output,inHasNVP] = parameterDescription(mf)
 
     if isempty(mf.Signature.Inputs) == false
         if inArgLine == 0
-            error("prodserver:mcp:InputArgBlockRequired", ...
-                "Function %s has inputs but %s contains no input " + ...
-                "arguments block. Cannot create an MCP tool " + ...
-                "without an input arguments block.",mf.Name,mf.FullPath);
+            if opts.strict
+                error("prodserver:mcp:InputArgBlockRequired", ...
+                    "Function %s has inputs but %s contains no input " + ...
+                    "arguments block. Cannot create an MCP tool " + ...
+                    "without an input arguments block.",mf.Name,mf.FullPath);
+            else
+                input = [];
+                if isempty(mf.Signature.Outputs) || outArgLine == 0
+                    output = [];
+                    return;
+                end
+                % Fall through to process outputs
+            end
         end
-        % Build a dictionary mapping argument name to argument description.
-        [ad,hasGroup] = argDescriptionFromBlock(textLines,inArgLine,...
-            mf.FullPath,"input");
-        
-        % Number of keys in ad must match number of input arguments.
-        if numEntries(ad) ~= numel(mf.Signature.Inputs)
-            error("prodserver:mcp:InputBlockSizeMismatch", ...
-                "Number of arguments in input arguments block (%d) " + ...
-                "does not match number of function inputs (%d).", ...
-                numEntries(ad), numel(mf.Signature.Inputs));
+        if inArgLine > 0
+            % Build a dictionary mapping argument name to argument description.
+            [ad,hasGroup] = argDescriptionFromBlock(textLines,inArgLine,...
+                mf.FullPath,"input",opts.strict);
+
+            % Number of keys in ad must match number of input arguments.
+            if numEntries(ad) ~= numel(mf.Signature.Inputs)
+                if opts.strict
+                    error("prodserver:mcp:InputBlockSizeMismatch", ...
+                        "Number of arguments in input arguments block (%d) " + ...
+                        "does not match number of function inputs (%d).", ...
+                        numEntries(ad), numel(mf.Signature.Inputs));
+                end
+            end
+
+            % This dictionary maps input names to their descriptions.
+            input = ad;
+
+            % If there are grouped input arguments, the function supports
+            % optional name value pair arguments.
+            if hasGroup, inHasNVP = true; end
         end
-
-        % This dictionary maps input names to their descriptions.
-        input = ad;
-
-        % If there are grouped input arguments, the function supports
-        % optional name value pair arguments.
-        if hasGroup, inHasNVP = true; end
     else
-        input = [];  
+        input = [];
     end
 
     % if the metafunction lists outputs, we require an outputs argument
@@ -114,18 +137,26 @@ function [input,output,inHasNVP] = parameterDescription(mf)
 
     if isempty(mf.Signature.Outputs) == false
         if outArgLine == 0
-            error("prodserver:mcp:OutputArgBlockRequired", ...
-                "Function %s has outputs but %s contains no output " + ...
-                "arguments block. Cannot create an MCP tool " + ...
-                "without an output arguments block.",mf.Name, mf.FullPath);
+            if opts.strict
+                error("prodserver:mcp:OutputArgBlockRequired", ...
+                    "Function %s has outputs but %s contains no output " + ...
+                    "arguments block. Cannot create an MCP tool " + ...
+                    "without an output arguments block.",mf.Name, mf.FullPath);
+            else
+                output = [];
+                return;
+            end
         end
-        ad = argDescriptionFromBlock(textLines,outArgLine,mf.FullPath,"output");
+        ad = argDescriptionFromBlock(textLines,outArgLine,mf.FullPath,...
+            "output",opts.strict);
 
         if numEntries(ad) ~= numel(mf.Signature.Outputs)
-            error("prodserver:mcp:OutputBlockSizeMismatch", ...
-                "Number of arguments in output arguments block (%d) " + ...
-                "does not match number of function outputs (%d).", ...
-                numEntries(ad), numel(mf.Signature.Outputs));
+            if opts.strict
+                error("prodserver:mcp:OutputBlockSizeMismatch", ...
+                    "Number of arguments in output arguments block (%d) " + ...
+                    "does not match number of function outputs (%d).", ...
+                    numEntries(ad), numel(mf.Signature.Outputs));
+            end
         end
 
         % This dictionary maps output names to their descriptions.
@@ -135,9 +166,9 @@ function [input,output,inHasNVP] = parameterDescription(mf)
     end
 end
 
-function [ad,hasGroup] = argDescriptionFromBlock(textLines,argBlockLine,file,block)
+function [ad,hasGroup] = argDescriptionFromBlock(textLines,argBlockLine,file,block,strict)
 % Find comments describing each argument in the argument block starting at
-% pos. Return dictionary: 
+% pos. Return dictionary:
 %    <arg name> --> <description> + <validation> + <group>
 
     import prodserver.mcp.MCPConstants
@@ -172,13 +203,15 @@ function [ad,hasGroup] = argDescriptionFromBlock(textLines,argBlockLine,file,blo
     end
 
     % No description may be empty. Validation may be empty.
-    for a = keys(ad)'
-        d = ad(a).description;
-        if isempty(d) || all(strlength(d) == 0)
-            error("prodserver:mcp:ArgumentDescriptionMissing", ...
-                "Missing description for %s argument %s in %s. Add a " + ...
-                "descriptive comment above or to the right of the " + ...
-                "declaration of %s.", block, a, file, a);
+    if strict
+        for a = keys(ad)'
+            d = ad(a).description;
+            if isempty(d) || all(strlength(d) == 0)
+                error("prodserver:mcp:ArgumentDescriptionMissing", ...
+                    "Missing description for %s argument %s in %s. Add a " + ...
+                    "descriptive comment above or to the right of the " + ...
+                    "declaration of %s.", block, a, file, a);
+            end
         end
     end
 

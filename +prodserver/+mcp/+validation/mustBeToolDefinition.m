@@ -16,6 +16,12 @@ function mustBeToolDefinition(x)
     % structures. Simplifies processing of cell array of heterogeneous
     % structures.
     if isstruct(x)
+        if ~isscalar(x)
+            for k = 1:numel(x)
+                prodserver.mcp.validation.mustBeToolDefinition(x(k));
+            end
+            return;
+        end
         if hasField(x,"tools") == false
             throwAsCaller(MException("prodserver:mcp:ToolDefinitionMissingTools",...
                 "MCP tool definition structure missing required field " + ...

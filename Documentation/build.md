@@ -30,6 +30,7 @@ Pass optional arguments with *argument=value* syntax following required inputs. 
 | :---     | :--- | :---        | :---    |:---     |
 | archive | string | Base name of deployable archive. | Base name of fcn. | "primeMCP" | 
 | definition | string, struct or file | Complete and correct MCP tool definition. | Empty struct | "primeMCP.json" |
+| tests | function_handle, string, or cell | Exercise functions for schema generation. Calls [`schema()`](./schema.md) internally to generate definitions. Incompatible with `definition`. | [] | @() myFunc(1,"test") |
 | files | string vector | Full path(s) to one or more files to add to the deployable archive. | "" | "/sandbox/data/weather/anomaly.mat" |
 | folder | string | Full or relative path to folder in which to write deployable archive. | "./deploy" | "/sandbox/work/mcp/archives" |
 | import | struct | ImportOptions for tool arguments | [] | delimitedTextImportOptions |
@@ -42,7 +43,7 @@ Pass optional arguments with *argument=value* syntax following required inputs. 
 | tool | string | Name by which the tool will be known on the server. | Base name of `fcn`. | "primeMCP" | 
 | wrapper | string | Path to [data marshaling wrapper](./ExternalData.md) function | "" | "primeMCP.m" |
 
-`fcn`, `wrapper` and `definition`
+`tests` and `definition` are mutually exclusive. If `tests` is provided, `build()` generates definitions by observing function calls via [`prodserver.mcp.schema`](./schema.md). See [Schemas](./Schemas.md) for background on schema generation approaches.
 
 # Examples
 
@@ -92,6 +93,15 @@ fcn = ["chaosdragon", "snowflake", "renderDragon", "drawvector"];
 % name as the first tool in the tool list.
 server = "Fractals";
 ctf = prodserver.mcp.build(fcn, tool=tool, archive=server, folder="./deploy")
+```
+
+***
+
+Build `schemaCompute` using test-based schema generation. The test exercises the function with representative inputs so that MCP Framework can observe argument types at runtime:
+```MATLAB
+ctf = prodserver.mcp.build("schemaCompute", ...
+    tests=@() schemaCompute(1.0, 2.0, 3.0, scale=2.0, label="test"), ...
+    server="http://localhost:9910");
 ```
 
 --- Copyright 2025-2026 The MathWorks, Inc. ---
