@@ -6,16 +6,19 @@ function classifyTest(tests)
 
 % Copyright 2026 The MathWorks, Inc.
 
-    if ~isa(tests, 'function_handle') && ~iscell(tests) && ...
-            ~isstring(tests) && ~ischar(tests)
-        error("prodserver:mcp:InvalidTestType", ...
-            "tests must be a function handle, cell array, or string. " + ...
-            "Got: %s", class(tests));
+    arguments(Input)
+        tests { prodserver.mcp.validation.mustBeTestSpecification }
     end
 
     if isa(tests, 'function_handle')
         % Single function handle
-        tests();
+        try
+            tests();
+        catch me
+            error("prodserver:mcp:TestFcnFailed", ...
+                "Cannot generate tool description. Test function " + ...
+                "%s failed: %s.", func2str(tests), me.message); 
+        end
         return;
     end
 
@@ -28,51 +31,62 @@ function classifyTest(tests)
 
     % String vector — classify each element
     for i = 1:numel(tests)
-        t = tests(i);
+        t = string(tests(i));
+        t = strrep(t, '\', '/');
 
         if isfolder(t)
-            runtests(t);
+            results = runtests(t,OutputDetail="None");
+            failed = sum([results.Failed]);
+            if failed ~= 0
+                error("prodserver:mcp:TestSuiteFailed", ...
+                    "Cannot generate tool description. Test suite in " + ...
+                    "%s has %d failure(s).", t, failed);
+            end
 
-        elseif endsWith(t, ".m")
-            % File path ending in .m — verify existence, then determine type
+        else
             if exist(t, "file") ~= 2
                 error("prodserver:mcp:TestFileNotFound", ...
                     "Test file '%s' not found.", t);
             end
-            if isTestFile(t)
-                runtests(t);
+            isTest = isTestFile(t);
+            if isTest
+                results = runtests(t,OutputDetail="None");
+                failed = sum([results.Failed]);
             else
-                run(t);
+                try
+                    run(t);
+                    failed = 0;
+                catch me 
+                    failed = 1;
+                end
             end
-
-        else
-            % Plain function or script name
-            if exist(t, "file") == 2
-                run(t);
-            else
-                error("prodserver:mcp:TestNotFound", ...
-                    "Cannot find test '%s'.", t);
+            if failed ~= 0
+                error("prodserver:mcp:TestFileFailed", ...
+                    "Cannot generate tool description. Test file " + ...
+                    "%s has %d failure(s).", t, failed);
             end
         end
     end
 end
 
-function tf = isTestFile(filePath)
-    % A file is treated as a test if its name starts with 't' or 'T' followed
-    % by an uppercase letter (MathWorks test naming convention), or if it
-    % contains a class inheriting from matlab.unittest.TestCase.
-    [~, name] = fileparts(filePath);
-    tf = strlength(name) > 1 && ...
-        (startsWith(name, "t") || startsWith(name, "T")) && ...
-        isstrprop(extractBetween(name, 2, 2), "upper");
+function [tf, folder, className] = isTestFile(filePath)
+  
+    filePath = strrep(filePath, '\', '/');
+    [folder, className] = fileparts(filePath);
 
-    if ~tf
-        % Check if file contains TestCase inheritance
-        try
-            txt = fileread(filePath);
-            tf = contains(txt, "matlab.unittest.TestCase");
-        catch
-            tf = false;
-        end
+    p = path;
+    restorePath = onCleanup(@() path(p)); 
+
+    parts = split(folder, '/');
+    pkgIdx = find(startsWith(parts, "+"), 1, 'first');
+    if ~isempty(pkgIdx)
+        folder = strjoin(parts(1:pkgIdx-1), "/");
+        pkgParts = erase(parts(pkgIdx:end), "+");
+        className = strjoin([pkgParts; string(className)], ".");
     end
+
+    addpath(folder);
+    s = superclasses(className);
+
+    tf = any(strcmp(s, 'matlab.unittest.TestCase'));
 end

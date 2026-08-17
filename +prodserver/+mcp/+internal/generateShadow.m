@@ -10,7 +10,7 @@ function shadowDir = generateShadow(fcns)
     import prodserver.mcp.internal.metafunction
 
     shadowDir = fullfile(tempdir, "mcp_schema_shadow_" + ...
-        char(java.util.UUID.randomUUID()));
+        char(matlab.lang.internal.uuid));
     mkdir(shadowDir);
 
     for i = 1:numel(fcns)

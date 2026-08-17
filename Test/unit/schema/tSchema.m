@@ -108,12 +108,20 @@ classdef tSchema < matlab.unittest.TestCase
             test.verifyEqual(path(), pathBefore);
         end
 
-        function testErrorPropagates(test)
-            test.verifyError(...
-                @() prodserver.mcp.schema("toyToolOne", ...
-                    @() error("test:deliberate", "Deliberate error"), ...
-                    encoding="JSON"), ...
-                "test:deliberate");
+        function testErrorMsgPropagates(test)
+            msg = "Deliberate error";
+            badFcn = @() prodserver.mcp.schema("toyToolOne", ...
+                @() error("test:deliberate", "Deliberate error"), ...
+                encoding="JSON");
+            test.verifyError(badFcn, ...
+                "prodserver:mcp:TestFcnFailed");
+            try
+                badFcn();
+                test.verifyTrue(false,"Expected exception did not occur.");
+            catch me
+                test.verifyTrue(contains(me.message,msg), ...
+                    "Error message did not propagate");
+            end
         end
 
         function appdataCleanedUp(test)
@@ -139,7 +147,7 @@ classdef tSchema < matlab.unittest.TestCase
         function invalidTestsTypeErrors(test)
             test.verifyError(...
                 @() prodserver.mcp.schema("schemaComputeNoBlock", 42), ...
-                "prodserver:mcp:InvalidTestSpecification");
+                "prodserver:mcp:InvalidTestType");
         end
 
         function emptyTestsErrors(test)

@@ -49,4 +49,14 @@ jobs:
             exit 1
           fi
 
+          # Extract content after the first "## Review Response" up to the next heading or separator
+          RESPONSE=$(sed -n '/^## Review Response/{n; :loop; /^## \|^---$/q; p; n; b loop}' "$REVIEW_FILE" \
+            | sed 's/<!--.*-->//g' \
+            | sed '/^[[:space:]]*$/d')
+
+          if [ -z "$RESPONSE" ]; then
+            echo "::error::Review Response section in ${REVIEW_FILE} is empty or contains only placeholder text. Please add a substantive response."
+            exit 1
+          fi
+
           echo "Review gate passed."

@@ -9,6 +9,12 @@ function mustBeTestSpecification(x)
         return;
     end
 
+    if ~isa(x, 'function_handle') && ~iscell(x) && ~isstring(x) && ~ischar(x)
+        error("prodserver:mcp:InvalidTestType", ...
+            "Test specification must be a function handle, cell array, " + ...
+            "or string. Got: %s", class(x));
+    end
+
     if isa(x, 'function_handle')
         return;
     end

@@ -43,6 +43,13 @@ Then perform a thorough code review of the diff, covering:
 - Test coverage
 - Security considerations
 
+**Test coverage expectation:** If the diff introduces new public functions (new `.m` files outside of `Test/` and `+test/` directories), check whether corresponding tests are also included. If new public functions are added without new or modified test files, flag this in the review as a finding:
+- List each new public function that lacks test coverage in the diff
+- State clearly that the author must explain in their Review Response why tests are not included (acceptable reasons: covered by existing tests, test PR planned separately, internal helper not directly testable)
+- This is NOT an automatic rejection — it is a required explanation. The review-gate will pass once the author provides their response.
+
+**Automatic rejection rule:** If any new MATLAB code (`.m` files) contains Java calls (e.g., `java.util.*`, `java.lang.*`, `javaObject`, `javaMethod`, or any `java.` reference), the verdict MUST be **Reject**. Java must never appear in new MATLAB code. Flag every occurrence and state clearly in the verdict that the PR cannot be approved until all Java usage is removed.
+
 Format the review with clear sections and bullet points.
 
 ## Step 3: Write the Review File
@@ -53,10 +60,20 @@ Create the review file locally:
 mkdir -p reviews
 ```
 
-Write the file `reviews/PR-<N>.md` with this structure:
+The file is `reviews/PR-<N>.md`. It may already exist from a previous review run. Check the remote reviews branch for an existing file:
+
+```bash
+git show origin/reviews:reviews/PR-<N>.md 2>/dev/null
+```
+
+If this command outputs content, the file exists — use the re-review flow below. If it errors (file not found), this is the first review.
+
+### If the file does NOT exist (first review)
+
+Write it with this structure:
 
 ```markdown
-## Claude Code Review
+## Claude Code Review — <YYYY-MM-DDTHH:MM>
 
 <full review content from Step 2>
 
@@ -65,7 +82,38 @@ Write the file `reviews/PR-<N>.md` with this structure:
 <!-- Add your response to the review findings here -->
 ```
 
-The `## Review Response` section is left as a placeholder for the user to fill in.
+### If the file ALREADY exists (re-review)
+
+The file contains one or more prior review runs. Restructure it as follows:
+
+1. Insert the new review at the **top** of the file with a dated header: `## Claude Code Review — <YYYY-MM-DDTHH:MM>`
+2. Below the new review, add a fresh `## Review Response` placeholder
+3. Below that, add a `---` separator
+4. Below the separator, keep ALL prior content (previous reviews and their responses) intact
+
+The resulting structure looks like:
+
+```markdown
+## Claude Code Review — 2026-08-17T15:00
+
+<latest review content>
+
+## Review Response
+
+<!-- Add your response to the review findings here -->
+
+---
+
+## Claude Code Review — 2026-08-17T14:00
+
+<previous review content>
+
+## Review Response
+
+<user's previous response, if filled in>
+```
+
+The CI review-gate checks only the **topmost** `## Review Response` section. Prior reviews serve as history.
 
 ## Step 4: Push to the Reviews Branch
 
@@ -100,9 +148,11 @@ git push origin "$COMMIT:refs/heads/reviews" 2>&1 | grep -v "update_ref failed" 
 
 Tell the user:
 1. The review has been published to the `reviews` branch as `reviews/PR-<N>.md`
-2. They need to add their response under the `## Review Response` section
-3. They can edit the file locally in `reviews/PR-<N>.md` and push again using the same plumbing technique, or you can help them do it
-4. Once both sections are present, the review-gate CI check will pass
+2. If this is a re-review, mention that the previous review(s) are preserved below a `---` separator
+3. They need to add their response under the topmost `## Review Response` section
+4. The response must contain substantive text — the placeholder comment alone (`<!-- Add your response ... -->`) or a blank section will NOT pass the gate
+5. They can edit the file locally in `reviews/PR-<N>.md` and push again using the same plumbing technique, or you can help them do it
+6. Once the topmost review has a substantive response, the review-gate CI check will pass
 
 ## Error Handling
 

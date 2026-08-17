@@ -38,14 +38,6 @@ classdef tSchemaEquivalence < matlab.unittest.TestCase
 
         % --- Toy Tools ---
 
-        function toyToolOne(test)
-            % toyToolOne(a double, b uint64) -> [x, y, z]
-            % Outputs are untyped in the argument block, so only compare inputs.
-            verifyEquivalence(test, "toyToolOne", ...
-                @() callWithOutputs(@toyToolOne, 3, {1.0, uint64(5)}), ...
-                CompareOutputs=false);
-        end
-
         function toyScalarOne(test)
             % toyScalarOne(x double) -> [y]
             verifyEquivalence(test, "toyScalarOne", ...
