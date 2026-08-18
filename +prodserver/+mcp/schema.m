@@ -42,25 +42,23 @@ function definitions = schema(fcns, tests, opts)
 
     % Generate shadow wrappers and add to path
     shadowDir = generateShadow(fcns);
+    pth = path;
+    shadows = onCleanup(@()cleanup(shadowDir,pth));
     addpath(shadowDir);
 
-    % Run tests in a try/catch to guarantee cleanup
-    try
-        classifyTest(tests);
-    catch ex
-        cleanup(shadowDir);
-        rethrow(ex);
-    end
+    % onCleanup ensures exception safety.
+    classifyTest(tests);
 
-    % Cleanup shadows
-    cleanup(shadowDir);
-
+    % Remove shadows before harvest or metafunction will analyze the shadow
+    % function.
+    delete(shadows);
+   
     % Harvest schemas into definition structs
     definitions = obs.harvest(fcns, opts.encoding);
 end
 
-function cleanup(shadowDir)
-    rmpath(shadowDir);
+function cleanup(shadowDir,pth)
+    path(pth);
     if isappdata(0, 'MCPSchemaObserver')
         rmappdata(0, 'MCPSchemaObserver');
     end

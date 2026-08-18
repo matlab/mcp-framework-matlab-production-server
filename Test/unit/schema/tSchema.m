@@ -201,5 +201,5 @@ function callBothTools()
 end
 
 function callWithOutputs(fcn, nout, args)
-    [varargout{1:nout}] = fcn(args{:}); %#ok<VARARG>
+    [varargout{1:nout}] = fcn(args{:}); 
 end
