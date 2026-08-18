@@ -43,7 +43,7 @@ classdef tExternal < prodserver.mcp.test.base.MCPHandlerBase & ...
             request = createRequest(test,fcn,test.server, ...
                 "m", m, "rURL", rURL, "zURL", aZURI);
             response = prodserver.mcp.internal.mcpHandler(request);
-            response = prodserver.mcp.internal.decodeBody(response);
+            response = decodeResponse(test,request,response);
 
             if hasField(response,"error")
                 test.verifyFalse(true,response.error.message);

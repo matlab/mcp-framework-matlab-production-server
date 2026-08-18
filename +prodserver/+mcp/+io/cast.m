@@ -13,32 +13,31 @@ function x = cast(type, x, opts)
     
     import prodserver.mcp.internal.Constants
 
+    if type == "struct" && ~isa(x, "struct") && opts.schema == ""
+        error("prodserver:mcp:StructCastRequiresSchema", ...
+            "Conversion to struct type requires schema.");
+    end
+
     try
         if isa(x,type) == false
             if nnz(strcmp(type,Constants.castType)) == 1
                 x = cast(x, type);
-            elseif exist(type,"class")
+            elseif exist(type,"class") || ismember(type, ["cell" "struct"])
                 switch type
                     case "cell"
-                        % Convert to cell array
                         x = num2cell(x);
                     case "struct"
-                        if isempty(opts.schema)
-                            error("prodserver:mcp:StructCastRequiresSchema", ...
-                                "Conversion to struct type requires schema.");
-                        end
+                        % Schema-based struct conversion (schema validated above)
                     case "function_handle"
                         x = str2func(x);
                     otherwise
-                        % Call class constructor -- may fail if conversion not
-                        % supported.
                         x = feval(type,x);
                 end
             end
         end
 
     catch me
-        error("prodserver:MCP:TypeConversionFailure", ...
+        error("prodserver:mcp:TypeConversionFailure", ...
             "Cannot convert variable of type %s to type %s: %s", ...
             class(x), type, me.message);
     end

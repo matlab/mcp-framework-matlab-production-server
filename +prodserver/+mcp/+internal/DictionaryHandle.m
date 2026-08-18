@@ -91,9 +91,8 @@ classdef DictionaryHandle < handle & matlab.mixin.indexing.RedefinesParen & ...
         % RedefinesParen
         %
 
-        function out = cat(varargin)
-            N = nargin;
-            % Dictionaries must have compatible key and value types.
+        function out = cat(~, varargin)
+            N = numel(varargin);
             [kt,vt] = types(varargin{1});
             out = prodserver.mcp.internal.DictionaryHandle(kt,vt);
             for n = 1:N
@@ -177,9 +176,11 @@ classdef DictionaryHandle < handle & matlab.mixin.indexing.RedefinesParen & ...
             n = listLength(dh.kvMap,indexOp,ctx);
         end
 
-        function parenDelete(dh,indexOp)
+        function dh = parenDelete(dh,indexOp)
             args = extractArguments(indexOp);
-            dh.kvMap(args{:}) = [];
+            d = dh.kvMap;
+            d(args{:}) = [];
+            dh.kvMap = d;
         end
 
     end

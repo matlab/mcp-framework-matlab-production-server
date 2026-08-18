@@ -5,12 +5,20 @@ function body = toolsCall(tool,id,def,sig,varargin)
 
     import prodserver.mcp.MCPConstants
     import prodserver.mcp.internal.ParameterKind
-    
+    import prodserver.mcp.jsonrpc.mcpEncode
+
     body.id = id;
     body.method = "tools/call";
     body.jsonrpc = MCPConstants.jrpcVersion;
     body.params.name = tool;
-    
+
+    % Determine encoding from signature if available.
+    if isfield(sig,tool) && isfield(sig.(tool),'encoding')
+        encoding = prodserver.mcp.WireEncoding(sig.(tool).encoding);
+    else
+        encoding = prodserver.mcp.WireEncoding.Invertible;
+    end
+
     % Assume "required" lists parameters in order. varargin must contain at
     % least numel(req) inputs.
     req = string(split(def.inputSchema.required,','));
@@ -22,8 +30,8 @@ function body = toolsCall(tool,id,def,sig,varargin)
     end
 
     for n = 1:numel(req)
-        body.params.arguments.(req(n)) = ...
-            prodserver.mcp.jsonrpc.mcpWireEncodeValue(varargin{n});
+        encoded = mcpEncode(encoding, varargin{n});
+        body.params.arguments.(req(n)) = encoded{1};
     end
     if n < numel(varargin)
         n = n + 1;
@@ -32,13 +40,13 @@ function body = toolsCall(tool,id,def,sig,varargin)
         % Optional positional
         while n <= numel(varargin) && n <= numel(kind) && ...
                 kind(n) == ParameterKind.Optional
-            body.params.arguments.(sig.(tool).input.name{n}) = ...
-                prodserver.mcp.jsonrpc.mcpWireEncodeValue(varargin{n});
+            encoded = mcpEncode(encoding, varargin{n});
+            body.params.arguments.(sig.(tool).input.name{n}) = encoded{1};
             n = n + 1;
         end
 
         % TODO: Repeating positional
-        
+
         % Name/Value pairs
         if n < numel(varargin)
             varargin = varargin(n:end);
@@ -50,8 +58,8 @@ function body = toolsCall(tool,id,def,sig,varargin)
             end
             N = numel(varargin)/2;
             for n = 1:N
-                body.params.arguments.(varargin{n*2-1}) = ...
-                    prodserver.mcp.jsonrpc.mcpWireEncodeValue(varargin{n*2});
+                encoded = mcpEncode(encoding, varargin{n*2});
+                body.params.arguments.(varargin{n*2-1}) = encoded{1};
             end
         end
     end

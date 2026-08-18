@@ -68,7 +68,7 @@ classdef tWireEncodingStructs < prodserver.mcp.test.base.MCPHandlerBase
                 struct('c1', c1, 'c2', c2));
 
             response = prodserver.mcp.internal.mcpHandler(reqT);
-            response = prodserver.mcp.internal.decodeBody(response);
+            response = decodeResponse(test,reqT,response);
 
             if isfield(response.result, "isError")
                 test.assertFalse(response.result.isError, ...
@@ -94,7 +94,7 @@ classdef tWireEncodingStructs < prodserver.mcp.test.base.MCPHandlerBase
                 struct('beam_spec', beam, 'load_case', load));
 
             response = prodserver.mcp.internal.mcpHandler(reqT);
-            response = prodserver.mcp.internal.decodeBody(response);
+            response = decodeResponse(test,reqT,response);
 
             if isfield(response.result, "isError")
                 test.assertFalse(response.result.isError, ...
@@ -125,7 +125,7 @@ classdef tWireEncodingStructs < prodserver.mcp.test.base.MCPHandlerBase
                 struct('beam_spec', beam, 'load_case', load));
 
             response = prodserver.mcp.internal.mcpHandler(reqT);
-            response = prodserver.mcp.internal.decodeBody(response);
+            response = decodeResponse(test,reqT,response);
 
             if isfield(response.result, "isError")
                 test.assertFalse(response.result.isError, ...
@@ -161,7 +161,7 @@ classdef tWireEncodingStructs < prodserver.mcp.test.base.MCPHandlerBase
             reqT.Body = unicode2native(body, "UTF-8");
 
             response = prodserver.mcp.internal.mcpHandler(reqT);
-            response = prodserver.mcp.internal.decodeBody(response);
+            response = decodeResponse(test,reqT,response);
 
             test.verifyEqual(response.id, 1);
             test.verifyTrue(hasField(response, 'result.tools'));
