@@ -69,7 +69,7 @@ function classifyTest(tests)
     end
 end
 
-function [tf, folder, className] = isTestFile(filePath)
+function tf = isTestFile(filePath)
   
     filePath = strrep(filePath, '\', '/');
     [folder, className] = fileparts(filePath);
