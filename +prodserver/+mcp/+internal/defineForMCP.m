@@ -59,12 +59,12 @@ function definition = defineForMCP(tools,fcns, opts)
             % Assume each of these is a complete description of a single 
             % tool. Add the "tools" value to the definition we're building.
     
-            if exist(opts.definitions{n},"file") == 2
+            if isstruct(opts.definitions{n})
+                td = opts.definitions{n};
+            elseif exist(opts.definitions{n},"file") == 2
                 td = jsondecode(fileread(opts.definitions{n}));
             elseif isstring(opts.definitions{n})
                 td = jsondecode(opts.definitions{n});
-            elseif isstruct(opts.definitions{n})
-                td = opts.definitions{n};
             end
         end
     

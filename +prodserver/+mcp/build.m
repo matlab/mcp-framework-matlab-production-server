@@ -33,6 +33,11 @@ function [ctf,endpoint] = build(fcn, opts)
         % be the same size as FCN.
         opts.definition {prodserver.mcp.validation.mustBeToolDefinition} = string.empty
 
+        % Exercise functions for schema generation. If provided, build()
+        % calls prodserver.mcp.schema() internally to generate definitions.
+        % Incompatible with the "definition" option.
+        opts.tests {prodserver.mcp.validation.mustBeTestSpecification} = []
+
         % Maximum number of elements in a literal variable. Variables
         % larger than this are passed by reference via URLs.
         opts.maxLiteralSize (1,1) double = prodserver.mcp.MCPConstants.MaxLiteralSize;
@@ -74,6 +79,13 @@ function [ctf,endpoint] = build(fcn, opts)
     end
 
     import prodserver.mcp.MCPConstants
+
+    if ~isempty(opts.tests) && ~isempty(opts.definition)
+        error("prodserver:mcp:TestsDefinitionConflict", ...
+            "Cannot specify both 'tests' and 'definition'. " + ...
+            "Use 'tests' to generate definitions via observation, " + ...
+            "or 'definition' to provide pre-built definitions, but not both.");
+    end
 
     % Might be zero-length strings, depending on final stage executed.
     ctf = "";
@@ -120,6 +132,12 @@ function [ctf,endpoint] = build(fcn, opts)
             error("prodserver:mcp:InaccessibleOutputFolder", "Cannot " + ...
                 "create or access output folder %s: %s", opts.folder, msg);
         end
+    end
+
+    % Generate definitions from test observation if tests provided.
+    if ~isempty(opts.tests)
+        opts.definition = prodserver.mcp.schema(fcn, opts.tests, ...
+            typemap=opts.typemap, encoding=opts.encoding);
     end
 
     % Not possible, currently, but in place just in case another, earlier

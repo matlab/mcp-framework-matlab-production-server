@@ -35,36 +35,18 @@ function definition = mcpDefinition(tool,fcn,opts)
 
     definition.tools.name = tool;
 
-    % Make description into a single line.
-    d = strtrim(mf.Description);
-    if isempty(mf.DetailedDescription)
-        dd = { d };
-    else
-        dd = strtrim(split(mf.DetailedDescription,newline));
-        dd = [ {d}; dd ];
-    end
-
-    % Tool description must be a non-empty string. isstring() test because
-    % [ {d}; string.empty ] creates a string -- so if
-    % mf.DetailedDescription ever comes back as an empty string, we'll
-    % still error correctly.
-    if (iscell(dd) && isempty(dd{1})) || (isstring(dd) && strlength(dd) == 0)
+    % Tool description from function comments (shared with SchemaObserver).
+    desc = prodserver.mcp.internal.toolDescription(mf);
+    if desc == string(mf.Name)
         error("prodserver:mcp:EmptyToolDescription", "Empty tool " + ...
             "description for %s. Add descriptive comment to %s following " + ...
             "the function line.", fcn, mf.FullPath);
     end
-
-    % Add a statement requiring the LLM to read the wire-encoding resource
-    % before making any calls to the tool. Don't add it twice. But add it
-    % after the check for empty description above, or we'll never detect
-    % undescribed functions.
     if opts.encoding == prodserver.mcp.WireEncoding.Invertible && ...
-            any(contains(dd,MCPConstants.WireEncodingResourceURI)) == false
-        dd = [ dd; {char(prodserver.mcp.MCPConstants.WireEncodingRequiredMsg)} ];
+            ~contains(desc, MCPConstants.WireEncodingResourceURI)
+        desc = desc + " " + char(MCPConstants.WireEncodingRequiredMsg);
     end
-
-    dd = strjoin(dd," ");
-    definition.tools.description = dd;
+    definition.tools.description = desc;
 
     % MPS mapping of tool name to callable MATLAB function
     definition.signatures.(tool).function = mf.Name;
