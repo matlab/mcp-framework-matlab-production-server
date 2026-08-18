@@ -249,7 +249,7 @@ classdef tWireEncodingTools < prodserver.mcp.test.base.MCPHandlerBase
             req.Body = unicode2native(body, "UTF-8");
 
             response = prodserver.mcp.internal.mcpHandler(req);
-            response = prodserver.mcp.internal.decodeBody(response);
+            response = decodeResponse(test,req,response);
         end
 
         function verifyNoError(test, response)

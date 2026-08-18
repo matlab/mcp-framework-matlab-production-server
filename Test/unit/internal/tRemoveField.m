@@ -21,15 +21,7 @@ classdef tRemoveField < matlab.unittest.TestCase
         end
 
         function tStructArrayRemoval(test)
-            % Intended behavior: struct arrays are handled element-wise.
-            % Currently FILTERED (assumeFail) — the element-wise recursion on
-            % line 18 is unqualified and fails to resolve the package function
-            % (same defect as the nested case, BUG-removeField-nested-shadowed.md).
-            % Remove the assumeFail line once removeField self-imports /
-            % fully-qualifies its recursion.
             import prodserver.mcp.internal.removeField
-            test.assumeFail("Known bug: removeField crashes on its unqualified " + ...
-                "recursive call (BUG-removeField-nested-shadowed.md).");
             s(1) = struct("a", 1, "b", 2);
             s(2) = struct("a", 3, "b", 4);
             r = removeField(s, "a");
@@ -38,14 +30,7 @@ classdef tRemoveField < matlab.unittest.TestCase
         end
 
         function tNestedStructRemoval(test)
-            % Intended behavior: the field is removed at every nesting level.
-            % Currently FILTERED (assumeFail) because the unqualified recursive
-            % call resolves to a shadowing function / fails to resolve and
-            % crashes (BUG-removeField-nested-shadowed.md). Remove the assumeFail
-            % line once removeField self-imports / fully-qualifies its recursion.
             import prodserver.mcp.internal.removeField
-            test.assumeFail("Known bug: removeField crashes on its unqualified " + ...
-                "recursive call (BUG-removeField-nested-shadowed.md).");
             s = struct("a", 1);
             s.b = struct("a", 2, "c", 3);
             r = removeField(s, "a");

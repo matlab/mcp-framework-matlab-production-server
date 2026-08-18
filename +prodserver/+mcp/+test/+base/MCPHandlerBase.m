@@ -65,6 +65,12 @@ classdef MCPHandlerBase < matlab.unittest.TestCase
             reqT.Body = unicode2native(body,"UTF-8");
         end
 
+        function response = decodeResponse(test,request,response) %#ok<INUSL>
+            response = prodserver.mcp.internal.decodeBody(response);
+            response = prodserver.mcp.test.decodeStructuredContent(...
+                request, response);
+        end
+
         function defineTools(test,fcns,tools,dFiles)
             import prodserver.mcp.MCPConstants
 

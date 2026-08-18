@@ -42,14 +42,18 @@ function definition = mcpDefinition(tool,fcn,opts)
             "description for %s. Add descriptive comment to %s following " + ...
             "the function line.", fcn, mf.FullPath);
     end
-    if opts.encoding == prodserver.mcp.WireEncoding.Invertible && ...
-            ~contains(desc, MCPConstants.WireEncodingResourceURI)
-        desc = desc + " " + char(MCPConstants.WireEncodingRequiredMsg);
+    if opts.encoding == prodserver.mcp.WireEncoding.Invertible
+        if ~contains(desc, MCPConstants.WireEncodingResourceURI)
+            desc = desc + " " + char(MCPConstants.WireEncodingRequiredMsg);
+        end
+    else
+        desc = erase(desc, " " + char(MCPConstants.WireEncodingRequiredMsg));
     end
     definition.tools.description = desc;
 
     % MPS mapping of tool name to callable MATLAB function
     definition.signatures.(tool).function = mf.Name;
+    definition.signatures.(tool).encoding = string(opts.encoding);
 
     % Heuristic searching about for comments that describe each input and
     % output argument.

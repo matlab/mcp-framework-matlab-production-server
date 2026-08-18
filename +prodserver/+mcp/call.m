@@ -35,6 +35,7 @@ function [varargout] = call(endpoint, tool, varargin)
 
     import prodserver.mcp.internal.hasField
     import prodserver.mcp.MCPConstants
+    import prodserver.mcp.jsonrpc.mcpDecode
 
     %
     % Initialize connection via JSON-RPC "initialize" message.
@@ -121,6 +122,15 @@ function [varargout] = call(endpoint, tool, varargin)
             "creator.", tool);
     end
 
+    % Determine wire encoding for this tool from signature or description.
+    if isfield(sig,tool) && isfield(sig.(tool),'encoding')
+        encoding = prodserver.mcp.WireEncoding(sig.(tool).encoding);
+    elseif contains(string(t.description), MCPConstants.WireEncodingResourceURI)
+        encoding = prodserver.mcp.WireEncoding.Invertible;
+    else
+        encoding = prodserver.mcp.WireEncoding.JSON;
+    end
+
     %
     % Invoke tool
     %
@@ -162,11 +172,13 @@ function [varargout] = call(endpoint, tool, varargin)
         if ~isempty(req)
             req = string(req);
             varargout = cell(1,nargout);
+            outVals = cell(1,nargout);
             for n=1:nargout
-                varargout{n} = result.(req(n));
-                % type = sig.(tool).output.type(n);
-                % varargout{n} = prodserver.mcp.io.cast(type,varargout{n});
-                varargout{n} = prodserver.mcp.jsonrpc.mcpWireDecodeValue(varargout{n});
+                outVals{n} = result.(req(n));
+            end
+            decoded = mcpDecode(encoding, outVals{:});
+            for n=1:nargout
+                varargout{n} = decoded{n};
             end
         elseif nargout > 0
             error("prodserver:mcp:TooFewOutputs",...

@@ -132,59 +132,40 @@ classdef tMcpWireDecodeValue < matlab.unittest.TestCase
         end
 
         % --- Error branches broken by '+'-in-message (BUG) ---------------
-        % These assert the INTENDED prodserver:mcp:* id but are filtered
-        % because the message builds with 'char'+'char' and instead throws
-        % MATLAB:sizeDimensionsMustMatch (BUG-mcpWireDecodeValue-error-concat.md).
-        % Remove the assumeFail lines once the concatenations are fixed.
-
         function tNullNotAllowed(test)
-            test.assumeFail("Known bug: error message uses '+' concat " + ...
-                "(BUG-mcpWireDecodeValue-error-concat.md).");
             test.verifyError(@() test.decode([]), ...
                 "prodserver:mcp:nullNotAllowed");
         end
 
         function tBareArrayInvalidEncoding(test)
-            test.assumeFail("Known bug: error message uses '+' concat " + ...
-                "(BUG-mcpWireDecodeValue-error-concat.md).");
             test.verifyError(@() test.decode([1 2 3]), ...
                 "prodserver:mcp:invalidEncoding");
         end
 
         function tInvalidSize(test)
-            test.assumeFail("Known bug: error message uses '+' concat " + ...
-                "(BUG-mcpWireDecodeValue-error-concat.md).");
             test.verifyError(@() test.decode(struct("type", "double", ...
                 "size", 5, "data", 5)), "prodserver:mcp:invalidSize");
         end
 
         function tInvalidNumericSentinel(test)
-            test.assumeFail("Known bug: error message uses '+' concat " + ...
-                "(BUG-mcpWireDecodeValue-error-concat.md).");
             test.verifyError(@() test.decode(struct("type", "double", ...
                 "size", [1 1], "data", {{"bogus"}})), ...
                 "prodserver:mcp:invalidNumericSentinel");
         end
 
         function tInvalidNumericElement(test)
-            test.assumeFail("Known bug: error message uses '+' concat " + ...
-                "(BUG-mcpWireDecodeValue-error-concat.md).");
             test.verifyError(@() test.decode(struct("type", "double", ...
                 "size", [1 1], "data", {{{1}}})), ...
                 "prodserver:mcp:invalidNumericElement");
         end
 
         function tInvalidLogicalElement(test)
-            test.assumeFail("Known bug: error message uses '+' concat " + ...
-                "(BUG-mcpWireDecodeValue-error-concat.md).");
             test.verifyError(@() test.decode(struct("type", "logical", ...
                 "size", [1 1], "data", {{5}})), ...
                 "prodserver:mcp:invalidLogicalElement");
         end
 
         function tInvalidDatetimeString(test)
-            test.assumeFail("Known bug: error message uses '+' concat " + ...
-                "(BUG-mcpWireDecodeValue-error-concat.md).");
             test.verifyError(@() test.decode(struct("type", "datetime", ...
                 "size", [1 1], "data", {{"not-a-date"}})), ...
                 "prodserver:mcp:invalidDatetimeString");

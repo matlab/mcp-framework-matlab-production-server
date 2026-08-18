@@ -96,13 +96,6 @@ classdef tDictionaryHandle < matlab.unittest.TestCase
         end
 
         function tConcatenation(test)
-            % Intended behavior: concatenating handles merges their entries.
-            % Currently FILTERED (assumeFail) — cat treats the concatenation
-            % dimension as a dictionary and errors
-            % (BUG-DictionaryHandle-paren-ops.md). Remove the assumeFail line
-            % once cat drops the leading dimension argument.
-            test.assumeFail("Known bug: DictionaryHandle concatenation is " + ...
-                "broken (BUG-DictionaryHandle-paren-ops.md).");
             a = test.doubleMap(); insert(a, "p", 1);
             b = test.doubleMap(); insert(b, "q", 2);
             out = [a, b];
@@ -110,13 +103,6 @@ classdef tDictionaryHandle < matlab.unittest.TestCase
         end
 
         function tParenDelete(test)
-            % Intended behavior: dh(key) = [] removes the entry.
-            % Currently FILTERED (assumeFail) — paren-delete throws
-            % MATLAB:TooManyOutputs (BUG-DictionaryHandle-paren-ops.md). Use the
-            % remove method instead until this is fixed; remove the assumeFail
-            % line once paren-delete works.
-            test.assumeFail("Known bug: DictionaryHandle paren-delete is " + ...
-                "broken (BUG-DictionaryHandle-paren-ops.md).");
             dh = test.doubleMap();
             insert(dh, ["x", "y"], [1 2]);
             dh("x") = [];

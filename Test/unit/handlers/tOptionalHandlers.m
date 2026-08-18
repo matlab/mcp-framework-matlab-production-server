@@ -35,7 +35,7 @@ classdef tOptionalHandlers < prodserver.mcp.test.base.MCPHandlerBase
                 rArgs = { pN{:} ; aN{:} }; rArgs = rArgs(:)';
                 request = createRequest(test,fcn,test.server,rArgs{:});
                 response = prodserver.mcp.internal.mcpHandler(request);
-                response = prodserver.mcp.internal.decodeBody(response);
+                response = decodeResponse(test,request,response);
 
                 if hasField(response,"error")
                     test.verifyFalse(true,response.error.message);
@@ -81,7 +81,7 @@ classdef tOptionalHandlers < prodserver.mcp.test.base.MCPHandlerBase
                 request = createRequest(test,fcn,test.server,...
                     params{1},values{1},args{:});
                 response = prodserver.mcp.internal.mcpHandler(request);
-                response = prodserver.mcp.internal.decodeBody(response);
+                response = decodeResponse(test,request,response);
 
                 if hasField(response,"error")
                     test.verifyFalse(true,response.error.message);

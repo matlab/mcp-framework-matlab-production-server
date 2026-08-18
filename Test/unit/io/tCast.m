@@ -27,14 +27,7 @@ classdef tCast < matlab.unittest.TestCase
         end
 
         function tStructWithoutSchema(test)
-            % Intended behavior: casting to struct with no schema must error.
-            % Currently FILTERED (assumeFail) because the error branch is dead
-            % code (BUG-cast-struct-deadcode). Remove the assumeFail line once
-            % cast recognizes fundamental container types instead of relying on
-            % exist(type,"class").
             import prodserver.mcp.io.cast
-            test.assumeFail("Known bug: cast(""struct"",x) is a silent no-op " + ...
-                "instead of erroring (BUG-cast-struct-deadcode.md).");
             test.verifyError(@() cast("struct", 5), ...
                 "prodserver:mcp:StructCastRequiresSchema");
         end
@@ -43,7 +36,7 @@ classdef tCast < matlab.unittest.TestCase
             % A failed conversion is wrapped in a TypeConversionFailure error.
             import prodserver.mcp.io.cast
             test.verifyError(@() cast("function_handle", 5), ...
-                "prodserver:MCP:TypeConversionFailure");
+                "prodserver:mcp:TypeConversionFailure");
         end
 
     end

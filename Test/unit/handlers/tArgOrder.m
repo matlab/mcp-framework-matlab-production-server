@@ -69,7 +69,7 @@ classdef tArgOrder < prodserver.mcp.test.base.MCPHandlerBase
             reqT.Headers = [reqT.Headers; {MCPConstants.ContentLength, numel(body)}];
             reqT.Body = unicode2native(body,"UTF-8");
             response = prodserver.mcp.internal.mcpHandler(reqT);
-            response = prodserver.mcp.internal.decodeBody(response);
+            response = decodeResponse(test,reqT,response);
 
             % Expecting content and structuredContent
             test.verifyEqual(response.id, 1);

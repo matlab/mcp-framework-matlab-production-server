@@ -11,43 +11,28 @@ function S = removeField(S, fieldName)
         fieldName (1,1) string
     end
     fn = char(fieldName);
-    
-    % Handle struct arrays by recursing element-wise
-    if numel(S) > 1
-        for idx = 1:numel(S)
-            S(idx) = removeField(S(idx), fn); %#ok<AGROW>
-        end
-        return
-    end
-    
-    % Remove matching top-level field if present
+
+    % Remove matching top-level field if present (works on arrays too)
     if isfield(S, fn)
         S = rmfield(S, fn);
     end
-    
+
     % Recurse into remaining fields
     fields = fieldnames(S);
     for k = 1:numel(fields)
         f = fields{k};
-        val = S.(f);
-    
-        % Only handle the most primitive container types here.
-        % Tables and dictionaries containing structures, for example, are
-        % not processed recursively. (But add branches for them if
-        % necessary -- which it shouldn't be, because the definition
-        % structure upon which this is called does not contain either of
-        % those types.)
-        if isstruct(val)
-            % Recurse for nested struct or struct array
-            S.(f) = removeField(val, fn);
-        elseif iscell(val)
-            % Recurse into cells that contain structs (preserve non-structs)
-            for c = 1:numel(val)
-                if isstruct(val{c})
-                    val{c} = removeField(val{c}, fn);
+        for idx = 1:numel(S)
+            val = S(idx).(f);
+            if isstruct(val)
+                S(idx).(f) = prodserver.mcp.internal.removeField(val, fn);
+            elseif iscell(val)
+                for c = 1:numel(val)
+                    if isstruct(val{c})
+                        val{c} = prodserver.mcp.internal.removeField(val{c}, fn);
+                    end
                 end
+                S(idx).(f) = val;
             end
-            S.(f) = val;
         end
     end
 end

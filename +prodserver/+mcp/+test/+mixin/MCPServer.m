@@ -17,9 +17,11 @@ classdef MCPServer < handle
                 {'Server' 'MATLAB Production Server/Model Context Protocol (v1.0)';}}); 
         end
 
-        function response = handleRequest(mcp,req)
+        function response = handleRequest(mcp,req) %#ok<INUSL>
             response = prodserver.mcp.internal.mcpHandler(req);
             response = prodserver.mcp.internal.decodeBody(response);
+            response = prodserver.mcp.test.decodeStructuredContent(...
+                req, response);
         end
 
         function body = jsonToolCall(mcp,tool,id,def,sig,varargin)

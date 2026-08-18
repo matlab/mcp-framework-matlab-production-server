@@ -9,7 +9,8 @@ function [result, httpCode, httpMsg, msgHeaders] = call(jrpc)
     import prodserver.mcp.internal.ParameterKind
     import prodserver.mcp.internal.hasField
     import prodserver.mcp.jsonrpc.mcpWireEncode
-    import prodserver.mcp.jsonrpc.mcpWireEncodeValue
+    import prodserver.mcp.jsonrpc.mcpEncode
+    import prodserver.mcp.jsonrpc.mcpDecode
 
     [result, httpCode, httpMsg, msgHeaders, r] = ...
         prodserver.mcp.handler.internal.initResult(jrpc);
@@ -48,7 +49,25 @@ function [result, httpCode, httpMsg, msgHeaders] = call(jrpc)
     % insert order information into the definition. Assemble a cell
     % array with the arguments in the right order.
     sig = d.(MCPConstants.DefinitionVariable).signatures;
+
+    % Determine wire encoding for this tool.
+    if isfield(sig.(fcn), 'encoding')
+        toolEncoding = prodserver.mcp.WireEncoding(sig.(fcn).encoding);
+    else
+        toolEncoding = prodserver.mcp.WireEncoding.Invertible;
+    end
+
     actual = string(fieldnames(jrpc.params.arguments));
+
+    % Wire-decode input arguments using the tool's encoding.
+    allVals = cell(1,numel(actual));
+    for i = 1:numel(actual)
+        allVals{i} = jrpc.params.arguments.(actual(i));
+    end
+    decoded = mcpDecode(toolEncoding, allVals{:});
+    for i = 1:numel(actual)
+        jrpc.params.arguments.(actual(i)) = decoded{i};
+    end
 
     % Separate optional from required arguments.
     %  1. Subtract required from all positional to yield max. optional.
@@ -109,8 +128,9 @@ function [result, httpCode, httpMsg, msgHeaders] = call(jrpc)
     % Extract tool results from cell array and write them to structure
     % (which will be JSON-encoded). outArgs and out define the order,
     % which structuredContent does not care about.
+    encodedOut = mcpEncode(toolEncoding, outArgs{:});
     for n = 1:numel(out)
-        r.structuredContent.(out{n}) = mcpWireEncodeValue(outArgs{n});
+        r.structuredContent.(out{n}) = encodedOut{n};
 
         % Should not be required but some clients require non-empty
         % content, even when structuredContent has a value (looking at

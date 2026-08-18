@@ -16,13 +16,12 @@ function name = uriVariable(uri)
 "slash followed by a file name.", u.path);
             end
             slash = slash(end);
-            dot = strfind(u.path,"."); dot = dot(end);
-            if dot > slash
-                % Discard the / and the .
-                name = extractBetween(u.path,slash,dot, ...
+            dot = strfind(u.path,".");
+            if ~isempty(dot) && dot(end) > slash
+                name = extractBetween(u.path, slash, dot(end), ...
                     Boundaries="exclusive");
             else
-                name = extractAfter(u.path,slash);
+                name = extractAfter(u.path, slash);
             end
         case {"literal","json"}
              name = u.path;

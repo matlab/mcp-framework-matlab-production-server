@@ -11,13 +11,7 @@ classdef tUriVariable < matlab.unittest.TestCase
         end
 
         function tFileWithoutExtension(test)
-            % Intended behavior: a file URI whose name has no extension returns
-            % that name. Currently FILTERED (assumeFail) because of a known bug
-            % (BUG-uriVariable-extensionless). Remove the assumeFail line once
-            % uriVariable guards the empty-strfind case.
             import prodserver.mcp.io.uriVariable
-            test.assumeFail("Known bug: uriVariable crashes on extensionless " + ...
-                "file URIs (BUG-uriVariable-extensionless.md).");
             test.verifyEqual(uriVariable("file:/a/b/myVar"), "myVar");
         end
 
