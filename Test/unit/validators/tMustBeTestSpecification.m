@@ -49,13 +49,13 @@ classdef tMustBeTestSpecification < matlab.unittest.TestCase
         function numericErrors(test)
             test.verifyError(...
                 @() prodserver.mcp.validation.mustBeTestSpecification(42), ...
-                "prodserver:mcp:InvalidTestSpecification");
+                "prodserver:mcp:InvalidTestType");
         end
 
         function structErrors(test)
             test.verifyError(...
                 @() prodserver.mcp.validation.mustBeTestSpecification(struct()), ...
-                "prodserver:mcp:InvalidTestSpecification");
+                "prodserver:mcp:InvalidTestType");
         end
 
         function stringNotFoundErrors(test)

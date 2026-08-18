@@ -5,16 +5,18 @@ classdef tClassifyTest < matlab.unittest.TestCase
 
     properties
         mockFolder
+        suiteFolder
     end
 
     methods(TestClassSetup)
         function registerPackage(test)
             import matlab.unittest.fixtures.PathFixture
-            testFolder = fileparts(mfilename("fullpath"));
-            pkgFolder = fullfile(testFolder,"../../..");
+            
+            pkgFolder = prodserver.mcp.internal.packageFolder();
             test.applyFixture(PathFixture(pkgFolder));
 
-            test.mockFolder = fullfile(testFolder, "mocks", "classify");
+            test.mockFolder = fullfile(pkgFolder,"Test", "mocks", "classify");
+            test.suiteFolder = fullfile(fileparts(test.mockFolder),"failingSuite");
             test.applyFixture(PathFixture(test.mockFolder));
         end
     end
@@ -134,19 +136,15 @@ classdef tClassifyTest < matlab.unittest.TestCase
         % --- Negative tests: failing test suites ---
 
         function failingTestFileErrors(test)
-            failFolder = fullfile(fileparts(test.mockFolder), ...
-                "failingSuite");
             test.verifyError(...
                 @() prodserver.mcp.internal.classifyTest(...
-                    fullfile(failFolder, "tFailingTest.m")), ...
+                    fullfile(test.suiteFolder, "tFailingTest.m")), ...
                 "prodserver:mcp:TestFileFailed");
         end
 
         function failingFolderErrors(test)
-            failFolder = fullfile(fileparts(test.mockFolder), ...
-                "failingSuite");
             test.verifyError(...
-                @() prodserver.mcp.internal.classifyTest(failFolder), ...
+                @() prodserver.mcp.internal.classifyTest(test.suiteFolder), ...
                 "prodserver:mcp:TestSuiteFailed");
         end
 
