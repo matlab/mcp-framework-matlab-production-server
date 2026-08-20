@@ -55,6 +55,13 @@ function runCoverage(suites, outputName)
         [mpsCleanup, dirCleanup, mps] = startMPS(); %#ok<ASGLU>
         tests = [tests, TestSuite.fromFolder(...
             fullfile(testDir, "integration", "call"), "IncludingSubfolders", true)];
+        % The example-server tests are full e2e (build/deploy/call against
+        % the live MPS started above), so include them with the call suite.
+        exampleDir = fullfile(testDir, "examples");
+        if isfolder(exampleDir)
+            tests = [tests, TestSuite.fromFolder(...
+                exampleDir, "IncludingSubfolders", true)];
+        end
     end
 
     runner = TestRunner.withTextOutput;

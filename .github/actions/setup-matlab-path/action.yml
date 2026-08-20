@@ -1,0 +1,11 @@
+name: Setup MATLAB PATH
+description: Prepend the shared MATLAB bin directory to PATH on Linux self-hosted runners.
+inputs:
+  matlab-path:
+    description: MATLAB install root.
+    default: /mathworks/devel/bat/Bps/perfect/matlab
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: echo "${{ inputs.matlab-path }}/bin" >> "$GITHUB_PATH"

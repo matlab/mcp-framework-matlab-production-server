@@ -4,86 +4,77 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+
+# win64 is temporarily disabled (temp-dir issue: spaces in path). To re-enable,
+# add a win64 job on runner [self-hosted, hasSFSAccess, win64] with matlab-path
+# \\mathworks\devel\bat\Bps\perfect\matlab.
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   unit-tests:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - arch: glnxa64
-            runner: [self-hosted, hasSFSAccess, glnxa64]
-            matlab-path: /mathworks/devel/bat/Bps/perfect/matlab
-          # TODO: Re-enable win64 after fixing temp-dir issue (spaces in path)
-          # - arch: win64
-          #   runner: [self-hosted, hasSFSAccess, win64]
-          #   matlab-path: \\mathworks\devel\bat\Bps\perfect\matlab
-    runs-on: ${{ matrix.runner }}
+    name: Unit Tests
+    runs-on: [self-hosted, hasSFSAccess, glnxa64]
+    timeout-minutes: 15
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
-      - name: Add MATLAB to PATH (Linux)
-        if: matrix.arch == 'glnxa64'
-        run: echo "${{ matrix.matlab-path }}/bin" >> $GITHUB_PATH
-      - name: Add MATLAB to PATH (Windows)
-        if: matrix.arch == 'win64'
-        shell: cmd
-        run: echo ${{ matrix.matlab-path }}\bin>> %GITHUB_PATH%
+      - name: Add MATLAB to PATH
+        uses: ./.github/actions/setup-matlab-path
       - name: Run unit tests
         uses: mw-actions/matlab-actions-run-tests@v3
         with:
           source-folder: .
           select-by-folder: Test/unit
           test-results-junit: test-results/unit.xml
+          code-coverage-cobertura: coverage-results/unit/coverage.xml
+          code-coverage-html: coverage-results/unit/html
           generate-summary: true
+      - name: Post coverage summary
+        if: always()
+        run: |
+          rate=$(grep -oP 'line-rate="\K[^"]+' coverage-results/unit/coverage.xml | head -1)
+          pct=$(echo "$rate * 100" | bc -l | xargs printf "%.1f")
+          echo "### Unit Line Coverage: ${pct}%" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Download the **unit-coverage** artifact for the full HTML report." >> "$GITHUB_STEP_SUMMARY"
       - name: Upload unit test results
         if: always()
         uses: actions/upload-artifact@v3
         with:
-          name: unit-test-results-${{ matrix.arch }}
+          name: unit-test-results-glnxa64
           path: test-results/
+      - name: Upload unit coverage
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: unit-coverage
+          path: coverage-results/unit/
 
   go-tests:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - arch: glnxa64
-            runner: [self-hosted, glnxa64]
-          # TODO: Re-enable win64 after fixing temp-dir issue (spaces in path)
-          # - arch: win64
-          #   runner: [self-hosted, win64]
-    runs-on: ${{ matrix.runner }}
+    name: Go Tests
+    runs-on: [self-hosted, glnxa64]
     timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
-      - name: Check Go availability (Linux)
-        if: matrix.arch == 'glnxa64'
-        id: go-check-linux
+      - name: Check Go availability
+        id: go-check
         run: |
           if go version >/dev/null 2>&1; then
             echo "available=true" >> "$GITHUB_OUTPUT"
           else
             echo "available=false" >> "$GITHUB_OUTPUT"
           fi
-      - name: Check Go availability (Windows)
-        if: matrix.arch == 'win64'
-        id: go-check-windows
-        shell: pwsh
-        run: |
-          if (Get-Command go -ErrorAction SilentlyContinue) {
-            "available=true" >> $env:GITHUB_OUTPUT
-          } else {
-            "available=false" >> $env:GITHUB_OUTPUT
-          }
       - name: Setup Go
-        if: steps.go-check-linux.outputs.available != 'true' && steps.go-check-windows.outputs.available != 'true'
+        if: steps.go-check.outputs.available != 'true'
         uses: actions/setup-go@v5
         with:
           go-version: '1.20'
           cache-dependency-path: src/*/go.sum
-      - name: Run yaml2json tests (Linux)
-        if: matrix.arch == 'glnxa64'
+      - name: Run yaml2json tests
         working-directory: src/yaml2json
         env:
           MW_ARCH: glnxa64
@@ -91,18 +82,7 @@ jobs:
           mkdir -p ../../bin/glnxa64/yaml2json
           go build -o ../../bin/glnxa64/yaml2json/yaml2json .
           go test ./...
-      - name: Run yaml2json tests (Windows)
-        if: matrix.arch == 'win64'
-        shell: cmd
-        working-directory: src/yaml2json
-        env:
-          MW_ARCH: win64
-        run: |
-          mkdir ..\..\bin\win64\yaml2json
-          go build -o ..\..\bin\win64\yaml2json\yaml2json.exe .
-          go test ./...
-      - name: Run persist/file tests (Linux)
-        if: matrix.arch == 'glnxa64'
+      - name: Run persist/file tests
         working-directory: src/persist/file
         env:
           MW_ARCH: glnxa64
@@ -111,58 +91,50 @@ jobs:
           mkdir -p ${{ github.workspace }}/bin/glnxa64/toolbox/stats/pipeline/data/persist
           go build -o ${{ github.workspace }}/bin/glnxa64/toolbox/stats/pipeline/data/persist/file_persist .
           go test ./...
-      - name: Run persist/file tests (Windows)
-        if: matrix.arch == 'win64'
-        shell: cmd
-        working-directory: src/persist/file
-        env:
-          MW_ARCH: win64
-          MW_INSTALL: ${{ github.workspace }}
-        run: |
-          mkdir "${{ github.workspace }}\bin\win64\toolbox\stats\pipeline\data\persist"
-          go build -o "${{ github.workspace }}\bin\win64\toolbox\stats\pipeline\data\persist\file_persist.exe" .
-          go test ./...
 
   integration-tests:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - arch: glnxa64
-            runner: [self-hosted, hasSFSAccess, glnxa64]
-            matlab-path: /mathworks/devel/bat/Bps/perfect/matlab
-          # TODO: Re-enable win64 after fixing temp-dir issue (spaces in path)
-          # - arch: win64
-          #   runner: [self-hosted, hasSFSAccess, win64]
-          #   matlab-path: \\mathworks\devel\bat\Bps\perfect\matlab
-    runs-on: ${{ matrix.runner }}
+    name: Integration Tests
+    runs-on: [self-hosted, hasSFSAccess, glnxa64]
     timeout-minutes: 20
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
-      - name: Add MATLAB to PATH (Linux)
-        if: matrix.arch == 'glnxa64'
-        run: echo "${{ matrix.matlab-path }}/bin" >> $GITHUB_PATH
-      - name: Add MATLAB to PATH (Windows)
-        if: matrix.arch == 'win64'
-        shell: cmd
-        run: echo ${{ matrix.matlab-path }}\bin>> %GITHUB_PATH%
+      - name: Add MATLAB to PATH
+        uses: ./.github/actions/setup-matlab-path
       - name: Run integration tests (build + client)
         uses: mw-actions/matlab-actions-run-tests@v3
         with:
           source-folder: .
           select-by-folder: Test/integration/build;Test/integration/client
           test-results-junit: test-results/integration.xml
+          code-coverage-cobertura: coverage-results/integration/coverage.xml
+          code-coverage-html: coverage-results/integration/html
           generate-summary: true
+      - name: Post coverage summary
+        if: always()
+        run: |
+          rate=$(grep -oP 'line-rate="\K[^"]+' coverage-results/integration/coverage.xml | head -1)
+          pct=$(echo "$rate * 100" | bc -l | xargs printf "%.1f")
+          echo "### Integration Line Coverage: ${pct}%" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Download the **integration-coverage** artifact for the full HTML report." >> "$GITHUB_STEP_SUMMARY"
       - name: Upload integration test results
         if: always()
         uses: actions/upload-artifact@v3
         with:
-          name: integration-test-results-${{ matrix.arch }}
+          name: integration-test-results-glnxa64
           path: test-results/
+      - name: Upload integration coverage
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: integration-coverage
+          path: coverage-results/integration/
 
   check-skill-sync:
+    name: Check Skill Sync
     runs-on: [self-hosted, glnxa64]
+    timeout-minutes: 10
     if: github.event_name == 'pull_request'
     steps:
       - name: Checkout repository
@@ -179,7 +151,9 @@ jobs:
           }
 
   check-fingerprint:
+    name: Check Framework Fingerprint
     runs-on: [self-hosted, glnxa64]
+    timeout-minutes: 10
     if: github.event_name == 'pull_request'
     steps:
       - name: Checkout repository
@@ -194,7 +168,9 @@ jobs:
           fi
 
   update-fingerprint:
+    name: Update Framework Fingerprint
     runs-on: [self-hosted, glnxa64]
+    timeout-minutes: 10
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
       - name: Checkout repository
@@ -215,29 +191,14 @@ jobs:
           git push
 
   e2e-tests:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - arch: glnxa64
-            runner: [self-hosted, hasSFSAccess, glnxa64]
-            matlab-path: /mathworks/devel/bat/Bps/perfect/matlab
-          # TODO: Re-enable win64 after fixing temp-dir issue (spaces in path)
-          # - arch: win64
-          #   runner: [self-hosted, hasSFSAccess, win64]
-          #   matlab-path: \\mathworks\devel\bat\Bps\perfect\matlab
-    runs-on: ${{ matrix.runner }}
+    name: End-to-End Tests
+    runs-on: [self-hosted, hasSFSAccess, glnxa64]
     timeout-minutes: 30
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
-      - name: Add MATLAB to PATH (Linux)
-        if: matrix.arch == 'glnxa64'
-        run: echo "${{ matrix.matlab-path }}/bin" >> $GITHUB_PATH
-      - name: Add MATLAB to PATH (Windows)
-        if: matrix.arch == 'win64'
-        shell: cmd
-        run: echo ${{ matrix.matlab-path }}\bin>> %GITHUB_PATH%
+      - name: Add MATLAB to PATH
+        uses: ./.github/actions/setup-matlab-path
       - name: Start MPS and run end-to-end tests
         uses: mw-actions/matlab-actions-run-command@v3
         with:
@@ -246,5 +207,5 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v3
         with:
-          name: e2e-test-results-${{ matrix.arch }}
+          name: e2e-test-results-glnxa64
           path: test-results/
