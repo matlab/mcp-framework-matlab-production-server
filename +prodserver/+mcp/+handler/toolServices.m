@@ -12,8 +12,10 @@ function td = toolServices(opts)
     td = [];
 
     % Qualify the generic key name with the name of the current archive.
-    % appdata is (I think) shared among all CTFs loaded into a single
-    % worker.
+    % appdata is shared among all CTFs loaded into a single worker. Using
+    % CTF root works well for deployed archives, but the root is non-unique
+    % in tests running in MATLAB, so tests must more aggressively clean up
+    % the services cache themselves.
     [~, archive, ~] = fileparts(ctfroot);
     serviceKey = MCPConstants.ServiceVariable + "_" + archive;
 
