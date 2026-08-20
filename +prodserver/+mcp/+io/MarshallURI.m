@@ -658,7 +658,7 @@ function config = assembleConfiguration()
                 "Failed to create Scheme %s: %s", cls, ex.message);
         end
         % Attach configuration to class name in Scheme dictionary.
-        config{Scheme.Name(cls)} = cfg;
+        config{Scheme.URIName(cls)} = cfg;
     end
 end
 

@@ -69,7 +69,11 @@ classdef (Abstract) Scheme
             
         function name = Name(cls)
             import prodserver.mcp.io.Scheme
-            name = lower(extract(cls,Scheme.namePattern));
+            name = extract(cls,Scheme.namePattern);
+        end
+
+        function name = URIName(cls)
+            name = lower(prodserver.mcp.io.Scheme.Name(cls));
         end
 
         function mc = MarshallingConfiguration(varargin)
@@ -111,7 +115,8 @@ classdef (Abstract) Scheme
     properties(Dependent, SetAccess=immutable)
         configuration   % Configuration with tokens replaced by values.
         template        % Configuration before tokens replaced by values.
-        schemeName      % Name of this scheme
+        schemeName      % Name of this scheme (exact case-match)
+        uriName         % Name of this scheme as used in URIs
     end
 
     properties(Constant,Hidden)
@@ -150,6 +155,10 @@ classdef (Abstract) Scheme
                     prodserver.mcp.validation.isuri(uri, ...
                         varargin{:});
             end
+        end
+
+        function n = get.uriName(s)
+            n = prodserver.mcp.io.Scheme.URIName(class(s));
         end
 
         function n = get.schemeName(s)

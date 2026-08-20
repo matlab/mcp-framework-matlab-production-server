@@ -151,8 +151,54 @@ classdef tDefinition < matlab.unittest.TestCase
             test.verifyEqual(definition,expectedDefinition);
         end
 
+        function encodingInjectedFromFile(test)
+        % When a pre-built definition is provided that lacks an encoding
+        % field in its signatures, the encoding argument must be injected.
+
+            import matlab.unittest.fixtures.PathFixture
+            test.applyFixture(PathFixture(test.toolsFolder));
+
+            tool = "toyToolOne";
+            wrapper = "toyToolOneMCP";
+            baseline = prodserver.mcp.internal.defineForMCP(tool, wrapper);
+
+            % Remove the encoding field to simulate a file-provided
+            % definition (e.g. from mcp-testrunner --generate-tool-defs)
+            baseline.signatures.(tool) = rmfield( ...
+                baseline.signatures.(tool), 'encoding');
+
+            % Now pass that definition as a pre-built struct with encoding="JSON"
+            td = prodserver.mcp.internal.defineForMCP(tool, wrapper, ...
+                definitions={baseline}, encoding="JSON");
+
+            test.verifyEqual(td.signatures.(tool).encoding, "JSON", ...
+                "encoding from opts must be injected into pre-built definitions");
+        end
+
+        function encodingPreservedIfPresent(test)
+        % A pre-built definition that already carries an encoding field
+        % must NOT be overwritten by the opts.encoding argument.
+
+            import matlab.unittest.fixtures.PathFixture
+            test.applyFixture(PathFixture(test.toolsFolder));
+
+            tool = "toyToolOne";
+            wrapper = "toyToolOneMCP";
+            baseline = prodserver.mcp.internal.defineForMCP(tool, wrapper, ...
+                encoding="Hybrid");
+
+            test.verifyEqual(baseline.signatures.(tool).encoding, "Hybrid");
+
+            % Pass it as a pre-built definition, but request "Invertible"
+            td = prodserver.mcp.internal.defineForMCP(tool, wrapper, ...
+                definitions={baseline}, encoding="Invertible");
+
+            test.verifyEqual(td.signatures.(tool).encoding, "Hybrid", ...
+                "pre-existing encoding in definition must not be overwritten");
+        end
+
         function negative(test)
-        % Poke the bear. 
+        % Poke the bear.
 
             % Put the badly commented MATLAB files on the path.
             import matlab.unittest.fixtures.PathFixture
