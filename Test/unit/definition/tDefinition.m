@@ -38,7 +38,8 @@ classdef tDefinition < matlab.unittest.TestCase
                 "Earthquake")));
 
             td = prodserver.mcp.internal.mcpDefinition(...
-                "plotTrajectoriesMCP", "plotTrajectoriesMCP");
+                "plotTrajectoriesMCP", "plotTrajectoriesMCP", ...
+                encoding="Invertible");
             definition.tools = { td.tools };
             definition.signatures = { td.signatures };
 
@@ -137,7 +138,7 @@ classdef tDefinition < matlab.unittest.TestCase
             % Vanilla argument list -- tools only, no GenAI.
             types.geom = "double";
             td = prodserver.mcp.internal.defineForMCP(tools,tools, ...
-                typemap=types);
+                typemap=types, encoding="Invertible");
             definition.tools = td.tools;
             definition.signatures = td.signatures;
 
@@ -167,11 +168,11 @@ classdef tDefinition < matlab.unittest.TestCase
             baseline.signatures.(tool) = rmfield( ...
                 baseline.signatures.(tool), 'encoding');
 
-            % Now pass that definition as a pre-built struct with encoding="JSON"
+            % Now pass that definition as a pre-built struct with encoding="Invertible"
             td = prodserver.mcp.internal.defineForMCP(tool, wrapper, ...
-                definitions={baseline}, encoding="JSON");
+                definitions={baseline}, encoding="Invertible");
 
-            test.verifyEqual(td.signatures.(tool).encoding, "JSON", ...
+            test.verifyEqual(td.signatures.(tool).encoding, "Invertible", ...
                 "encoding from opts must be injected into pre-built definitions");
         end
 

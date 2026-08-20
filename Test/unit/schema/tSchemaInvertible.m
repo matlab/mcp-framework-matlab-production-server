@@ -26,7 +26,8 @@ classdef tSchemaInvertible < matlab.unittest.TestCase
 
         function singleToolScalarInputs(test)
             defs = prodserver.mcp.schema("toyToolOne", ...
-                @() callWithOutputs(@toyToolOne, 3, {1.0, uint64(5)}));
+                @() callWithOutputs(@toyToolOne, 3, {1.0, uint64(5)}), ...
+                encoding="Invertible");
             test.verifyEqual(unwrapType(defs.tools.inputSchema.properties.a), "number");
             test.verifyEqual(unwrapType(defs.tools.inputSchema.properties.b), "integer");
         end
@@ -34,7 +35,8 @@ classdef tSchemaInvertible < matlab.unittest.TestCase
         function nvpInputsWrapped(test)
             defs = prodserver.mcp.schema("toyScalarNVOptions", ...
                 @() callWithOutputs(@toyScalarNVOptions, 1, ...
-                    {2024, 'mpg', 3.49, 'range', 4000}));
+                    {2024, 'mpg', 3.49, 'range', 4000}), ...
+                encoding="Invertible");
             test.verifyEqual(unwrapType(defs.tools.inputSchema.properties.year), "number");
             test.verifyEqual(unwrapType(defs.tools.inputSchema.properties.mpg), "number");
             test.verifyEqual(unwrapType(defs.tools.inputSchema.properties.range), "number");
@@ -43,7 +45,7 @@ classdef tSchemaInvertible < matlab.unittest.TestCase
         function multipleToolsWrapped(test)
             defs = prodserver.mcp.schema( ...
                 ["toyToolOne","toyScalarTwo"], ...
-                @() callBothTools());
+                @() callBothTools(), encoding="Invertible");
             test.verifyEqual(numel(defs), 2);
             test.verifyEqual(unwrapType(defs(1).tools.inputSchema.properties.a), "number");
             test.verifyEqual(unwrapType(defs(2).tools.inputSchema.properties.s), "string");
@@ -52,7 +54,8 @@ classdef tSchemaInvertible < matlab.unittest.TestCase
         function multipleExercisesDeduplicates(test)
             defs = prodserver.mcp.schema("toyToolOne", ...
                 {@() callWithOutputs(@toyToolOne, 3, {1.0, uint64(5)}), ...
-                 @() callWithOutputs(@toyToolOne, 3, {2.0, uint64(10)})});
+                 @() callWithOutputs(@toyToolOne, 3, {2.0, uint64(10)})}, ...
+                encoding="Invertible");
             data = unwrapData(defs.tools.inputSchema.properties.a);
             test.verifyEqual(string(data.type), "number");
             test.verifyFalse(isfield(data, 'anyOf'));
@@ -70,7 +73,8 @@ classdef tSchemaInvertible < matlab.unittest.TestCase
 
         function correctTypes(test)
             defs = prodserver.mcp.schema("threeFour", ...
-                @() callWithOutputs(@threeFour, 3, {1.0, 2.0, 3.0, 4.0}));
+                @() callWithOutputs(@threeFour, 3, {1.0, 2.0, 3.0, 4.0}), ...
+                encoding="Invertible");
             test.verifyEqual(unwrapType(defs.tools.inputSchema.properties.a), "number");
             test.verifyEqual(unwrapType(defs.tools.inputSchema.properties.b), "number");
             test.verifyEqual(unwrapType(defs.tools.inputSchema.properties.c), "number");
@@ -79,7 +83,8 @@ classdef tSchemaInvertible < matlab.unittest.TestCase
 
         function allRequiredWrapped(test)
             defs = prodserver.mcp.schema("threeFour", ...
-                @() callWithOutputs(@threeFour, 3, {1, 2, 3, 4}));
+                @() callWithOutputs(@threeFour, 3, {1, 2, 3, 4}), ...
+                encoding="Invertible");
             test.verifyEqual(numel(defs.tools.inputSchema.required), 4);
             test.verifyTrue(all(ismember(["a","b","c","d"], ...
                 defs.tools.inputSchema.required)));
@@ -87,7 +92,8 @@ classdef tSchemaInvertible < matlab.unittest.TestCase
 
         function allOptionalWrapped(test)
             defs = prodserver.mcp.schema("allInOptional", ...
-                @() callWithOutputs(@allInOptional, 3, {1, 2, 3, 4}));
+                @() callWithOutputs(@allInOptional, 3, {1, 2, 3, 4}), ...
+                encoding="Invertible");
             test.verifyTrue(isempty(defs.tools.inputSchema.required));
             % All params present and wire-encoded
             test.verifyEqual(string(defs.tools.inputSchema.properties.a.type), "object");
@@ -96,7 +102,8 @@ classdef tSchemaInvertible < matlab.unittest.TestCase
 
         function mixedNVPWrapped(test)
             defs = prodserver.mcp.schema("someInNVP", ...
-                @() callWithOutputs(@someInNVP, 3, {1, 2, 'c', 3, 'd', 4}));
+                @() callWithOutputs(@someInNVP, 3, {1, 2, 'c', 3, 'd', 4}), ...
+                encoding="Invertible");
             test.verifyTrue(ismember("a", defs.tools.inputSchema.required));
             test.verifyTrue(ismember("b", defs.tools.inputSchema.required));
             test.verifyFalse(ismember("c", defs.tools.inputSchema.required));
@@ -108,7 +115,8 @@ classdef tSchemaInvertible < matlab.unittest.TestCase
         function unobservedParameterWrapped(test)
             % Only provide some NVPs — unobserved params get fallback type
             defs = prodserver.mcp.schema("someInNVP", ...
-                @() callWithOutputs(@someInNVP, 3, {1, 2, 'c', 3}));
+                @() callWithOutputs(@someInNVP, 3, {1, 2, 'c', 3}), ...
+                encoding="Invertible");
             % 'd' not exercised — should still be wrapped with fallback type
             test.verifyEqual(string(defs.tools.inputSchema.properties.d.type), "object");
             test.verifyTrue(isfield(defs.tools.inputSchema.properties.d, 'properties'));
@@ -118,7 +126,7 @@ classdef tSchemaInvertible < matlab.unittest.TestCase
         function structuredTypeWrapped(test)
             defs = prodserver.mcp.schema("schemaComplexNoBlock", ...
                 @() callWithOutputs(@schemaComplexNoBlock, 3, ...
-                    {[3,0], [4,1]}));
+                    {[3,0], [4,1]}), encoding="Invertible");
             param = defs.tools.inputSchema.properties.realPart;
             test.verifyEqual(string(param.type), "object");
             test.verifyTrue(isfield(param, 'properties'));
@@ -130,7 +138,7 @@ classdef tSchemaInvertible < matlab.unittest.TestCase
         function structuredOutputWrapped(test)
             defs = prodserver.mcp.schema("schemaDatetimeNoBlock", ...
                 @() callWithOutputs(@schemaDatetimeNoBlock, 3, ...
-                    {2026, 3, 15}));
+                    {2026, 3, 15}), encoding="Invertible");
             outSchema = defs.tools.outputSchema;
             test.verifyTrue(isfield(outSchema.properties, 'dt'));
             test.verifyTrue(isfield(outSchema.properties, 'serial'));

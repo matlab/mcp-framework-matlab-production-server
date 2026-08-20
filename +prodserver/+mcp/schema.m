@@ -21,7 +21,7 @@ function definitions = schema(fcns, tests, opts)
         fcns string {mustBeNonempty}
         tests {prodserver.mcp.validation.mustBeTestSpecification, mustBeNonempty}
         opts.typemap struct {mustBeScalarOrEmpty} = []
-        opts.encoding (1,1) prodserver.mcp.WireEncoding = "Invertible"
+        opts.encoding (1,1) prodserver.mcp.WireEncoding = "JSON"
     end
 
     import prodserver.mcp.internal.SchemaObserver

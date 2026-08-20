@@ -32,7 +32,8 @@ classdef tSchemaCI < MCPCaller & ...
                 test.server,fcn));
 
             % Build 
-            ctf = prodserver.mcp.build(fcn,folder=test.tempFolder);
+            ctf = prodserver.mcp.build(fcn,folder=test.tempFolder, ...
+                encoding="Invertible");
 
             % Deploy
             endpoint = prodserver.mcp.deploy(ctf,test.host,test.port);
@@ -152,9 +153,9 @@ classdef tSchemaCI < MCPCaller & ...
             test.applyFixture(prodserver.mcp.test.mixin.RemoveArchive(...
                 test.server,fcn));
 
-            % Build 
+            % Build
             ctf = prodserver.mcp.build(fcn,folder=test.tempFolder, ...
-                wrapper="None");
+                wrapper="None", encoding="Invertible");
 
             % Deploy
             endpoint = prodserver.mcp.deploy(ctf,test.host,test.port);

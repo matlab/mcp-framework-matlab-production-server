@@ -16,7 +16,7 @@ function definition = defineForMCP(tools,fcns, opts)
         % If non-empty, the definition(s) of tools
         opts.definitions cell = {};
         % Wire encoding to use for each tool.
-        opts.encoding prodserver.mcp.WireEncoding = "Invertible";
+        opts.encoding prodserver.mcp.WireEncoding = "JSON";
         % Map of MATLAB to JSON types. Fieldnames are MATLAB types, field
         % values are JSON types.
         opts.typemap struct = [];

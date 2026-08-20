@@ -104,7 +104,8 @@ classdef tWrapper < matlab.unittest.TestCase
 
             % Vanilla argument list. Generate wrappers and tool definition
             % but not archive.
-            prodserver.mcp.build(fcn,folder=test.tempFolder,stop="Definition");
+            prodserver.mcp.build(fcn,folder=test.tempFolder,stop="Definition",...
+                encoding="Invertible");
 
             % Wrappers must exist
             wrap = fullfile(test.tempFolder,fcn + "MCP.m");
@@ -223,7 +224,8 @@ classdef tWrapper < matlab.unittest.TestCase
 
             % Vanilla argument list. Generate wrappers and tool definition
             % but not archive.
-            prodserver.mcp.build(fcn,folder=test.tempFolder,stop="Definition");
+            prodserver.mcp.build(fcn,folder=test.tempFolder,stop="Definition",...
+                encoding="Invertible");
 
             % Wrappers must exist
             wrap = fullfile(test.tempFolder,fcn + "MCP.m");
@@ -267,7 +269,7 @@ classdef tWrapper < matlab.unittest.TestCase
             % Vanilla argument list. Generate wrappers but not archive.
             types.geom = "float";
             prodserver.mcp.build(fcn, folder=test.tempFolder,stop="Wrapper",...
-                typemap=types);
+                typemap=types, encoding="Invertible");
 
             % Wrappers must exist
             wrap = fullfile(test.tempFolder,fcn + "MCP.m");
