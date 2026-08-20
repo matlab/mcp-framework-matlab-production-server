@@ -55,6 +55,13 @@ classdef tOptionalBI < matlab.unittest.TestCase & ...
 
     end
 
+    methods (TestMethodSetup)
+        function switchContext(~)
+            % Clear tool definition cache.
+            prodserver.mcp.handler.toolServices(action="clear");
+        end
+    end
+
     methods(Test)
 
         function scalarOptions(test)

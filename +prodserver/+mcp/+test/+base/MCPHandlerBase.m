@@ -30,6 +30,9 @@ classdef MCPHandlerBase < matlab.unittest.TestCase
                 'ApiVersion',[1 0 0], ...
                 'Headers', {...
                 {'Server' 'MATLAB Production Server/Model Context Protocol (v1.0)';}}); 
+
+            % Clear the appdata key
+            prodserver.mcp.handler.toolServices(action="clear");
         end
     end
 
@@ -71,12 +74,20 @@ classdef MCPHandlerBase < matlab.unittest.TestCase
                 request, response);
         end
 
-        function defineTools(test,fcns,tools,dFiles)
+        function defineTools(test,fcns,tools,opts)
+            arguments
+                test           % this
+                fcns           % Names of functions in the server
+                tools          % Tool name of each function
+                opts.encoding  % Encoding used by the tool
+                opts.dFiles    % JSON files containing complete definitions
+            end
+
             import prodserver.mcp.MCPConstants
 
             % Definition generation support in 26a and later.
-            if nargin > 3
-                dJSON = arrayfun(@(f)jsondecode(fileread(f)),dFiles, ...
+            if nargin > 4
+                dJSON = arrayfun(@(f)jsondecode(fileread(f)),opts.dFiles, ...
                     UniformOutput=false);
                 definition.tools = cell(1,numel(dJSON));
                 for n = 1:numel(dJSON)
@@ -88,7 +99,7 @@ classdef MCPHandlerBase < matlab.unittest.TestCase
                 end
             else
                 definition = prodserver.mcp.internal.defineForMCP(...
-                    tools, fcns);
+                    tools, fcns, encoding=opts.encoding);
             end
 
             test.definitionFile = fullfile(test.tempFolder,...
@@ -97,6 +108,9 @@ classdef MCPHandlerBase < matlab.unittest.TestCase
             def.(MCPConstants.ResourceVariable) = ...
                 prodserver.mcp.internal.resourceDefinition({MCPConstants.WireEncodingResource});
             save(test.definitionFile,"-struct","def");
+
+            % Clear the appdata key
+            prodserver.mcp.handler.toolServices(action="clear");
         end
     end
 end

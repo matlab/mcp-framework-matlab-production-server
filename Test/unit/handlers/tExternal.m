@@ -45,7 +45,7 @@ classdef tExternal < prodserver.mcp.test.base.MCPHandlerBase & ...
             response = prodserver.mcp.internal.mcpHandler(request);
             response = decodeResponse(test,request,response);
 
-            if hasField(response,"error")
+            if hasField(response,"isError")
                 test.verifyFalse(true,response.error.message);
             end
             test.verifyTrue(hasField(response,"result"),"No result field");

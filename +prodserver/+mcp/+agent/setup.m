@@ -36,9 +36,12 @@ function setup()
             "No supported AI agents detected. Install Claude Code " + ...
             "(https://claude.ai/claude-code) and try again.");
     else
-        fprintf("MCP Framework skills installed for: %s\n", ...
+        fprintf("MCP Framework marketplace registered for: %s\n", ...
             strjoin(installedAgents, ", "));
-        fprintf("Restart your agent session for changes to take effect.\n");
+        fprintf("\nNext steps:\n");
+        fprintf("  1. In Claude Code, install the plugin:  /plugins  → mcp-framework\n");
+        fprintf("  2. Reload plugins:  /reload-plugins\n");
+        fprintf("  The /mps-mcp-build skill will then appear in /skills.\n");
     end
 end
 

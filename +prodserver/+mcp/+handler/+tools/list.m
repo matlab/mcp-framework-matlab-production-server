@@ -12,7 +12,7 @@ function [result, httpCode, httpMsg, msgHeaders] = list(jrpc)
         prodserver.mcp.handler.internal.initResult(jrpc);
     result.id = jrpc.id;
 
-    d = load(MCPConstants.DefinitionFile);
+    d = prodserver.mcp.handler.toolServices;
     r.tools = d.(MCPConstants.DefinitionVariable).tools;
 
     % Must be returned as an array in JSON. And since it's a structure,

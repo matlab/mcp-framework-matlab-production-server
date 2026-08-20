@@ -3,9 +3,14 @@ classdef tmcpHandler < prodserver.mcp.test.base.MCPHandlerBase
 
 % Copyright 2026-2026 The MathWorks, Inc.
 
+    properties (ClassSetupParameter)
+        encoding = { prodserver.mcp.WireEncoding.JSON, ...
+            prodserver.mcp.WireEncoding.Invertible };
+    end
+
     methods (TestClassSetup)
 
-        function prepareTools(test)
+        function prepareTools(test,encoding)
             import matlab.unittest.fixtures.PathFixture
 
             % Add examples to the path
@@ -24,7 +29,7 @@ classdef tmcpHandler < prodserver.mcp.test.base.MCPHandlerBase
             test.toolNames = ["plotTrajectories","primeSequence", ...
                 "read_mcp_resource"];
 
-            defineTools(test,test.fcnNames,test.toolNames);
+            defineTools(test,test.fcnNames,test.toolNames,encoding=encoding);
         end
     end
 
@@ -243,10 +248,29 @@ classdef tmcpHandler < prodserver.mcp.test.base.MCPHandlerBase
             test.verifyEqual(response.id, 1);
             test.verifyTrue(hasField(response, 'result.content'));
             test.verifyTrue(hasField(response, 'result.structuredContent'));
+
+            % Get encoding
+            toolEncoding = prodserver.mcp.jsonrpc.toolEncoding("primeSequence", ...
+                defFile=test.definitionFile);
+
+            if toolEncoding == prodserver.mcp.WireEncoding.JSON
+                txtClass = 'char';
+            else
+                txtClass = 'string';
+            end
+
+            test.verifyEqual(...
+                class(response.result.structuredContent.contents.uri), ...
+                txtClass);
+
+            test.verifyEqual(...
+                class(response.result.structuredContent.contents.mimeType), ...
+                txtClass);
+
             test.verifyEqual(response.result.structuredContent.contents.uri,...
-                MCPConstants.WireEncodingResourceURI);
+                feval(txtClass,MCPConstants.WireEncodingResourceURI)); %#ok<FVAL>
             test.verifyEqual(response.result.structuredContent.contents.mimeType, ...
-                "text/plain");
+                feval(txtClass,'text/plain')); %#ok<FVAL>
             test.verifyEqual(nnz(contains(response.result.content.text, ...
                 MCPConstants.WireEncodingResourceURI)),1);
         end
@@ -259,6 +283,10 @@ classdef tmcpHandler < prodserver.mcp.test.base.MCPHandlerBase
             req = test.request;
             req.Headers = [req.Headers; {MCPConstants.ContentType, ...
                 'application/json'}];
+
+            % Get encoding
+            toolEncoding = prodserver.mcp.jsonrpc.toolEncoding("primeSequence", ...
+                defFile=test.definitionFile);
 
             % Make up a session ID
             id = matlab.lang.internal.uuid;
@@ -292,12 +320,28 @@ classdef tmcpHandler < prodserver.mcp.test.base.MCPHandlerBase
             test.verifyTrue(hasField(response, 'result.content'));
             test.verifyTrue(hasField(response, 'result.structuredContent'));
 
-            % Result is a column vector.
+            % primeSequence returns a row vector. MATLAB's native JSON 
+            % encoding turns vectors into columns by default (orientation
+            % is lost).
             expected.seq = primeSequence(13,"Eisenstein");
+            if toolEncoding == prodserver.mcp.WireEncoding.JSON
+                expected.seq = expected.seq';
+            end
             test.verifyEqual(response.result.structuredContent,expected);
+
+            % content should be a structure with fields "type" and "text"
+            % (in this case). The type should be 'text' and the text should
+            % be a JSON-encoded string of the structuredContent.
+            test.verifyTrue(hasField(response.result.content,'type'), ...
+                "Missing type field");
+            test.verifyEqual(response.result.content.type,'text');
+            test.verifyTrue(hasField(response.result.content,'text'), ...
+                "Missing text field");
+
             % Since HTTP interface sends all strings as char
-            test.verifyEqual(response.result.content.text, ...
-                prodserver.mcp.jsonrpc.mcpWireEncode(expected));
+            enc = prodserver.mcp.jsonrpc.mcpEncode(toolEncoding,expected);
+            txt = jsonencode(enc{1});
+            test.verifyEqual(response.result.content.text, txt);
         end
     end
 

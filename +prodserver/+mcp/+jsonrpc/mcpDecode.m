@@ -14,14 +14,12 @@ function decoded = mcpDecode(encoding, varargin)
 
 % Copyright 2026 The MathWorks, Inc.
 
-    switch encoding
-        case prodserver.mcp.WireEncoding.Invertible
-            decoded = cellfun(@prodserver.mcp.jsonrpc.mcpWireDecodeValue, ...
-                varargin, UniformOutput=false);
-        case prodserver.mcp.WireEncoding.JSON
-            decoded = varargin;
-        case prodserver.mcp.WireEncoding.Hybrid
-            decoded = cellfun(@prodserver.mcp.jsonrpc.mcpWireDecodeValue, ...
-                varargin, UniformOutput=false);
+    if encoding == prodserver.mcp.WireEncoding.JSON
+        decoded = varargin;
+    else
+        decoded = cell(size(varargin));
+        for n = 1:numel(varargin)
+            decoded{n} = prodserver.mcp.jsonrpc.mcpWireDecodeValue(varargin{n});
+        end
     end
 end

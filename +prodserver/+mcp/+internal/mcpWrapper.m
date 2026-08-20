@@ -274,8 +274,7 @@ function [code,indirect] = mcpWrapper(fcn,tool,opts)
             defVar = uniqueLocalVariable(inParams, outParams, defVar);
             importVar = uniqueLocalVariable(inParams, outParams, importVar);
 
-            code = code + indent + defVar + " = matfile(""" + ...
-                MCPConstants.DefinitionFile + """);" + newline;
+            code = code + indent + defVar + " = prodserver.mcp.handler.toolServices;" + newline;
             code = code + indent + importVar + " = " + defVar + "." + ...
                 MCPConstants.ImporterVariable + ";" + newline;
         end

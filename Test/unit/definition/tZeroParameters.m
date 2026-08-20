@@ -24,6 +24,14 @@ classdef tZeroParameters < matlab.unittest.TestCase & ...
 
     end
 
+    methods (TestMethodSetup)
+        function switchContext(~)
+            % Clear toolServices cache, which contains the definitions of
+            % the available tools.
+            prodserver.mcp.handler.toolServices(action="clear");
+        end
+    end
+
     methods(Test)
 
         function defineZeroIn(test)

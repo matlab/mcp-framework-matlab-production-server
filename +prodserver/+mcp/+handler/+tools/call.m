@@ -8,18 +8,19 @@ function [result, httpCode, httpMsg, msgHeaders] = call(jrpc)
     import prodserver.mcp.MCPConstants
     import prodserver.mcp.internal.ParameterKind
     import prodserver.mcp.internal.hasField
-    import prodserver.mcp.jsonrpc.mcpWireEncode
     import prodserver.mcp.jsonrpc.mcpEncode
     import prodserver.mcp.jsonrpc.mcpDecode
 
     [result, httpCode, httpMsg, msgHeaders, r] = ...
         prodserver.mcp.handler.internal.initResult(jrpc);
     result.id = jrpc.id;
-
-    d = load(MCPConstants.DefinitionFile);
+    
+    % Get tool definition
+    svc = prodserver.mcp.handler.toolServices;
+    d = svc.(MCPConstants.DefinitionVariable);
 
     % Find tool definition.
-    tools = d.(MCPConstants.DefinitionVariable).tools;
+    tools = d.tools;
 
     % Cast to string because sometimes the name may be a char, which
     % don't count as uniform output.
@@ -48,14 +49,10 @@ function [result, httpCode, httpMsg, msgHeaders] = call(jrpc)
     % JRPC in MCP does not define argument order. So we (cleverly!)
     % insert order information into the definition. Assemble a cell
     % array with the arguments in the right order.
-    sig = d.(MCPConstants.DefinitionVariable).signatures;
+    sig = d.signatures;
 
     % Determine wire encoding for this tool.
-    if isfield(sig.(fcn), 'encoding')
-        toolEncoding = prodserver.mcp.WireEncoding(sig.(fcn).encoding);
-    else
-        toolEncoding = prodserver.mcp.WireEncoding.Invertible;
-    end
+    toolEncoding = prodserver.mcp.jsonrpc.toolEncoding(fcn,sig=sig);
 
     actual = string(fieldnames(jrpc.params.arguments));
 
@@ -139,7 +136,7 @@ function [result, httpCode, httpMsg, msgHeaders] = call(jrpc)
         % Encode to JSON. Gets encoded again later, which allows it to
         % be delivered to the client as a legitimate JSON string. Which
         % is what Claude wants...
-        content.(out{n}) = outArgs{n};
+        %content.(out{n}) = outArgs{n};
     end
 
     % Add by-reference outputs to content and structuredContent array so 
@@ -155,16 +152,17 @@ function [result, httpCode, httpMsg, msgHeaders] = call(jrpc)
             if hasField(t.inputSchema.properties.(in{n}),"writeOnly") && ...
                 t.inputSchema.properties.(in{n}).writeOnly == true
                 if isfield(jrpc.params.arguments,in{n})
-                    content.(in{n}) = jrpc.params.arguments.(in{n});
+                    %content.(in{n}) = jrpc.params.arguments.(in{n});
                     r.structuredContent.(in{n}) = jrpc.params.arguments.(in{n});
                 end
             end
         end
     end
 
-    
+    % Return content as a string. 
     c.type = "text";
-    c.text = mcpWireEncode(content);
+    %c.text = jsonencode(mcpEncode(toolEncoding,content));
+    c.text = jsonencode(r.structuredContent);
     r.content = {c} ;  % Must be array for Claude desktop.
     result.result = r;
 end

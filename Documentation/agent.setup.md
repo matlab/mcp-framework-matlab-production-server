@@ -2,9 +2,11 @@
 ```MATLAB
 agent.setup
 ```
-Install MCP Framework agent skills for available AI coding agents. After running this function, the `/mps-mcp-build` skill is available in supported agents (currently Claude Code) regardless of the current working directory. Restart your agent session after installation for changes to take effect.
+Register the MCP Framework skill marketplace for available AI coding agents. This is the first step toward making the `/mps-mcp-build` skill available in supported agents (currently Claude Code).
 
-The function detects which supported agents are installed and registers the MCP Framework skills with each. If the `claude` CLI is available, it uses `claude plugin marketplace add` to register the skill catalog. Otherwise it writes directly to the Claude Code plugin registry.
+The function detects which supported agents are installed and registers the MCP Framework skill catalog with each. If the `claude` CLI is available, it uses `claude plugin marketplace add` to register the catalog. Otherwise it writes directly to the Claude Code plugin registry.
+
+After running this function, you must install the plugin and reload it in your agent session before the skill becomes available. See the Examples section below for the complete workflow.
 
 ### Inputs
 None.
@@ -14,15 +16,25 @@ None. Prints status messages to the command window.
 
 # Examples
 
-Install skills for all detected agents:
+Register the marketplace and install the skill:
 ```MATLAB
 prodserver.mcp.agent.setup
 ```
 Output:
 ```
-MCP Framework skills installed for: Claude Code
-Restart your agent session for changes to take effect.
+MCP Framework marketplace registered for: Claude Code
+
+Next steps:
+  1. In Claude Code, install the plugin:  /plugins  → mcp-framework
+  2. Reload plugins:  /reload-plugins
+  The /mps-mcp-build skill will then appear in /skills.
 ```
+
+Then in Claude Code:
+1. Run `/plugins` and install the **mcp-framework** plugin
+2. Run `/reload-plugins`
+3. Verify with `/skills` — the `/mps-mcp-build` skill should now be listed
+
 ***
 
 If no supported agents are found:

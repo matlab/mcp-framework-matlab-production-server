@@ -35,7 +35,8 @@ classdef tWireEncodingTools < prodserver.mcp.test.base.MCPHandlerBase
             test.fcnNames = ["matrixMultiply", "analyzeACCircuit", ...
                 "interpolateWithMissing", "fuseSensors", "blendImages"];
             test.toolNames = test.fcnNames;
-            defineTools(test, test.fcnNames, test.toolNames);
+            defineTools(test, test.fcnNames, test.toolNames,encoding="Invertible");
+
         end
 
     end

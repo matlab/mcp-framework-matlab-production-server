@@ -10,11 +10,11 @@ function data = contents(url)
     data = [];
 
     % Load the MCP tool definition
-    d = load(MCPConstants.DefinitionFile);
+    svc = prodserver.mcp.handler.toolServices;
 
     % Get the list of all resources, which is a cell array, since resource
     % structures are not all required to have the same fields.
-    rList = d.(MCPConstants.ResourceVariable);
+    rList = svc.(MCPConstants.ResourceVariable);
     u = cellfun(@(r)string(r.uri),rList);
     rI = strcmp(u,url);
 

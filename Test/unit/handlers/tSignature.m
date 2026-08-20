@@ -3,6 +3,11 @@ classdef tSignature < prodserver.mcp.test.base.MCPHandlerBase
 
 % Copyright 2025-2026 The MathWorks, Inc.
 
+    properties (ClassSetupParameter)
+        encoding = { prodserver.mcp.WireEncoding.JSON, ...
+            prodserver.mcp.WireEncoding.Invertible };
+    end
+
     methods (TestClassSetup)
         
         function useExamples(test)
@@ -10,14 +15,14 @@ classdef tSignature < prodserver.mcp.test.base.MCPHandlerBase
             test.applyFixture(prodserver.mcp.test.mixin.RequireExamples());
         end
 
-        function prepareTools(test)
+        function prepareTools(test,encoding)
             % Assume defineForMCP is working. It has its own tests. :-)
             % Better decoupling requires a lot of (probably unnecessary)
             % work.
             test.fcnNames = ["plotTrajectoriesMCP","primeSequence"];
             test.toolNames = ["plotTrajectories","primeSequence"];
     
-            defineTools(test,test.fcnNames,test.toolNames);
+            defineTools(test,test.fcnNames,test.toolNames,encoding=encoding);
         end
     end
 
