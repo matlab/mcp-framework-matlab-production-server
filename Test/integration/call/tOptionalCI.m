@@ -52,7 +52,7 @@ classdef tOptionalCI < MCPCaller
                 % Call the function on the server.
                 actual = prodserver.mcp.call(endpoint,fcn,args{1:n});
 
-                test.verifyEqual(actual,expected,sprintf("Max arg #%d",n));
+                test.verifyEqual(actual,char(expected),sprintf("Max arg #%d",n));
             end
         end
 
@@ -90,8 +90,8 @@ classdef tOptionalCI < MCPCaller
                 % Call the function on the server.
                 actual = prodserver.mcp.call(endpoint,fcn,args{1:n});
     
-                test.verifyEqual(actual,expected,sprintf("Max arg #%d",n));
-            end 
+                test.verifyEqual(actual,char(expected),sprintf("Max arg #%d",n));
+            end
         end
     end
 

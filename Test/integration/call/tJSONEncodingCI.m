@@ -309,8 +309,8 @@ classdef tJSONEncodingCI < MCPCaller
             [~, aDow, aSerial] = prodserver.mcp.call(...
                 endpoint, fcn, year, month, day);
 
-            % Day-of-week is a string — should round-trip
-            test.verifyEqual(aDow, eDow);
+            % Day-of-week is a string — returns as char through JSON
+            test.verifyEqual(aDow, char(eDow));
             % Serial date number is numeric — should round-trip
             test.verifyEqual(double(aSerial), double(eSerial), AbsTol=1e-10);
         end
