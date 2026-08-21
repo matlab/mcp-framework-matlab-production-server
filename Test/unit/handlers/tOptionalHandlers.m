@@ -2,10 +2,15 @@ classdef tOptionalHandlers < prodserver.mcp.test.base.MCPHandlerBase
 % Call the mcpHandler to invoke a function that has optional inputs.
 
 % Copyright 2025-2026 The MathWorks, Inc.
-    
+
+    properties (TestParameter)
+        encoding = { prodserver.mcp.WireEncoding.JSON, ...
+            prodserver.mcp.WireEncoding.Invertible };
+    end
+        
     methods(Test)
 
-        function optionalScalarInputs(test)
+        function optionalScalarInputs(test,encoding)
         % Optional positional arguments.
 
             import prodserver.mcp.internal.hasField
@@ -17,7 +22,7 @@ classdef tOptionalHandlers < prodserver.mcp.test.base.MCPHandlerBase
             fcn = "toyScalarOptions";
             tool = "toyScalarOptions";
 
-            defineTools(test,fcn,tool);
+            defineTools(test,fcn,tool,encoding=encoding);
         
             % year, mpg, range, make, model
             params = {"year", "mpg", "range", "make", "model"};
@@ -48,7 +53,7 @@ classdef tOptionalHandlers < prodserver.mcp.test.base.MCPHandlerBase
             end
         end
 
-        function optionalScalarNVInputs(test)
+        function optionalScalarNVInputs(test,encoding)
         % Optional arguments that use name,value pair syntax.
 
             import prodserver.mcp.internal.hasField
@@ -60,7 +65,7 @@ classdef tOptionalHandlers < prodserver.mcp.test.base.MCPHandlerBase
             fcn = "toyScalarNVOptions";
             tool = "toyScalarNVOptions";
 
-            defineTools(test,fcn,tool);
+            defineTools(test,fcn,tool,encoding=encoding);
 
             % year, mpg, range, make, model
             params = {"year", "mpg", "range", "make", "model"};

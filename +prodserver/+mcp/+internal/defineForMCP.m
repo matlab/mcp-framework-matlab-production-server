@@ -56,15 +56,27 @@ function definition = defineForMCP(tools,fcns, opts)
                 fcns(n),typemap=opts.typemap,defs=defs,stage=opts.stage,...
                 encoding=encoding);
         else
-            % Assume each of these is a complete description of a single 
+            % Assume each of these is a complete description of a single
             % tool. Add the "tools" value to the definition we're building.
-    
+
             if isstruct(opts.definitions{n})
                 td = opts.definitions{n};
             elseif exist(opts.definitions{n},"file") == 2
                 td = jsondecode(fileread(opts.definitions{n}));
             elseif isstring(opts.definitions{n})
                 td = jsondecode(opts.definitions{n});
+            end
+
+            % Inject encoding into signatures that don't already have one.
+            if isscalar(opts.encoding)
+                encoding = opts.encoding;
+            else
+                encoding = opts.encoding(n);
+            end
+            for sig = string(fieldnames(td.signatures))'
+                if ~isfield(td.signatures.(sig), 'encoding')
+                    td.signatures.(sig).encoding = string(encoding);
+                end
             end
         end
     

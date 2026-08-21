@@ -69,7 +69,11 @@ classdef (Abstract) Scheme
             
         function name = Name(cls)
             import prodserver.mcp.io.Scheme
-            name = lower(extract(cls,Scheme.namePattern));
+            name = extract(cls,Scheme.namePattern);
+        end
+
+        function name = URIName(cls)
+            name = lower(prodserver.mcp.io.Scheme.Name(cls));
         end
 
         function mc = MarshallingConfiguration(varargin)
@@ -104,7 +108,6 @@ classdef (Abstract) Scheme
     end
 
     properties (Access = protected)
-        configTemplate   % Original configuration data
         tokenizedConfig  % Configuration after tokens applied
         tokens
     end
@@ -112,6 +115,8 @@ classdef (Abstract) Scheme
     properties(Dependent, SetAccess=immutable)
         configuration   % Configuration with tokens replaced by values.
         template        % Configuration before tokens replaced by values.
+        schemeName      % Name of this scheme (exact case-match)
+        uriName         % Name of this scheme as used in URIs
     end
 
     properties(Constant,Hidden)
@@ -152,8 +157,16 @@ classdef (Abstract) Scheme
             end
         end
 
+        function n = get.uriName(s)
+            n = prodserver.mcp.io.Scheme.URIName(class(s));
+        end
+
+        function n = get.schemeName(s)
+            n = prodserver.mcp.io.Scheme.Name(class(s));
+        end
+
         function cfg = get.template(s)
-            cfg = s.configTemplate;
+            cfg = ConfigurationTemplate(s.schemeName);
         end
 
         function cfg = get.configuration(s)
@@ -258,13 +271,13 @@ classdef (Abstract) Scheme
     methods (Access = protected)
 
         function s = configure(s,folder,varargin)
-            import prodserver.mcp.internal.yaml2json
             import prodserver.mcp.internal.normalizeConfig
             import prodserver.mcp.internal.DictionaryHandle
             % Import yourself to call your own static methods.
             import prodserver.mcp.io.Scheme
+            import prodserver.mcp.internal.yaml2json
 
-            name = extract(class(s), s.namePattern);
+            name = s.schemeName;
             s.tokens = DictionaryHandle("string","string");
 
             if nargin > 2
@@ -283,21 +296,24 @@ classdef (Abstract) Scheme
                         % tokens dictionary.
                         merge(s.tokens, a);
                     elseif isstruct(a)
-                        s.configTemplate = a;
+                        ConfigurationTemplate(name,a);
                     end
                 end
             end
 
-            if isempty(s.configTemplate)
+            tmpl = ConfigurationTemplate(name);
+            if isempty(tmpl)
                 % Read the configuration into a JSON string.
                 json = yaml2json(fullfile(folder,name+".yaml"));
-                s.configTemplate = normalizeConfig(jsondecode(json));
+
+                tmpl = normalizeConfig(jsondecode(json));
                 % Inject class name into "defaults" section.
-                s.configTemplate.defaults.class = class(s);
+                tmpl.defaults.class = class(s);
+                ConfigurationTemplate(name,tmpl);
             end
 
             s.tokenizedConfig = Scheme.TokenizeConfiguration(s.tokens, ...
-                s.configTemplate);
+                tmpl);
         end
     end
 
@@ -349,6 +365,30 @@ function tokens = commonTokens()
     end
     tokens("$toolsRoot") = replace(toolsRoot,"\","/");
 end
+
+function template = ConfigurationTemplate(scheme,template)
+% ConfigurationTemplate Stores the configuration data for each scheme. A
+% class static variable, MATLAB-style.
+
+    import prodserver.mcp.internal.DictionaryHandle
+    persistent ct
+    if isempty(ct)
+        ct = DictionaryHandle("string","struct");
+    end
+
+    if nargin == 1
+        % If the scheme has a template, return it.
+        if isKey(ct,scheme)
+            template = ct(scheme);
+        else
+            template = string.empty;
+        end
+    elseif nargin == 2
+        % Store the provided template in the persistent dictionary
+        ct(scheme) = template; 
+    end
+end
+
 
 function tokens = ConfigurationTokens(tokens)
 %ConfigurationTokens A handle object shared by all schemes associated with

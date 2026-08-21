@@ -26,15 +26,10 @@ function response = decodeStructuredContent(request, response)
         end
     end
 
+    % struct2cell and cell2struct promise strict fieldname order.
     sc = response.result.structuredContent;
-    flds = fieldnames(sc);
-    allVals = cell(1,numel(flds));
-    for k = 1:numel(flds)
-        allVals{k} = sc.(flds{k});
-    end
-    decoded = mcpDecode(toolEncoding, allVals{:});
-    for k = 1:numel(flds)
-        sc.(flds{k}) = decoded{k};
-    end
-    response.result.structuredContent = sc;
+    c = struct2cell(sc);
+    decoded = mcpDecode(toolEncoding,c{:});
+    decoded = decoded(:);
+    response.result.structuredContent = cell2struct(decoded,fieldnames(sc)');
 end

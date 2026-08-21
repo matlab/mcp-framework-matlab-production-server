@@ -11,21 +11,7 @@ function response = mcpHandler(request)
         data = [];
         jrpc = [];
 
-        headers = {};
-        session = getHeaderValue(MCPConstants.SessionId, request.Headers);
-        if ~isempty(session)
-            headers = {MCPConstants.SessionId session};
-        end
-    
-        % Error if not present post-initialization
-        protocolVersion = getHeaderValue(MCPConstants.ProtocolVersion, ...
-            request.Headers);
-
-        % Count the number of times mcpHandler is called.
-        prodserver.metrics.incrementCounter(MCPConstants.MCPRequestMetric,1);
-
-        % Count the number of times each MCP tool server is called.
-        % Expecting URLs to look like this:
+        % Need server name for metrics. Expecting URLs to look like this:
         %   /<server>/mcp
         % Trying to extract <server> from that string. Since split will add
         % "" for /, <server> should the the 2nd element in the return
@@ -41,6 +27,27 @@ function response = mcpHandler(request)
                 "Cannot determine server name from request URL '%s'.", ...
                 request.Path);
         end
+
+        % Record elapsed time -- this time measures overhead and tool 
+        % call time.
+        serverTimeMetric = MCPConstants.MCPMetricPrefix + serverName + "_ElapsedTime";
+        et = tic();
+        elapsed = onCleanup(@()prodserver.metrics.incrementCounter(serverTimeMetric,toc(et)));
+
+        headers = {};
+        session = getHeaderValue(MCPConstants.SessionId, request.Headers);
+        if ~isempty(session)
+            headers = {MCPConstants.SessionId session};
+        end
+    
+        % Error if not present post-initialization
+        protocolVersion = getHeaderValue(MCPConstants.ProtocolVersion, ...
+            request.Headers);
+
+        % Count the number of times mcpHandler is called.
+        prodserver.metrics.incrementCounter(MCPConstants.MCPRequestMetric,1);
+
+        % Record number of calls 
         serverMetric = MCPConstants.MCPMetricPrefix + serverName + "_Request";
         prodserver.metrics.incrementCounter(serverMetric,1)
         

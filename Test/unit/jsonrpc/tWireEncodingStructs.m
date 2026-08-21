@@ -3,9 +3,14 @@ classdef tWireEncodingStructs < prodserver.mcp.test.base.MCPHandlerBase
 
 % Copyright 2026 The MathWorks, Inc.
 
+    properties (ClassSetupParameter)
+        encoding = { prodserver.mcp.WireEncoding.JSON, ...
+            prodserver.mcp.WireEncoding.Invertible };
+    end
+
     methods (TestClassSetup)
 
-        function prepareTools(test)
+        function prepareTools(test,encoding)
             import matlab.unittest.fixtures.PathFixture
 
             % Add package root to path
@@ -24,7 +29,7 @@ classdef tWireEncodingStructs < prodserver.mcp.test.base.MCPHandlerBase
 
             test.fcnNames = ["circlesIntersect", "analyzeBeam"];
             test.toolNames = ["circlesIntersect", "analyzeBeam"];
-            defineTools(test, test.fcnNames, test.toolNames);
+            defineTools(test, test.fcnNames, test.toolNames, encoding=encoding);
         end
 
     end

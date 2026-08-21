@@ -11,7 +11,7 @@ function [result, httpCode, httpMsg, msgHeaders] = list(jrpc)
     result.id = jrpc.id;
 
     % Listing a resource returns all the fields except the contents.
-    d = load(MCPConstants.DefinitionFile);
+    d = prodserver.mcp.handler.toolServices;
     rList = d.(MCPConstants.ResourceVariable);
     rsrc.resources = cellfun(@(r)rmfield(r,"contents"),rList,...
         UniformOutput=false);

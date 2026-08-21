@@ -20,6 +20,11 @@ classdef tResource < matlab.unittest.TestCase
 
     methods (TestMethodSetup)
 
+        function switchContext(~)
+            % Clear the tool definition cache
+            prodserver.mcp.handler.toolServices(action="clear");
+        end
+
         function scratchSpace(test)
             % Temporary folder to contain wrappers
             import matlab.unittest.fixtures.TemporaryFolderFixture

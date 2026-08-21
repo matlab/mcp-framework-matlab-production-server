@@ -3,9 +3,14 @@ classdef tArgOrder < prodserver.mcp.test.base.MCPHandlerBase
 
 % Copyright 2025-2026 The MathWorks, Inc.
 
+    properties (ClassSetupParameter)
+        encoding = { prodserver.mcp.WireEncoding.JSON, ...
+            prodserver.mcp.WireEncoding.Invertible };
+    end
+
     methods (TestClassSetup)
 
-        function prepareTools(test)
+        function prepareTools(test,encoding)
             import matlab.unittest.fixtures.PathFixture
 
             % Add parameter tools to the path
@@ -20,7 +25,7 @@ classdef tArgOrder < prodserver.mcp.test.base.MCPHandlerBase
             test.fcnNames = ["orderMatters"];
             test.toolNames = ["orderMatters"];
 
-            defineTools(test,test.fcnNames,test.toolNames);
+            defineTools(test,test.fcnNames,test.toolNames,encoding=encoding);
         end
     end
 
@@ -41,6 +46,10 @@ classdef tArgOrder < prodserver.mcp.test.base.MCPHandlerBase
             req = test.request;
             req.Headers = [req.Headers; {MCPConstants.ContentType, ...
                 'application/json'}];
+
+            % Get encoding
+            toolEncoding = prodserver.mcp.jsonrpc.toolEncoding("primeSequence", ...
+                defFile=test.definitionFile);
 
             % Make up a session ID
             id = matlab.lang.internal.uuid;
@@ -82,8 +91,9 @@ classdef tArgOrder < prodserver.mcp.test.base.MCPHandlerBase
             expected.z = z;
             test.verifyEqual(response.result.structuredContent,expected);
             % Since HTTP interface sends all strings as char
-            test.verifyEqual(response.result.content.text, ...
-                prodserver.mcp.jsonrpc.mcpWireEncode(expected));
+            enc = prodserver.mcp.jsonrpc.mcpEncode(toolEncoding,expected);
+            txt = jsonencode(enc{1});
+            test.verifyEqual(response.result.content.text, txt);
         end
     end
 end

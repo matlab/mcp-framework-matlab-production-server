@@ -14,6 +14,13 @@ classdef tOptionalWrapper < matlab.unittest.TestCase
         end
     end
 
+    methods (TestMethodSetup)
+        function switchContext(~)
+            % Clear tool definition cache.
+            prodserver.mcp.handler.toolServices(action="clear");
+        end
+    end
+
     methods(Test)
 
         function starChart(test)

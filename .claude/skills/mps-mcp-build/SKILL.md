@@ -14,12 +14,12 @@ You are helping the user create and deploy MCP tools from MATLAB functions to a 
 
 Before doing anything else, verify these prerequisites are met:
 
-1. **MATLAB availability**: Check if MATLAB is accessible by running `which matlab`. Alternatively, check if the MATLAB MCP Core Server is available as a configured MCP tool.
+1. **MATLAB availability**: Check if MATLAB is accessible by running `which matlab`. Alternatively, check if the MATLAB MCP Server is available as a configured MCP tool.
 2. **MCP Framework availability**: This is verified automatically as part of the combined build call in Step 5. Do NOT run a separate `matlab -batch` just to check for the support package.
 
 If MATLAB is not available, report clearly what is needed and **stop**. Do NOT attempt to download, install, or otherwise acquire MATLAB or the support package.
 
-Prefer using the MATLAB MCP Core Server if it is available as a configured MCP tool. Fall back to `matlab -batch "..."` on the command line otherwise.
+Prefer using the MATLAB MCP Server if it is available as a configured MCP tool. Fall back to `matlab -batch "..."` on the command line otherwise.
 
 ## Step 2: Parse User Intent
 
@@ -86,12 +86,12 @@ Compute SHA-256 hashes for all source files and additional files:
 sha256sum "<source.m>" | cut -d' ' -f1
 ```
 
-For the framework fingerprint, read the installed fingerprint file. The manifest stores the framework root path from the previous build:
+For the framework fingerprint, compute it dynamically from the current state of all framework `.m` files. The manifest stores the framework root path from the previous build:
 ```bash
-cat "<manifest.framework_root>/+prodserver/+mcp/+internal/frameworkFingerprint.txt" 2>/dev/null
+cd "<manifest.framework_root>" && find +prodserver -name "*.m" -print0 | sort -z | xargs -0 sha256sum | sort -k2 | sha256sum | cut -d' ' -f1
 ```
 
-If the fingerprint file does not exist (old framework version without it), treat as "framework changed" and proceed to full build.
+If the command fails (e.g. the framework root no longer exists), treat as "framework changed" and proceed to full build.
 
 ### 4.3: Compare and decide
 
@@ -143,8 +143,10 @@ Arguments to `prodserver.mcp.build`:
 - Do NOT specify the `wrapper` argument — accept the framework's default behavior
 - Do NOT read the MATLAB function or make any judgements about wrappers
 - Always `cd` into the deployment folder before calling `build` so generated wrappers are co-located with the source function
+- **Always use a `deploy` subfolder** for build output. The `folder` argument to `prodserver.mcp.build` should be `<project-dir>/deploy`. This keeps generated artifacts (CTF, wrappers, signatures) separate from the source `.m` files.
 - **All paths in `matlab -batch` scripts MUST be absolute paths** — after `cd` changes the working directory, relative paths will resolve incorrectly. This applies to the `cd` target, the `folder` argument, file paths, and any other path references.
 - **Always `addpath` the project root** (the directory containing the `+prodserver` package folder) before `cd`-ing into the deployment folder. Without this, `cd` moves away from the package and MATLAB can no longer resolve `prodserver.mcp.*` functions.
+- **Use a script file for complex builds** — when passing string arrays or complex MATLAB expressions, write the command to a temporary `.m` file and run it with `matlab -batch "run('<path>')"`. This avoids shell quoting issues that silently corrupt double-quoted MATLAB strings in `-batch` mode on Windows.
 
 ### Prepare working directory
 

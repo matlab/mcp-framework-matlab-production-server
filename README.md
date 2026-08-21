@@ -31,7 +31,7 @@ If you use an AI coding agent such as Claude Code, register the MCP Framework bu
 prodserver.mcp.agent.setup
 ```
 
-This makes the `/mps-mcp-build` command available in your agent regardless of your working directory. Restart your agent session after running this command.
+This registers the skill marketplace. Then in Claude Code, install the **mcp-framework** plugin via `/plugins` and run `/reload-plugins`. The `/mps-mcp-build` skill will then appear in `/skills`.
 
 ## Step 2: Build An MCP Tool 
 To create an MCP tool from one of your MATLAB functions:

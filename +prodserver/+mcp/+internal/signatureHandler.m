@@ -11,8 +11,8 @@ function response = signatureHandler(request)
     fcnList = prodserver.mcp.internal.decodeBody(request);
 
     % Load the signature information from the MAT-file.
-    d = load(MCPConstants.DefinitionFile);
-    signatures = d.(MCPConstants.DefinitionVariable).signatures;
+    svc = prodserver.mcp.handler.toolServices;
+    signatures = svc.(MCPConstants.DefinitionVariable).signatures;
     if ~isempty(fcnList)
         if prodserver.mcp.validation.istext(fcnList) == false
             error("prodserver:mcp:InvalidSignatureListType", ...

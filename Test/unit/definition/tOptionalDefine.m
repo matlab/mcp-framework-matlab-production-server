@@ -24,6 +24,14 @@ classdef tOptionalDefine < matlab.unittest.TestCase & ...
 
     end
 
+    methods (TestMethodSetup)
+
+        function switchContext(~)
+            % Clear the tool definition cache
+            prodserver.mcp.handler.toolServices(action="clear");
+        end
+    end
+
     methods (Test)
 
         function defineOptionalScalars(test)

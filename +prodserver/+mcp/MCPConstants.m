@@ -10,7 +10,8 @@ classdef MCPConstants
 
         SessionId = 'Mcp-Session-Id'
         ProtocolVersion = 'MCP-Protocol-Version';
-        DefinitionFile = "McpServices.mat";
+        ServiceVariable = "McpServices";
+        DefinitionFile = prodserver.mcp.MCPConstants.ServiceVariable+".mat";
         DefinitionVariable = "mcpToolDefinition";
         ResourceVariable = "mcpServerResource";
         SignatureVariable = "signatures";

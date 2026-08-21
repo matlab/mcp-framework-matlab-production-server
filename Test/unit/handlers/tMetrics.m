@@ -13,9 +13,14 @@ classdef tMetrics < prodserver.mcp.test.base.MCPHandlerBase
 
 % Copyright 2026 The MathWorks, Inc.
 
+    properties (ClassSetupParameter)
+        encoding = { prodserver.mcp.WireEncoding.JSON, ...
+            prodserver.mcp.WireEncoding.Invertible };
+    end
+
     methods (TestClassSetup)
 
-        function prepareTools(test)
+        function prepareTools(test, encoding)
             import matlab.unittest.fixtures.PathFixture
 
             test.applyFixture(prodserver.mcp.test.mixin.RequireExamples());
@@ -27,7 +32,7 @@ classdef tMetrics < prodserver.mcp.test.base.MCPHandlerBase
             test.fcnNames = ["primeSequence","read_mcp_resource"];
             test.toolNames = ["primeSequence","read_mcp_resource"];
 
-            defineTools(test, test.fcnNames, test.toolNames);
+            defineTools(test, test.fcnNames, test.toolNames,encoding=encoding);
         end
     end
 
@@ -81,9 +86,9 @@ classdef tMetrics < prodserver.mcp.test.base.MCPHandlerBase
 
     methods (Test)
 
-        function toolsListEmitsTwoMetrics(test)
-        % tools/list should emit exactly two counters: the framework
-        % request metric and the server request metric.
+        function toolsListEmitsThreeMetrics(test)
+        % tools/list should emit exactly three counters: the framework
+        % request metric, the server request metric and the elapsed time.
             import prodserver.mcp.MCPConstants
 
             reqT = buildJsonRpcRequest(test, "tools/list", ...
@@ -93,8 +98,8 @@ classdef tMetrics < prodserver.mcp.test.base.MCPHandlerBase
                 "response = prodserver.mcp.internal.mcpHandler(reqT);");
             metrics = parseMetricOutput(test, output);
 
-            test.verifyEqual(numel(metrics), 2, ...
-                "tools/list should emit exactly 2 metrics");
+            test.verifyEqual(numel(metrics), 3, ...
+                "tools/list should emit exactly 3 metrics");
 
             names = [metrics.name];
             test.verifyTrue(ismember(MCPConstants.MCPRequestMetric, names), ...
@@ -105,9 +110,9 @@ classdef tMetrics < prodserver.mcp.test.base.MCPHandlerBase
                 "Missing server request metric");
         end
 
-        function toolsCallEmitsThreeMetrics(test)
+        function toolsCallEmitsFourMetrics(test)
         % tools/call should emit three counters: framework request,
-        % server request, and per-tool call metric.
+        % server request, per-tool call metric and the elapsed time.
             import prodserver.mcp.MCPConstants
 
             reqT = buildJsonRpcRequest(test, "tools/call", ...
@@ -118,8 +123,8 @@ classdef tMetrics < prodserver.mcp.test.base.MCPHandlerBase
                 "response = prodserver.mcp.internal.mcpHandler(reqT);");
             metrics = parseMetricOutput(test, output);
 
-            test.verifyEqual(numel(metrics), 3, ...
-                "tools/call should emit exactly 3 metrics");
+            test.verifyEqual(numel(metrics), 4, ...
+                "tools/call should emit exactly 4 metrics");
 
             names = [metrics.name];
             test.verifyTrue(ismember(MCPConstants.MCPRequestMetric, names), ...
@@ -184,9 +189,10 @@ classdef tMetrics < prodserver.mcp.test.base.MCPHandlerBase
                 "Tool call metric should use tool name");
         end
 
-        function allIncrementsAreOne(test)
+        function mostIncrementsAreOne(test)
         % The framework always passes 1 to incrementCounter. Verify
         % that every emitted counter in a single request has value 1.
+        % Except for elapsed time, which will never be exactly one second.
             import prodserver.mcp.MCPConstants
 
             reqT = buildJsonRpcRequest(test, "tools/call", ...
@@ -198,9 +204,11 @@ classdef tMetrics < prodserver.mcp.test.base.MCPHandlerBase
             metrics = parseMetricOutput(test, output);
 
             for k = 1:numel(metrics)
-                test.verifyEqual(metrics(k).value, 1, ...
-                    "Metric " + metrics(k).name + ...
-                    " should increment by 1");
+                if contains(metrics(k).name,"Elapsed") == false
+                    test.verifyEqual(metrics(k).value, 1, ...
+                        "Metric " + metrics(k).name + ...
+                        " should increment by 1");
+                end
             end
         end
 
