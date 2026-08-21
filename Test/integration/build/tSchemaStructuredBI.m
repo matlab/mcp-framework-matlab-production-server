@@ -40,13 +40,14 @@ classdef tSchemaStructuredBI < matlab.unittest.TestCase & ...
 
             % Generate schema definitions via observation
             defs = prodserver.mcp.schema(test.fcns, ...
-                @() exerciseStructuredTools());
+                @() exerciseStructuredTools(), encoding="Invertible");
 
             % Build the tools using schema-generated definitions
             test.server = "schemaStructuredBI";
             ctf = prodserver.mcp.build(test.fcns, definition=defs, ...
                 folder=test.tempFolder, archive=test.server, ...
-                wrapper=repmat("None", size(test.fcns)));
+                wrapper=repmat("None", size(test.fcns)), ...
+                encoding="Invertible");
 
             test.verifyTrue(startsWith(ctf, test.tempFolder), ctf);
         end

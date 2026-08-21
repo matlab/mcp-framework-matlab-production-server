@@ -75,7 +75,8 @@ classdef tDescriptionEncoding < matlab.unittest.TestCase
             import prodserver.mcp.MCPConstants
 
             tool = "threeFour";
-            td = prodserver.mcp.internal.defineForMCP(tool, tool);
+            td = prodserver.mcp.internal.defineForMCP(tool, tool, ...
+                encoding="Invertible");
 
             % Check inputs
             inProps = td.tools{1}.inputSchema.properties;
@@ -166,7 +167,8 @@ classdef tDescriptionEncoding < matlab.unittest.TestCase
             [wrapper, defs] = prodserver.mcp.internal.wrapForMCP( ...
                 fcn, "", tFolder.Folder);
             [~, tool] = fileparts(wrapper);
-            td = prodserver.mcp.internal.defineForMCP(fcn, tool, defs=defs);
+            td = prodserver.mcp.internal.defineForMCP(fcn, tool, defs=defs, ...
+                encoding="Invertible");
         end
 
         function checkDefsClean(test, defsGroup)

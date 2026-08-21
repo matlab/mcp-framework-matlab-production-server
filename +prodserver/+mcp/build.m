@@ -44,8 +44,8 @@ function [ctf,endpoint] = build(fcn, opts)
 
         % Wire encoding. A scalar applies to all tools, or specify a vector
         % the same length as the number of tools to give each tool its own
-        % encoding strategy. Default: precise, invertible encoding.
-        opts.encoding prodserver.mcp.WireEncoding = "Invertible";
+        % encoding strategy. Default: plain JSON encoding.
+        opts.encoding prodserver.mcp.WireEncoding = "JSON";
 
         % MCP server resources. A structure with at least two fields: uri
         % and contents. Allow a struct array or a cell array.

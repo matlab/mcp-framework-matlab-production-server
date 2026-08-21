@@ -143,8 +143,10 @@ Arguments to `prodserver.mcp.build`:
 - Do NOT specify the `wrapper` argument — accept the framework's default behavior
 - Do NOT read the MATLAB function or make any judgements about wrappers
 - Always `cd` into the deployment folder before calling `build` so generated wrappers are co-located with the source function
+- **Always use a `deploy` subfolder** for build output. The `folder` argument to `prodserver.mcp.build` should be `<project-dir>/deploy`. This keeps generated artifacts (CTF, wrappers, signatures) separate from the source `.m` files.
 - **All paths in `matlab -batch` scripts MUST be absolute paths** — after `cd` changes the working directory, relative paths will resolve incorrectly. This applies to the `cd` target, the `folder` argument, file paths, and any other path references.
 - **Always `addpath` the project root** (the directory containing the `+prodserver` package folder) before `cd`-ing into the deployment folder. Without this, `cd` moves away from the package and MATLAB can no longer resolve `prodserver.mcp.*` functions.
+- **Use a script file for complex builds** — when passing string arrays or complex MATLAB expressions, write the command to a temporary `.m` file and run it with `matlab -batch "run('<path>')"`. This avoids shell quoting issues that silently corrupt double-quoted MATLAB strings in `-batch` mode on Windows.
 
 ### Prepare working directory
 

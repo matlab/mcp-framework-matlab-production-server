@@ -20,6 +20,6 @@ function encoding = toolEncoding(tool,opts)
     if isfield(sig, tool) && isfield(sig.(tool), 'encoding')
         encoding = prodserver.mcp.WireEncoding(sig.(tool).encoding);
     else
-        encoding = prodserver.mcp.WireEncoding.Invertible;
+        encoding = prodserver.mcp.WireEncoding.JSON;
     end
 end

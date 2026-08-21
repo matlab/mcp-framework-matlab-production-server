@@ -23,7 +23,8 @@ classdef tSchema < matlab.unittest.TestCase
             tool = "toyLiteralLimit";
 
             % Vanilla argument list -- tools only, no GenAI.
-            td = prodserver.mcp.internal.defineForMCP(tool,tool);
+            td = prodserver.mcp.internal.defineForMCP(tool,tool, ...
+                encoding="Invertible");
 
             % Known result
             expected = strtrim(fileread(fullfile(test.toolsFolder,tool+".json")));
@@ -62,9 +63,10 @@ classdef tSchema < matlab.unittest.TestCase
 
             % Arguments that use files to specify their JSON schema.
             tool = "toyFileSchema";
-    
+
             % Vanilla argument list -- tools only, no GenAI.
-            td = prodserver.mcp.internal.defineForMCP(tool,tool);
+            td = prodserver.mcp.internal.defineForMCP(tool,tool, ...
+                encoding="Invertible");
     
             % Known result
             expected = strtrim(fileread(fullfile(test.toolsFolder,tool+".json")));

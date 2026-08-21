@@ -16,7 +16,7 @@ function body = toolsCall(tool,id,def,sig,varargin)
     if isfield(sig,tool) && isfield(sig.(tool),'encoding')
         encoding = prodserver.mcp.WireEncoding(sig.(tool).encoding);
     else
-        encoding = prodserver.mcp.WireEncoding.Invertible;
+        encoding = prodserver.mcp.WireEncoding.JSON;
     end
 
     % Assume "required" lists parameters in order. varargin must contain at

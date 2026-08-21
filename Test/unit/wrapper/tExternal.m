@@ -74,7 +74,7 @@ classdef tExternal < matlab.unittest.TestCase & ...
             % function and the generated wrapper.
             tools = [toolMCP,tool];
             td = prodserver.mcp.internal.defineForMCP(tools,tools,...
-                defs={indirect, []});
+                defs={indirect, []}, encoding="Invertible");
 
             % Basic validation
             test.verifyTrue(isstruct(td),"Not a structure");

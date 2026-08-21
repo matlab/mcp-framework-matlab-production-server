@@ -6,7 +6,7 @@ function definition = mcpDefinition(tool,fcn,opts)
     arguments(Input)
         tool (1,1) string  % Name of the tool on the MCP server.
         fcn (1,1) string   % Function the tool calls. Must be on the MATLAB path.
-        opts.encoding (1,1) prodserver.mcp.WireEncoding = "Invertible";
+        opts.encoding (1,1) prodserver.mcp.WireEncoding = "JSON";
         opts.typemap struct {mustBeScalarOrEmpty} = []
         opts.defs struct {mustBeScalarOrEmpty} = []
         opts.stage (1,1) prodserver.mcp.BuildStage = "Definition"

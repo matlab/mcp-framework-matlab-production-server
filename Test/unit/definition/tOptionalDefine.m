@@ -41,7 +41,8 @@ classdef tOptionalDefine < matlab.unittest.TestCase & ...
             tool = "toyScalarOptions";
 
             % Vanilla argument list -- tools only, no GenAI.
-            td = prodserver.mcp.internal.defineForMCP(tool,tool);
+            td = prodserver.mcp.internal.defineForMCP(tool,tool, ...
+                encoding="Invertible");
 
             % Known result
             expected = strtrim(fileread(fullfile(test.toolsFolder,tool+".json")));
@@ -57,7 +58,8 @@ classdef tOptionalDefine < matlab.unittest.TestCase & ...
             tool = "toyScalarNVOptions";
 
             % Vanilla argument list -- tools only, no GenAI.
-            td = prodserver.mcp.internal.defineForMCP(tool,tool);
+            td = prodserver.mcp.internal.defineForMCP(tool,tool, ...
+                encoding="Invertible");
 
             % Known result
             expected = strtrim(fileread(fullfile(test.toolsFolder,tool+".json")));
@@ -159,7 +161,8 @@ classdef tOptionalDefine < matlab.unittest.TestCase & ...
             test.verifyEqual(actual,expected,"All optional inputs");
 
             % Generate definition from wrapper
-            td = prodserver.mcp.internal.defineForMCP(fcn,tool);
+            td = prodserver.mcp.internal.defineForMCP(fcn,tool, ...
+                encoding="Invertible");
 
             % Known result
             expected = strtrim(fileread(fullfile(test.toolsFolder,tool+".json")));

@@ -46,7 +46,8 @@ function [code,indirect] = mcpWrapper(fcn,tool,opts)
     % the schema for each parameter, which we use to determine if the
     % parameter is call-by-value or call-by-reference.
     td = prodserver.mcp.internal.mcpDefinition(tool,fcn,...
-        typemap=opts.typemap,stage=prodserver.mcp.BuildStage.Wrapper);
+        typemap=opts.typemap,stage=prodserver.mcp.BuildStage.Wrapper,...
+        encoding="Invertible");
 
     % Determine which inputs and outputs are to be passed as literals. We
     % distinguish between "literal" and "externalized" -- literal data is

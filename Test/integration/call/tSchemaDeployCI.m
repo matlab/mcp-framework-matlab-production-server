@@ -28,11 +28,12 @@ classdef tSchemaDeployCI < MCPCaller
 
             % Generate schema via observation
             defs = prodserver.mcp.schema(fcn, ...
-                @() callSchemaCompute());
+                @() callSchemaCompute(), encoding="Invertible");
 
             % Build archive with schema-generated definition
             ctf = prodserver.mcp.build(fcn, definition=defs, ...
-                folder=test.tempFolder, archive=archive, wrapper="None");
+                folder=test.tempFolder, archive=archive, wrapper="None", ...
+                encoding="Invertible");
 
             % Deploy
             endpoint = prodserver.mcp.deploy(ctf, test.server);
@@ -61,12 +62,12 @@ classdef tSchemaDeployCI < MCPCaller
 
             % Generate schema via observation
             defs = prodserver.mcp.schema(fcns, ...
-                @() exerciseTools());
+                @() exerciseTools(), encoding="Invertible");
 
             % Build archive with schema-generated definitions
             ctf = prodserver.mcp.build(fcns, definition=defs, ...
                 folder=test.tempFolder, archive=archive, ...
-                wrapper=["None","None"]);
+                wrapper=["None","None"], encoding="Invertible");
 
             % Deploy
             endpoint = prodserver.mcp.deploy(ctf, test.server);

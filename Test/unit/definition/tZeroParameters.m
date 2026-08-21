@@ -40,7 +40,8 @@ classdef tZeroParameters < matlab.unittest.TestCase & ...
             tool = "toyZeroInputs";
 
             % Vanilla argument list -- tools only.
-            td = prodserver.mcp.internal.defineForMCP(tool,tool);
+            td = prodserver.mcp.internal.defineForMCP(tool,tool, ...
+                encoding="Invertible");
 
             % Known result
             expected = strtrim(fileread(fullfile(test.toolsFolder,tool+".json")));
@@ -53,7 +54,8 @@ classdef tZeroParameters < matlab.unittest.TestCase & ...
             tool = "toyZeroOutputs";
 
             % Vanilla argument list -- tools only.
-            td = prodserver.mcp.internal.defineForMCP(tool,tool);
+            td = prodserver.mcp.internal.defineForMCP(tool,tool, ...
+                encoding="Invertible");
 
             % Known result
             expected = strtrim(fileread(fullfile(test.toolsFolder,tool+".json")));
