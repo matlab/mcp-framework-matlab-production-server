@@ -47,10 +47,14 @@ classdef tOptionalBI < matlab.unittest.TestCase & ...
             test.server = "Scaler";
             prodserver.mcp.build(fcn,folder=test.tempFolder,stop="Definition");
 
-            % The wrappers should be in the temp folder
-            d = dir(fullfile(test.tempFolder,"*MCP.m"));
-            mcp = fcn + "MCP.m";
-            test.verifyEqual(nnz(ismember(mcp,{d.name})),numel(fcn));
+            % The tool functions should be in the temp folder (either
+            % wrappers or originals copied by auto-skip).
+            for i = 1:numel(fcn)
+                wrapperFile = fullfile(test.tempFolder, fcn(i) + "MCP.m");
+                originalFile = fullfile(test.tempFolder, fcn(i) + ".m");
+                test.verifyTrue(isfile(wrapperFile) || isfile(originalFile), ...
+                    "Expected tool file for " + fcn(i) + " in build folder.");
+            end
         end
 
     end
