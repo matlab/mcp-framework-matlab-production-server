@@ -134,7 +134,7 @@ function [ctf,endpoint] = build(fcn, opts)
         end
     end
 
-    % Generate definitions from test observation if tests provided.
+    % Generate definitions by observing example calls.
     if ~isempty(opts.example)
         opts.definition = prodserver.mcp.schema(fcn, opts.example, ...
             typemap=opts.typemap, encoding=opts.encoding);
