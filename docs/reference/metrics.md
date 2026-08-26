@@ -26,21 +26,55 @@ Pass optional arguments with *argument=value* syntax following required inputs. 
 
 ## Catalog API
 
-The returned `Catalog` object provides the following filter methods. Each method returns a struct array with fields `name`, `type`, `archive`, `suffix`, and `value`.
+The returned `Catalog` object provides filter methods for querying metrics. Each method returns a struct array with fields `name`, `type`, `archive`, `suffix`, and `value`.
 
 ### Filter Methods
 
 | Method | Signature | Description |
 | :---   | :---      | :---        |
-| filter | `m = catalog.filter(name=n, archive=a, type=t, match=m)` | Combined filter — all options are optional |
-| name | `m = catalog.name(n)` | All metrics with name exactly matching `n` |
-| name | `m = catalog.name(n, match="Contains")` | All metrics whose name contains `n` |
-| archive | `m = catalog.archive(a)` | All metrics from archive `a` exactly |
-| archive | `m = catalog.archive(a, match="Contains")` | All metrics from archives containing `a` |
-| type | `m = catalog.type(t)` | All metrics of type `t` |
-| scope | `m = catalog.scope(s)` | All metrics matching scope `s` |
+| archive | `m = catalog.archive(a, match=m)` | Metrics from archive `a`. `match` is optional.  |
+| filter | `m = catalog.filter(name=n, archive=a, type=t, match=m)` | Combined filter — all arguments are optional |
+| name | `m = catalog.name(n, match=m)` | Metrics matching name `n`. `match` is optional. |
+| scope | `m = catalog.scope(s)` | Metrics matching scope `s` (`prodserver.mcp.metrics.Scope`) |
+| type | `m = catalog.type(t)` | Metrics of type `t` (`prodserver.mcp.metrics.Type`) |
 
-The `filter` method accepts any combination of `name`, `archive`, `type`, and `match` as name-value arguments. Omitted criteria are not applied. The `name`, `archive`, and `type` methods are convenience wrappers around `filter`.
+The `filter` method accepts any combination of `name`, `archive`, `type`, and `match` as name-value arguments. Omitted criteria are not applied. The `name` and `archive` methods are convenience wrappers that accept the same `match` argument.
+
+### The `match` Argument
+
+The `name`, `archive`, and `filter` methods accept an optional `match` argument of type `prodserver.mcp.metrics.Match`:
+
+| Value | Behavior |
+| :--- | :--- |
+| `Match.Exact` | Exact string comparison (default) |
+| `Match.Contains` | Substring match |
+
+```MATLAB
+catalog.name("Request", match=prodserver.mcp.metrics.Match.Contains)
+catalog.archive("Beam", match="Contains")   % string shorthand also accepted
+```
+
+### The `type` Argument
+
+Pass a `prodserver.mcp.metrics.Type` enumeration to `catalog.type()` or `catalog.filter(type=...)`:
+
+| Value | Description |
+| :--- | :--- |
+| `Type.Any` | Do not filter by type (default for `filter`) |
+| `Type.Counter` | Monotonically increasing counters. Reset on server restart. |
+| `Type.Gauge` | Point-in-time measurements that can increase or decrease. |
+
+### The `scope` Argument
+
+Pass a `prodserver.mcp.metrics.Scope` enumeration to `catalog.scope()`:
+
+| Value | Returns |
+| :--- | :--- |
+| `Scope.All` | Every metric on the MPS instance |
+| `Scope.Instance` | MPS instance metrics (prefix `matlabprodserver_`) |
+| `Scope.MCP` | MCP framework metrics (prefix `MCP_`) |
+| `Scope.Server` | Metrics matching the archive name from the endpoint URI |
+| `Scope.Tool` | Metrics for the specific tool |
 
 ### Return Value
 
@@ -55,30 +89,6 @@ Each filter method returns a struct array. Each element has five fields:
 | value | double or string | Numeric value for counter and gauge types; string otherwise. |
 
 A metric name may appear multiple times when the same metric is reported by different archives.
-
-### Enumerations
-
-#### prodserver.mcp.metrics.Scope
-| Value | Description |
-| :---  | :---        |
-| All | All metrics known to the MATLAB Production Server instance. |
-| Instance | Only MPS instance metrics (prefix `matlabprodserver_`). |
-| MCP | Only MCP framework metrics (prefix `MCP_`). |
-| Server | Only metrics matching the archive name derived from the URI. |
-| Tool | Only metrics for the specific tool. |
-
-#### prodserver.mcp.metrics.Type
-| Value | Description |
-| :---  | :---        |
-| Any | Do not filter by type (default for `filter` method). |
-| Counter | Monotonically increasing counters. Reset on server restart. |
-| Gauge | Point-in-time measurements that can increase or decrease. |
-
-#### prodserver.mcp.metrics.Match
-| Value | Description |
-| :---  | :---        |
-| Exact | Exact string match (default). |
-| Contains | Substring match. |
 
 # Examples
 

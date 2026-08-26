@@ -54,7 +54,7 @@ Warning: No supported AI agents detected. Install Claude Code
 | Claude Code | `claude plugin marketplace add` (or direct file write to `~/.claude/plugins/`) |
 
 # See Also
-* [ConfigureClaude](./ConfigureClaude.md) — manual Claude configuration
+* [Client Configuration](../guides/client-configuration.md) — manual Claude configuration
 * [build](./build.md) — build an MCP tool from a MATLAB function
 
 --- Copyright 2026 The MathWorks, Inc. ---

@@ -1,16 +1,16 @@
-function definitions = schema(fcns, tests, opts)
+function definitions = schema(fcns, example, opts)
 %schema Generate MCP tool schemas by observing function calls at runtime.
 %   Creates shadow wrappers that intercept calls to the specified functions,
 %   records argument types as JSON Schema fragments, then merges them into
 %   complete tool definitions compatible with prodserver.mcp.build().
 %
-%   definitions = prodserver.mcp.schema(fcns, tests)
-%   definitions = prodserver.mcp.schema(fcns, tests, typemap=tm)
+%   definitions = prodserver.mcp.schema(fcns, example)
+%   definitions = prodserver.mcp.schema(fcns, example, typemap=tm)
 %
-%   fcns  - String vector of function names to observe (must be on path).
-%   tests - What to run. Accepts function handles, test file paths (.m),
-%           test folder paths, or function/script names. All tests run
-%           sequentially; no pairing with fcns required.
+%   fcns    - String vector of function names to observe (must be on path).
+%   example - What to run. Accepts function handles, file paths (.m),
+%             folder paths, or function/script names. All examples run
+%             sequentially; no pairing with fcns required.
 %
 %   The returned definitions struct is directly usable as:
 %       prodserver.mcp.build(fcns, definition=definitions)
@@ -19,14 +19,14 @@ function definitions = schema(fcns, tests, opts)
 
     arguments(Input)
         fcns string {mustBeNonempty}
-        tests {prodserver.mcp.validation.mustBeTestSpecification, mustBeNonempty}
+        example {prodserver.mcp.validation.mustBeExampleSpecification, mustBeNonempty}
         opts.typemap struct {mustBeScalarOrEmpty} = []
         opts.encoding (1,1) prodserver.mcp.WireEncoding = "JSON"
     end
 
     import prodserver.mcp.internal.SchemaObserver
     import prodserver.mcp.internal.generateShadow
-    import prodserver.mcp.internal.classifyTest
+    import prodserver.mcp.internal.classifyExample
 
     % Verify all functions exist on the path
     for i = 1:numel(fcns)
@@ -47,7 +47,7 @@ function definitions = schema(fcns, tests, opts)
     addpath(shadowDir);
 
     % onCleanup ensures exception safety.
-    classifyTest(tests);
+    classifyExample(example);
 
     % Remove shadows before harvest or metafunction will analyze the shadow
     % function.

@@ -25,7 +25,8 @@ function mustBeWrapper(x)
         if isstring(w) || ischar(w)
             % Path to an existing MATLAB function file, the text 'None' or a
             % zero-length string.
-            if strlength(w) == 0 || strcmpi(w,MCPConstants.NoWrapper)
+            if strlength(w) == 0 || strcmpi(w,MCPConstants.NoWrapper) ...
+                    || strcmpi(w,MCPConstants.AutoWrapper)
                 return;
             end
             mustBeFile(w);

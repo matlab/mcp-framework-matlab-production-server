@@ -102,10 +102,10 @@ classdef tWrapper < matlab.unittest.TestCase
             % schema.
             fcn = "literalSchemas";
 
-            % Vanilla argument list. Generate wrappers and tool definition
-            % but not archive.
+            % Force wrapper generation (override Auto default) to test
+            % wrapper text correctness with all-literal parameters.
             prodserver.mcp.build(fcn,folder=test.tempFolder,stop="Definition",...
-                encoding="Invertible");
+                encoding="Invertible",wrapper="");
 
             % Wrappers must exist
             wrap = fullfile(test.tempFolder,fcn + "MCP.m");

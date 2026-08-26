@@ -13,7 +13,7 @@ classdef tSchemaBI < matlab.unittest.TestCase & ...
 
     methods(TestClassSetup)
         function buildServer(test)
-        %buildServer Build the MCP server using build(tests=...) API.
+        %buildServer Build the MCP server using build(example=...) API.
 
             import matlab.unittest.fixtures.TemporaryFolderFixture
             import matlab.unittest.fixtures.PathFixture
@@ -35,12 +35,12 @@ classdef tSchemaBI < matlab.unittest.TestCase & ...
             % Two no-block functions
             test.fcns = ["schemaComputeNoBlock", "schemaVectorNoBlock"];
 
-            % Build using the tests= API (schema generation is internal)
+            % Build using the example= API (schema generation is internal)
             test.server = "schemaBI";
             ctf = prodserver.mcp.build(test.fcns, ...
-                tests=@() exerciseTools(), ...
+                example=@() exerciseTools(), ...
                 folder=test.tempFolder, archive=test.server, ...
-                wrapper=["None","None"], encoding="Invertible");
+                encoding="Invertible");
 
             test.verifyTrue(startsWith(ctf, test.tempFolder), ctf);
         end

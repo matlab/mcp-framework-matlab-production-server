@@ -86,6 +86,7 @@ classdef SchemaObserver < handle
             import prodserver.mcp.internal.toolDescription
             import prodserver.mcp.internal.ParameterKind
             import prodserver.mcp.internal.Constants
+            import prodserver.mcp.jsonrpc.argumentSchema
 
             if nargin < 3
                 encoding = prodserver.mcp.WireEncoding.Invertible;
@@ -128,6 +129,14 @@ classdef SchemaObserver < handle
 
                 % Extract parameter descriptions (lenient)
                 [inDesc, outDesc, ~] = parameterDescription(mf, strict=false);
+
+                % Parse %#schema annotations from comments
+                if ~isempty(inDesc)
+                    inDesc = argumentSchema(inDesc);
+                end
+                if ~isempty(outDesc)
+                    outDesc = argumentSchema(outDesc);
+                end
 
                 % Build input schema and signatures
                 [def.tools.inputSchema, inSig] = obj.buildSchema( ...
@@ -175,6 +184,9 @@ classdef SchemaObserver < handle
             import prodserver.mcp.MCPConstants
             import prodserver.mcp.internal.ParameterKind
             import prodserver.mcp.internal.Constants
+            import prodserver.mcp.internal.SchemaInjection
+            import prodserver.mcp.internal.SchemaOrigin
+            import prodserver.mcp.internal.nestedFieldValues
             import prodserver.mcp.jsonrpc.jsonParameterType
 
             schema.type = "object";
@@ -232,6 +244,56 @@ classdef SchemaObserver < handle
                     matlabType = string(signature(i).Validation.Class.Name);
                 end
                 types(i) = matlabType;
+
+                % Apply size constraints from argument block validation.
+                if isfield(signature(i), 'Validation') && ...
+                        ~isempty(signature(i).Validation) && ...
+                        isfield(signature(i).Validation, 'Size') && ...
+                        ~isempty(signature(i).Validation.Size)
+                    maxItems = prodserver.mcp.jsonrpc.sizeFromValidation( ...
+                        signature(i).Validation.Size);
+                    if maxItems == 1
+                        merged = rmfield(merged, intersect( ...
+                            fieldnames(merged), {'items','maxItems'}));
+                        if ~isfield(merged, 'type') || merged.type == "array"
+                            merged.type = matlabType;
+                        end
+                    elseif ~isinf(maxItems) && maxItems > 1
+                        merged.maxItems = maxItems;
+                    end
+                end
+
+                % Apply %#schema injection from argument block comments.
+                if ~isempty(descriptions) && isKey(descriptions, argName) ...
+                        && isfield(descriptions(argName), 'schema') ...
+                        && descriptions(argName).schema.origin ~= SchemaOrigin.Introspection
+                    userSchema = descriptions(argName).schema;
+                    if userSchema.inject == SchemaInjection.Replace
+                        merged = struct();
+                    end
+                    propertyNames = string(fieldnames(userSchema.schema))';
+                    for p = propertyNames
+                        [pth,val] = nestedFieldValues(userSchema.schema, p);
+                        for f = 1:numel(pth)
+                            merged = setfield(merged, pth{f}{:}, val{f}); %#ok<SFLD>
+                        end
+                    end
+                    % Validate consistency after injection
+                    if isfield(merged, 'type') && merged.type ~= "array"
+                        if isfield(merged, 'maxItems')
+                            error("prodserver:mcp:SchemaConflict", ...
+                                "Parameter '%s': %%#schema declares " + ...
+                                "maxItems but argument block declares " + ...
+                                "scalar. These are incompatible.", argName);
+                        end
+                        if isfield(merged, 'items')
+                            error("prodserver:mcp:SchemaConflict", ...
+                                "Parameter '%s': %%#schema declares " + ...
+                                "items but argument block declares " + ...
+                                "scalar. These are incompatible.", argName);
+                        end
+                    end
+                end
 
                 % Determine requiredness and ParameterKind
                 if useObservedCounts

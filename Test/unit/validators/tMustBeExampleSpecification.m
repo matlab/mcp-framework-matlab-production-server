@@ -1,5 +1,5 @@
-classdef tMustBeTestSpecification < matlab.unittest.TestCase
-%tMustBeTestSpecification Unit tests for mustBeTestSpecification validator.
+classdef tMustBeExampleSpecification < matlab.unittest.TestCase
+%tMustBeExampleSpecification Unit tests for mustBeExampleSpecification validator.
 
 % Copyright 2026 The MathWorks, Inc.
 
@@ -16,58 +16,58 @@ classdef tMustBeTestSpecification < matlab.unittest.TestCase
 
         function emptyIsValid(test)
             test.verifyWarningFree(...
-                @() prodserver.mcp.validation.mustBeTestSpecification([]));
+                @() prodserver.mcp.validation.mustBeExampleSpecification([]));
         end
 
         function functionHandleValid(test)
             test.verifyWarningFree(...
-                @() prodserver.mcp.validation.mustBeTestSpecification(@() disp("x")));
+                @() prodserver.mcp.validation.mustBeExampleSpecification(@() disp("x")));
         end
 
         function cellOfHandlesValid(test)
             test.verifyWarningFree(...
-                @() prodserver.mcp.validation.mustBeTestSpecification({@() 1, @() 2}));
+                @() prodserver.mcp.validation.mustBeExampleSpecification({@() 1, @() 2}));
         end
 
         function stringFileValid(test)
             thisFile = string(mfilename("fullpath")) + ".m";
             test.verifyWarningFree(...
-                @() prodserver.mcp.validation.mustBeTestSpecification(thisFile));
+                @() prodserver.mcp.validation.mustBeExampleSpecification(thisFile));
         end
 
         function stringFolderValid(test)
             thisFolder = fileparts(mfilename("fullpath"));
             test.verifyWarningFree(...
-                @() prodserver.mcp.validation.mustBeTestSpecification(string(thisFolder)));
+                @() prodserver.mcp.validation.mustBeExampleSpecification(string(thisFolder)));
         end
 
         function stringFunctionNameValid(test)
             test.verifyWarningFree(...
-                @() prodserver.mcp.validation.mustBeTestSpecification("disp"));
+                @() prodserver.mcp.validation.mustBeExampleSpecification("disp"));
         end
 
         function numericErrors(test)
             test.verifyError(...
-                @() prodserver.mcp.validation.mustBeTestSpecification(42), ...
-                "prodserver:mcp:InvalidTestType");
+                @() prodserver.mcp.validation.mustBeExampleSpecification(42), ...
+                "prodserver:mcp:InvalidExampleType");
         end
 
         function structErrors(test)
             test.verifyError(...
-                @() prodserver.mcp.validation.mustBeTestSpecification(struct()), ...
-                "prodserver:mcp:InvalidTestType");
+                @() prodserver.mcp.validation.mustBeExampleSpecification(struct()), ...
+                "prodserver:mcp:InvalidExampleType");
         end
 
         function stringNotFoundErrors(test)
             test.verifyError(...
-                @() prodserver.mcp.validation.mustBeTestSpecification("nonExistent_xyz123"), ...
-                "prodserver:mcp:TestSpecificationNotFound");
+                @() prodserver.mcp.validation.mustBeExampleSpecification("nonExistent_xyz123"), ...
+                "prodserver:mcp:ExampleSpecificationNotFound");
         end
 
         function cellWithBadElementErrors(test)
             test.verifyError(...
-                @() prodserver.mcp.validation.mustBeTestSpecification({@() 1, 42}), ...
-                "prodserver:mcp:InvalidTestSpecification");
+                @() prodserver.mcp.validation.mustBeExampleSpecification({@() 1, 42}), ...
+                "prodserver:mcp:InvalidExampleSpecification");
         end
 
     end

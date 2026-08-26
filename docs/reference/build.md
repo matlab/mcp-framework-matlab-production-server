@@ -30,20 +30,20 @@ Pass optional arguments with *argument=value* syntax following required inputs. 
 | :---     | :--- | :---        | :---    |:---     |
 | archive | string | Base name of deployable archive. | Base name of fcn. | "primeMCP" | 
 | definition | string, struct or file | Complete and correct MCP tool definition. | Empty struct | "primeMCP.json" |
-| tests | function_handle, string, or cell | Exercise functions for schema generation. Calls [`schema()`](./schema.md) internally to generate definitions. Incompatible with `definition`. | [] | @() myFunc(1,"test") |
+| example | function_handle, string, or cell | Exercise functions for schema generation. Calls [`schema()`](./schema.md) internally to generate definitions. Incompatible with `definition`. | [] | @() myFunc(1,"test") |
 | files | string vector | Full path(s) to one or more files to add to the deployable archive. | "" | "/sandbox/data/weather/anomaly.mat" |
 | folder | string | Full or relative path to folder in which to write deployable archive. | "./deploy" | "/sandbox/work/mcp/archives" |
 | import | struct | ImportOptions for tool arguments | [] | delimitedTextImportOptions |
-| resource | struct | [MCP Resources](./Resources.md) to include on the server. Structure(s) with at least `uri` and `contents` fields. | [] | See [Resources](./Resources.md) |
+| resource | struct | [MCP Resources](../guides/resources.md) to include on the server. Structure(s) with at least `uri` and `contents` fields. | [] | See [Resources](../guides/resources.md) |
 | retry | integer | Number of times to retry network operations that have timed out. Total attempts will be retry + 1. | 2 | 0 |
 | routes | enumeration | Embed routes(in archive or use global routes? | "Archive" | "Global" | 
 | server | string | Network address of active MATLAB Production Server | "" | "http<!-- -->://localhost:9910" | 
 | discovery | logical | Include discovery metadata in the archive for the MPS [/api/discovery](https://www.mathworks.com/help/mps/restfuljson/restful-api-for-discovery-and-diagnostics.html) endpoint. | true | false |
 | timeout | integer | Timeout, in seconds, for server interactions. | 30 | 17 |
 | tool | string | Name by which the tool will be known on the server. | Base name of `fcn`. | "primeMCP" | 
-| wrapper | string | Path to [data marshaling wrapper](./ExternalData.md) function | "" | "primeMCP.m" |
+| wrapper | string | Path to [data marshaling wrapper](../concepts/wrapper-functions.md) function, or "None" to skip, or "Auto" to generate only when needed. | "Auto" | "primeMCP.m" |
 
-`tests` and `definition` are mutually exclusive. If `tests` is provided, `build()` generates definitions by observing function calls via [`prodserver.mcp.schema`](./schema.md). See [Schemas](./Schemas.md) for background on schema generation approaches.
+`example` and `definition` are mutually exclusive. If `example` is provided, `build()` generates definitions by observing function calls via [`prodserver.mcp.schema`](./schema.md). See [Schemas](../concepts/schemas.md) for background on schema generation approaches.
 
 # Examples
 
@@ -97,10 +97,10 @@ ctf = prodserver.mcp.build(fcn, tool=tool, archive=server, folder="./deploy")
 
 ***
 
-Build `schemaCompute` using test-based schema generation. The test exercises the function with representative inputs so that MCP Framework can observe argument types at runtime:
+Build `schemaCompute` using example-based schema generation. The example exercises the function with representative inputs so that MCP Framework can observe argument types at runtime:
 ```MATLAB
 ctf = prodserver.mcp.build("schemaCompute", ...
-    tests=@() schemaCompute(1.0, 2.0, 3.0, scale=2.0, label="test"), ...
+    example=@() schemaCompute(1.0, 2.0, 3.0, scale=2.0, label="test"), ...
     server="http://localhost:9910");
 ```
 
