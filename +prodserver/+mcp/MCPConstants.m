@@ -17,6 +17,7 @@ classdef MCPConstants
         SignatureVariable = "signatures";
         ImporterVariable = "urlImport";
         NoWrapper = "None";
+        AutoWrapper = "Auto";
         ContentType = 'Content-Type';
         ContentLength = 'Content-Length';
         Host = 'Host';

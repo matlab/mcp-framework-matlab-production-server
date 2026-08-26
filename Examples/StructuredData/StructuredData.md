@@ -6,7 +6,7 @@ This example demonstrates how to use the `%#schema` pragma to describe struct pa
 
 MATLAB's `arguments` blocks can declare that a parameter is a `struct`, but cannot describe its fields. Without additional information, the auto-generated MCP tool definition says only `"type": "object"` — giving an LLM no way to know what fields to provide.
 
-The `%#schema` pragma solves this by embedding a JSON Schema definition in the tool's metadata. See [Documentation/Schemas.md](../../Documentation/Schemas.md) for full reference.
+The `%#schema` pragma solves this by embedding a JSON Schema definition in the tool's metadata. See [Schema Format](../../docs/reference/schema-format.md) for full reference.
 
 ## Tools
 

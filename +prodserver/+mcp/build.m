@@ -36,7 +36,7 @@ function [ctf,endpoint] = build(fcn, opts)
         % Exercise functions for schema generation. If provided, build()
         % calls prodserver.mcp.schema() internally to generate definitions.
         % Incompatible with the "definition" option.
-        opts.tests {prodserver.mcp.validation.mustBeTestSpecification} = []
+        opts.example {prodserver.mcp.validation.mustBeExampleSpecification} = []
 
         % Maximum number of elements in a literal variable. Variables
         % larger than this are passed by reference via URLs.
@@ -58,7 +58,7 @@ function [ctf,endpoint] = build(fcn, opts)
         opts.import {prodserver.mcp.validation.mustBeArgImport} = struct.empty
 
         % Wrapper function for marshaling large data as files.
-        opts.wrapper string {prodserver.mcp.validation.mustBeWrapper} = strings(1,numel(fcn))
+        opts.wrapper string {prodserver.mcp.validation.mustBeWrapper} = repmat(prodserver.mcp.MCPConstants.AutoWrapper, 1, numel(fcn))
 
         % Map of MATLAB to JSON types used in description generation. A
         % scalar struct. Fieldnames are MATLAB type names, values are JSON
@@ -80,10 +80,10 @@ function [ctf,endpoint] = build(fcn, opts)
 
     import prodserver.mcp.MCPConstants
 
-    if ~isempty(opts.tests) && ~isempty(opts.definition)
-        error("prodserver:mcp:TestsDefinitionConflict", ...
-            "Cannot specify both 'tests' and 'definition'. " + ...
-            "Use 'tests' to generate definitions via observation, " + ...
+    if ~isempty(opts.example) && ~isempty(opts.definition)
+        error("prodserver:mcp:ExampleDefinitionConflict", ...
+            "Cannot specify both 'example' and 'definition'. " + ...
+            "Use 'example' to generate definitions via observation, " + ...
             "or 'definition' to provide pre-built definitions, but not both.");
     end
 
@@ -134,9 +134,9 @@ function [ctf,endpoint] = build(fcn, opts)
         end
     end
 
-    % Generate definitions from test observation if tests provided.
-    if ~isempty(opts.tests)
-        opts.definition = prodserver.mcp.schema(fcn, opts.tests, ...
+    % Generate definitions by observing example calls.
+    if ~isempty(opts.example)
+        opts.definition = prodserver.mcp.schema(fcn, opts.example, ...
             typemap=opts.typemap, encoding=opts.encoding);
     end
 

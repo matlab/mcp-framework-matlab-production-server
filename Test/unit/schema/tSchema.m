@@ -114,7 +114,7 @@ classdef tSchema < matlab.unittest.TestCase
                 @() error("test:deliberate", "Deliberate error"), ...
                 encoding="JSON");
             test.verifyError(badFcn, ...
-                "prodserver:mcp:TestFcnFailed");
+                "prodserver:mcp:ExampleFcnFailed");
             try
                 badFcn();
                 test.verifyTrue(false,"Expected exception did not occur.");
@@ -144,13 +144,13 @@ classdef tSchema < matlab.unittest.TestCase
                 "MATLAB:validators:mustBeNonempty");
         end
 
-        function invalidTestsTypeErrors(test)
+        function invalidExampleTypeErrors(test)
             test.verifyError(...
                 @() prodserver.mcp.schema("schemaComputeNoBlock", 42), ...
-                "prodserver:mcp:InvalidTestType");
+                "prodserver:mcp:InvalidExampleType");
         end
 
-        function emptyTestsErrors(test)
+        function emptyExampleErrors(test)
             test.verifyError(...
                 @() prodserver.mcp.schema("schemaComputeNoBlock", []), ...
                 "MATLAB:validators:mustBeNonempty");

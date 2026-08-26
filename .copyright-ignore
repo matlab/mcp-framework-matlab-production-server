@@ -1,4 +1,4 @@
-Documentation/*.md
+docs/**/*.md
 licenses/**
 mocks/**
 go.sum

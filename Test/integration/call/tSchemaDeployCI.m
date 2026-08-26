@@ -32,7 +32,7 @@ classdef tSchemaDeployCI < MCPCaller
 
             % Build archive with schema-generated definition
             ctf = prodserver.mcp.build(fcn, definition=defs, ...
-                folder=test.tempFolder, archive=archive, wrapper="None", ...
+                folder=test.tempFolder, archive=archive, ...
                 encoding="Invertible");
 
             % Deploy
@@ -67,7 +67,7 @@ classdef tSchemaDeployCI < MCPCaller
             % Build archive with schema-generated definitions
             ctf = prodserver.mcp.build(fcns, definition=defs, ...
                 folder=test.tempFolder, archive=archive, ...
-                wrapper=["None","None"], encoding="Invertible");
+                encoding="Invertible");
 
             % Deploy
             endpoint = prodserver.mcp.deploy(ctf, test.server);
@@ -110,8 +110,7 @@ classdef tSchemaDeployCI < MCPCaller
             defs = prodserver.mcp.schema(fcns, ...
                 @() exerciseTools());
             ctf = prodserver.mcp.build(fcns, definition=defs, ...
-                folder=test.tempFolder, archive=archive, ...
-                wrapper=["None","None"]);
+                folder=test.tempFolder, archive=archive);
 
             % Deploy
             endpoint = prodserver.mcp.deploy(ctf, test.server);

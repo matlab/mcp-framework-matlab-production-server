@@ -60,7 +60,7 @@ tf = prodserver.mcp.exist(endpoint, "plotTrajectories", "Tool")
 
 # Test Deployed MCP Tool
 
-Use `prodserver.mcp.call` to call the deployed MCP Tool using the JSONRPC 2.0 protocol, just as an AI agent will. If this call succeeds, you can be confident that large language models will be able to access this tool. Note that the interface to the tool is the [wrapper function](../../Documentation/ExternalData.md) -- which takes a URL for the input earthquake data and the output plot file. 
+Use `prodserver.mcp.call` to call the deployed MCP Tool using the JSONRPC 2.0 protocol, just as an AI agent will. If this call succeeds, you can be confident that large language models will be able to access this tool. Note that the interface to the tool is the [wrapper function](../../docs/concepts/wrapper-functions.md) -- which takes a URL for the input earthquake data and the output plot file. 
 
 ```MATLAB
 % Construct paths (and URLs) for input and output files.

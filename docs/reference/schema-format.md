@@ -1,6 +1,6 @@
 # Schema Format Reference
 
-Detailed reference for the `%#schema` pragma and JSON Schema patterns used by MCP Framework. For conceptual background on why schemas are needed and how they are generated, see [Schemas](./Schemas.md).
+Detailed reference for the `%#schema` pragma and JSON Schema patterns used by MCP Framework. For conceptual background on why schemas are needed and how they are generated, see [Schemas](../concepts/schemas.md).
 
 ## The `%#schema` Pragma
 
@@ -119,7 +119,7 @@ You can override this decision with the `x-call-by` property:
 
 Valid values: `"value"` (always literal) or `"reference"` (always externalized).
 
-See [Externalize Data Sources and Sinks](./ExternalData.md) for full details on the externalization mechanism.
+See [Wrapper Functions](../concepts/wrapper-functions.md) for full details on the externalization mechanism.
 
 ## File-Based Schemas
 
@@ -132,6 +132,6 @@ Schema files must be JSON and must exist when `prodserver.mcp.build` runs. The f
 
 ## Example
 
-See the [Structured Data](../Examples/StructuredData/StructuredData.md) example for a complete demonstration: a beam analysis tool with 2-level nested struct inputs alongside the circle intersection tool.
+See the [Structured Data](../../Examples/StructuredData/StructuredData.md) example for a complete demonstration: a beam analysis tool with 2-level nested struct inputs alongside the circle intersection tool.
 
 --- Copyright 2026 The MathWorks, Inc. ---

@@ -109,19 +109,9 @@ function [properties,required,kind,order,group,validation,default] = ...
         % number of elements, which JSONSchema uses.
         if hasField(args(i),"Validation.Size") && ...
             ~isempty(args(i).Validation.Size)
-            % If any dimension is unrestricted, there is no size limit.
-            % Otherwise, maxItems is the product of the dimensions.
 
-            dims = args(i).Validation.Size;
-            maxItems = 1;
-            for dI = 1:numel(dims)
-                if isa(dims(dI),'matlab.metadata.UnrestrictedDimension')
-                    sz = Inf;
-                elseif isa(dims(dI),'matlab.metadata.FixedDimension')
-                    sz = dims(dI).Length;
-                end
-                maxItems = maxItems * sz;
-            end
+            maxItems = prodserver.mcp.jsonrpc.sizeFromValidation( ...
+                args(i).Validation.Size);
             if ~isinf(maxItems) && maxItems > 1
                 d.maxItems = maxItems;
             end
@@ -161,7 +151,22 @@ function [properties,required,kind,order,group,validation,default] = ...
                 [pth,val] = nestedFieldValues(schema,p);
                 for f = 1:numel(pth)
                     fPth = pth{f};
-                    d = setfield(d,fPth{:},val{f}); 
+                    d = setfield(d,fPth{:},val{f});
+                end
+            end
+            % Validate consistency after injection
+            if isfield(d, 'type') && ~strcmpi(d.type, "array")
+                if isfield(d, 'maxItems')
+                    error("prodserver:mcp:SchemaConflict", ...
+                        "Parameter '%s': %%#schema declares " + ...
+                        "maxItems but argument block declares " + ...
+                        "scalar. These are incompatible.", names{i});
+                end
+                if isfield(d, 'items')
+                    error("prodserver:mcp:SchemaConflict", ...
+                        "Parameter '%s': %%#schema declares " + ...
+                        "items but argument block declares " + ...
+                        "scalar. These are incompatible.", names{i});
                 end
             end
         end
