@@ -255,7 +255,7 @@ classdef SchemaObserver < handle
                     if maxItems == 1
                         merged = rmfield(merged, intersect( ...
                             fieldnames(merged), {'items','maxItems'}));
-                        if ~isfield(merged, 'type') || merged.type == "array"
+                        if ~isfield(merged, 'type') || strcmpi(merged.type,"array")
                             merged.type = matlabType;
                         end
                     elseif ~isinf(maxItems) && maxItems > 1
@@ -279,7 +279,7 @@ classdef SchemaObserver < handle
                         end
                     end
                     % Validate consistency after injection
-                    if isfield(merged, 'type') && merged.type ~= "array"
+                    if isfield(merged, 'type') && strcmpi(merged.type,"array") == false
                         if isfield(merged, 'maxItems')
                             error("prodserver:mcp:SchemaConflict", ...
                                 "Parameter '%s': %%#schema declares " + ...
