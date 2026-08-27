@@ -9,7 +9,7 @@ Finding the tools deployed on an MPS instance requires two HTTP requests:
 1. **`GET /api/discovery`** — returns the names of all deployed archives
 2. **`GET /<archive>/signature`** — returns the tool signatures for a specific archive
 
-### Step 1: Find the archives
+### Step 1: Find the Archives
 
 ```
 GET http://localhost:9910/api/discovery
@@ -50,7 +50,7 @@ The response lists every deployed archive on the instance. Each archive entry in
 
 The archive name (`analysisTools`) is the key you need for step 2. An archive hosts an MCP server if its functions include `prodserver.mcp.internal.mcpHandler`.
 
-### Step 2: Get the tool signatures
+### Step 2: Get the Tool Signatures
 
 Use the archive name from step 1 to query the `/signature` endpoint:
 
@@ -88,7 +88,7 @@ This returns the MATLAB-level signatures of every tool in the archive — parame
 }
 ```
 
-For multi-tool archives, the response contains one entry per tool. Note that the signatures contain MATLAB types, not JSON types. 
+For multi-tool archives, the response contains one entry per tool. The signatures contain MATLAB types, not JSON types.
 
 ## Automatic Registration
 
@@ -102,7 +102,7 @@ ctf = prodserver.mcp.build("principalStress", ...
 
 After deployment, the archive appears in the `/api/discovery` response and its tools are queryable via `/signature`. No additional configuration is needed.
 
-If you don't want an archive to appear in the discovery endpoint, pass `discovery=false`:
+To prevent an archive from appearing in the discovery endpoint, pass `discovery=false`:
 
 ```MATLAB
 ctf = prodserver.mcp.build("principalStress", ...

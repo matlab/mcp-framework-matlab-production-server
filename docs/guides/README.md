@@ -2,7 +2,7 @@
 
 Task-oriented guides for building and operating MCP tools. Each guide answers a specific "how do I..." question.
 
-| Guide | What you'll accomplish |
+| Guide | What You Accomplish |
 | :--- | :--- |
 | [Building MCP Tools](./building-tools.md) | Package one or more MATLAB functions as MCP tools and deploy to MPS |
 | [MCP Resources](./resources.md) | Expose read-only reference data alongside your tools |
@@ -10,6 +10,6 @@ Task-oriented guides for building and operating MCP tools. Each guide answers a 
 | [AI Agent Skills](./agent-skills.md) | Let Claude Code build and deploy tools on your behalf |
 | [Client Configuration](./client-configuration.md) | Connect Claude Desktop, Claude Code, Visual Studio Code, or any HTTP client |
 
-Start with [Getting Started](../getting-started.md) if you haven't built your first tool yet.
+Start with [Getting Started](../getting-started.md) if you have not built your first tool yet.
 
 --- Copyright 2026 The MathWorks, Inc. ---

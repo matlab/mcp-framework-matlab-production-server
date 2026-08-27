@@ -2,4 +2,5 @@
 *.asv
 **/deploy/
 reviews/
+*.claims.md
 

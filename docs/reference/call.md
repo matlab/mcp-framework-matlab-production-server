@@ -1,11 +1,10 @@
-# prodserver.mcp.call
+# `prodserver.mcp.call`
 ```MATLAB
 [varargout] = call(endpoint, tool, varargin)
 ```
-Call the named `tool` hosted by the Model Context Protocol server at `endpoint` with
-all the input arguments in `varargin`. Output arguments returned in `varargout`. Inputs may be required or optional. Required arguments are positional (order matters) while optional arguments are order-independent; all required arguments must appear in varargin before any optional arguments.
+Call the named `tool` hosted by the Model Context Protocol server at `endpoint` with all the input arguments in `varargin`. The function returns output arguments in `varargout`. Inputs may be required or optional. Required arguments are positional (order matters), while optional arguments are order-independent. All required arguments must appear in `varargin` before any optional arguments.
 
-Either or both of `varargin` and `varargout` may be empty. 
+Either or both of `varargin` and `varargout` may be empty.
 
 ### Required Inputs and Available Outputs
 | Argument | Type | Description | Example
@@ -17,7 +16,7 @@ Either or both of `varargin` and `varargout` may be empty.
 
 ### Examples
 
-Invoke `cleanSignal` tool with three required inputs:
+Invoke the `cleanSignal` tool with three required inputs.
 ```MATLAB
 noisy = "file:/input/data/noisySignal.csv";
 clean = "file:/output/data/cleanSignal.csv";
@@ -27,7 +26,7 @@ prodserver.mcp.call("http://localhost:9910/signal/mcp", "cleanSignal", noisy, fr
 
 ***
 
-Invoke the `detectEdge` tool with two required and two optional inputs:
+Invoke the `detectEdge` tool with two required and two optional inputs.
 ```MATLAB
 image = "file:/image/data/circuit.jpg";
 edges = "file:/image/data/circuit_edges.jpg";

@@ -31,7 +31,7 @@ This unambiguously identifies a 1x3 double row vector. No information is lost.
 
 ## Encoding Rules
 
-### Bare values (no wrapper needed)
+### Bare Values (No Wrapper Needed)
 
 | MATLAB value | JSON |
 | :--- | :--- |
@@ -43,7 +43,7 @@ This unambiguously identifies a 1x3 double row vector. No information is lost.
 | Complex scalar | `{"re": 3.0, "im": -1.5}` |
 | Scalar struct | `{"field": value, ...}` |
 
-### Wrapped values (arrays)
+### Wrapped Values (Arrays)
 
 All arrays — even a 1x3 vector — use the wrapper format. A bare JSON array `[1,2,3]` is always an encoding error.
 
@@ -55,11 +55,11 @@ Additional rules by type:
 - **Datetime arrays** — add `"tz": "America/New_York"` (omit for UTC)
 - **Tables** — use `"type": "table"` with `"rows"` and `"variables"` fields
 
-### Row-major data order
+### Row-Major Data Order
 
 For a 2x3 matrix `[1 2 3; 4 5 6]`, the data array is `[1,2,3,4,5,6]` — row 1 left-to-right, then row 2. Not column-by-column.
 
-### Scalar structs need no wrapper
+### Scalar Structs Need No Wrapper
 
 A scalar struct transmits as a plain JSON object: `{"name": "Alice", "age": 30}`. Only struct arrays use the `{"type": "struct", "size": ..., "data": [...]}` wrapper.
 
@@ -100,13 +100,13 @@ Every MCP server built by the framework exposes the wire encoding specification 
 An LLM could theoretically use `[[1,2,3]]` (row) vs `[[1],[2],[3]]` (column). In practice:
 
 1. LLMs produce flat `[1,2,3]` regardless of intended orientation
-2. MATLAB's `jsondecode('[1,2,3]')` always returns a 3x1 column
+2. The MATLAB `jsondecode('[1,2,3]')` function always returns a 3x1 column
 3. `jsonencode([1,2,3])` and `jsonencode([1;2;3])` both produce `[1,2,3]` — orientation lost in both directions
-4. JSON Schema's `"type": "array"` cannot distinguish row from column
+4. The JSON Schema `"type": "array"` keyword cannot distinguish row from column
 
 ## Why Not Argument Coercion?
 
-MATLAB's `arguments` block can coerce type and shape:
+The MATLAB `arguments` block can coerce type and shape:
 
 ```MATLAB
     arguments

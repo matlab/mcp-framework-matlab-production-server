@@ -8,7 +8,7 @@ Build your first MCP tool from a MATLAB function, deploy it to MATLAB Production
 
 ## Write a Function
 
-Any MATLAB function can become an MCP tool. Here's `principalStress` — it computes principal stresses from a 2D stress state using Mohr's circle:
+Any MATLAB function can become an MCP tool. This example uses `principalStress`, which computes principal stresses from a 2D stress state using Mohr's circle.
 
 ```MATLAB
 function sigma = principalStress(stressState, component)
@@ -34,22 +34,22 @@ function sigma = principalStress(stressState, component)
     end
 end
 ```
-To use `principalStress`, an LLM needs a *tool description* — what the function does and how to call it. The framework [determines input types](./guides/building-tools.md#how-tool-descriptions-work) by examining any argument blocks and watching your function run in MATLAB.
+To use `principalStress`, an LLM needs a *tool description* that specifies what the function does and how to call it. The framework [determines input types](./guides/building-tools.md#how-tool-descriptions-work) by examining any argument blocks and watching your function run in MATLAB.
 
 ## Build
 
-`prodserver.mcp.build` packages your function into a deployable archive containing an MCP server. Pass `build` an example of how to call your function so the framework can determine the types of the inputs and outputs.
+`prodserver.mcp.build` packages your function into a deployable archive containing an MCP server. Pass `build` an example call so the framework can determine the types of the inputs and outputs.
 
 ```MATLAB
 ctf = prodserver.mcp.build("principalStress", ...
     example=@() principalStress([120 -50 80], "max"));
 ```
 
-The framework runs your example and observes that `stressState` is a 3-element numeric vector and `component` is a string. Combining the types with the comments from your source code produces the [tool description](./concepts/describing-functions.md) for the LLM. `build` then compiles the function with MATLAB Compiler SDK, and produces a deployable archive.
+The framework runs your example and observes that `stressState` is a 3-element numeric vector and `component` is a string. Combining the types with the comments from your source code produces the [tool description](./concepts/describing-functions.md) for the LLM. `build` then compiles the function with MATLAB Compiler SDK and produces a deployable archive.
 
 ## Deploy
 
-Upload the archive to a running MATLAB Production Server instance:
+Upload the archive to a running MATLAB Production Server instance.
 
 ```MATLAB
 endpoint = prodserver.mcp.deploy(ctf, "localhost", 9910);
@@ -57,7 +57,7 @@ endpoint = prodserver.mcp.deploy(ctf, "localhost", 9910);
 
 `deploy` returns the endpoint URL where your tool is now listening: `http://localhost:9910/principalStress/mcp`.
 
-Build and deploy in one step by passing `build` the `server` option:
+To build and deploy in one step, pass `build` the `server` option.
 
 ```MATLAB
 [ctf, endpoint] = prodserver.mcp.build("principalStress", ...
@@ -67,7 +67,7 @@ Build and deploy in one step by passing `build` the `server` option:
 
 ## Verify
 
-Confirm the tool is live:
+Confirm the tool is live.
 
 ```MATLAB
 prodserver.mcp.ping(endpoint)
@@ -77,7 +77,7 @@ ans =
     true
 ```
 
-Test it with a direct call — find the maximum principal stress for a state of 120 MPa tension, 50 MPa compression, and 80 MPa shear:
+To find the maximum principal stress for a state of 120 MPa tension, 50 MPa compression, and 80 MPa shear, test with a direct call.
 
 ```MATLAB
 sigma = prodserver.mcp.call(endpoint, "principalStress", [120 -50 80], "max")
@@ -89,8 +89,7 @@ sigma =
 
 ## Connect an MCP Client
 
-Your tool is an HTTP-based MCP server. Connect any MCP client that supports HTTP transport. 
-For example, to connect Claude Code, add this to the MCP configuration:
+Your tool is an HTTP-based MCP server. Connect any MCP client that supports HTTP transport. For example, to connect Claude Code, add this to the MCP configuration.
 
 ```json
 {
@@ -103,21 +102,21 @@ For example, to connect Claude Code, add this to the MCP configuration:
 }
 ```
 
-See the [client configuration guide](./guides/client-configuration.md) for details on configuring other clients.
+For details on configuring other clients, see the [client configuration guide](./guides/client-configuration.md).
 
 ## Try a Prompt
 
-With your client configured, try:
+With the client configured, try this prompt:
 
 > A point in a steel beam is under 120 MPa normal stress in X, 50 MPa compressive stress in Y, and 80 MPa shear. What are the principal stresses and maximum shear stress? Will it yield if the steel has a 250 MPa yield strength?
 
-The LLM reads the tool description, calls `principalStress` multiple times with different `component` values, and interprets the results — comparing to yield strength and reporting whether the design is safe.
+The LLM reads the tool description, calls `principalStress` multiple times with different `component` values, and interprets the results. It compares the stresses to yield strength and reports whether the design is safe.
 
 ---
 
 ## Next Steps
 
-You have a working MCP tool. Where to go from here depends on what you need:
+You have a working MCP tool. Where to go next depends on what you need.
 
 | Goal | Read |
 |------|------|

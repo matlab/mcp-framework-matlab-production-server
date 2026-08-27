@@ -155,7 +155,7 @@ end
 }
 ```
 
-STDIO bridge (for clients without HTTP support):
+STDIO bridge for clients without HTTP support.
 ```json
 {
   "mcpServers": {

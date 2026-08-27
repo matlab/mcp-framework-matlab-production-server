@@ -4,7 +4,7 @@ Function signatures, options, and return values for the `prodserver.mcp` namespa
 
 ## Functions
 
-Call each function with its full namespace prefix, e.g. `prodserver.mcp.build`.
+Call each function with its full namespace prefix, for example `prodserver.mcp.build`.
 
 | Function | Description | Example |
 | :--- | :--- | :--- |

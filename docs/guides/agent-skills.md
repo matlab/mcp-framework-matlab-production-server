@@ -57,8 +57,8 @@ The skill uses a build manifest to track source file hashes. If you ask it to re
 
 ## What You Still Do Manually
 
-- **Write your MATLAB function.** The skill builds what you give it — it doesn't write the function for you.
-- **Start MATLAB Production Server.** The skill deploys to a running instance but doesn't start one.
+- **Write your MATLAB function.** The skill builds what you give it — it does not write the function for you.
+- **Start MATLAB Production Server.** The skill deploys to a running instance but does not start one.
 - **Restart Claude Code.** After a new tool is registered, you need to start a new session for it to appear as a callable tool.
 - **Test with real prompts.** After deployment, try a natural-language prompt that exercises the tool to confirm it works end to end.
 

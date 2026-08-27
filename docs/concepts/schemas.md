@@ -4,7 +4,7 @@ A schema is a formal description of the structure, types, and constraints of dat
 
 ## Why MCP Requires Schemas
 
-The Model Context Protocol communicates via JSON-RPC. When an LLM calls a tool, it constructs a JSON request containing the tool's input arguments. Without a schema, the LLM cannot know:
+The Model Context Protocol communicates via JSON-RPC. When an LLM calls a tool, it constructs a JSON request containing the tool input arguments. Without a schema, the LLM cannot know:
 
 - What parameters the tool accepts and what each one means
 - What type each parameter requires (number, string, object, array)
@@ -15,9 +15,9 @@ The schema is the contract between the LLM and the tool.
 
 ## JSON Schema and MATLAB Functions
 
-MATLAB functions don't declare parameter types in the way that statically-typed languages do. The type of a MATLAB argument is only guaranteed at runtime, when the function is actually called. But MCP requires complete schemas at build time, before any calls happen.
+MATLAB functions do not declare parameter types in the way that statically-typed languages do. The type of a MATLAB argument is only guaranteed at runtime, when the function is actually called. But MCP requires complete schemas at build time, before any calls happen.
 
-JSON Schema treats variable type very differently than MATLAB. JSON Schema essentially supports 4 base types, numeric, boolean, string and object and arrays of each of them. Numbers may be integer or double, but JSON Schema has no notion of precision or bit-width. Those kinds of constraints may be imposed via a set of validation keywords -- setting a range via `minimum` and `maximum` for example. 
+JSON Schema treats variable type very differently than MATLAB. JSON Schema essentially supports four base types: numeric, boolean, string, and object, and arrays of each of them. Numbers may be integer or double, but JSON Schema has no notion of precision or bit-width. Those kinds of constraints may be imposed via a set of validation keywords—setting a range via `minimum` and `maximum` for example.
 
 Rather than asking you to write JSON Schema by hand, the framework generates it automatically from the information you provide: comments, argument blocks, and example calls. See [Describing Functions](./describing-functions.md) for how to provide this information.
 
@@ -82,7 +82,7 @@ The framework produces this JSON Schema tool definition:
 }
 ```
 
-This is what the LLM receives when it queries the tool's capabilities. The function comment becomes the tool description. Argument block types and comments become property definitions.
+This is what the LLM receives when it queries the tool capabilities. The function comment becomes the tool description. Argument block types and comments become property definitions.
 
 ## Combining Mechanisms
 
