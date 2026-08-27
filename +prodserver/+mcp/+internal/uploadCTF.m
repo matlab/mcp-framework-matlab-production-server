@@ -20,6 +20,8 @@ function status = uploadCTF(ctf, url, opts)
         opts.retry double = 2
         opts.timeout double = 30
     end
+
+    import prodserver.mcp.internal.hasField
  
     [~,ctfName,ext] = fileparts(ctf);
 
@@ -48,6 +50,10 @@ function status = uploadCTF(ctf, url, opts)
     while n <= opts.retry
         try
             list_response = webread(archiveURL,webOpts);
+            % If we got a good response, exit the loop.
+            if all(hasField(list_response,["action","result","archive"]))
+                n = opts.retry + 1;
+            end
         catch ex
             % No recovery from this failure, no sense in retrying.
             if contains(ex.message,"Archive Management Disabled")
