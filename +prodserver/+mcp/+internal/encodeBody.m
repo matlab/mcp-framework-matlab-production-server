@@ -64,7 +64,7 @@ function msg = encodeBody(msg)
         end   
 
         w = whos("data");
-        len = w.bytes;
+        len = string(w.bytes);
         msg.(hName) = prodserver.mcp.internal.setHeaderValue(msg.(hName),...
             prodserver.mcp.MCPConstants.ContentLength,{len});
     end
