@@ -12,7 +12,8 @@ classdef tSanitizeForURI < matlab.unittest.TestCase
         end
 
         function tWholeReservedStringReplaced(test)
-            % The full reserved set as one substring collapses to a single "_".
+            % The full reserved set as one substring collapses to a string
+            % of only '_' characters.
             import prodserver.mcp.io.sanitizeForURI
             allBad = strjoin(prodserver.mcp.internal.Constants.InvalidInURI',"");
             test.verifyEqual(sanitizeForURI(allBad), ...
