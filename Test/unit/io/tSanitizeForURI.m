@@ -14,19 +14,20 @@ classdef tSanitizeForURI < matlab.unittest.TestCase
         function tWholeReservedStringReplaced(test)
             % The full reserved set as one substring collapses to a single "_".
             import prodserver.mcp.io.sanitizeForURI
-            test.verifyEqual(sanitizeForURI(":/?#[]@!$&'()*+,;="), "_");
+            allBad = strjoin(prodserver.mcp.internal.Constants.InvalidInURI',"");
+            test.verifyEqual(sanitizeForURI(allBad), ...
+                string(repelem('_', numel(prodserver.mcp.internal.Constants.InvalidInURI))));
         end
 
         function tReplacesSingleReservedChar(test)
             % Intended behavior: each reserved character is replaced individually.
-            % Currently FILTERED (assumeFail) because strrep treats the reserved
-            % set as one substring, so single reserved chars pass through
-            % (BUG-sanitizeForURI-charset.md). Remove the assumeFail line once
-            % sanitizeForURI replaces reserved chars per-character.
             import prodserver.mcp.io.sanitizeForURI
-            test.assumeFail("Known bug: sanitizeForURI does not replace single " + ...
-                "reserved characters (BUG-sanitizeForURI-charset.md).");
-            test.verifyEqual(sanitizeForURI("a/b"), "a_b");
+            rc = char(prodserver.mcp.internal.Constants.InvalidInURI);
+            N = numel(rc);
+            for n = 1:numel(rc)
+                test.verifyEqual(sanitizeForURI("a"+string(rc(n))+"b"+string(rc(N-n+1))+"c"), "a_b_c");
+            end
+
         end
 
     end
