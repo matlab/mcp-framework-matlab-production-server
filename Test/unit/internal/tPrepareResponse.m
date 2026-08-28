@@ -24,7 +24,7 @@ classdef tPrepareResponse < matlab.unittest.TestCase
             encData = jsonencode(data);
             encData = unicode2native(data,"UTF-8");
             w = whos("encData");
-            test.verifyEqual(value,w.bytes);
+            test.verifyEqual(value,string(w.bytes));
         end
     end
 end
