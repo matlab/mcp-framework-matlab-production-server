@@ -24,6 +24,7 @@ classdef Constants
         PortPrefix = ":"
         ExtSep = ".";
         FragStart = "#";
+        InvalidInURI = string(char(":/?#[]@!$&'()*+,;=\")');
 
         % User specified schema data in comments starts with this string.
         Schema = "#schema";
