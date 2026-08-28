@@ -1,0 +1,36 @@
+# Distance measurement to reflective target at approximately 2.45 meters
+# Laser rangefinder: analog output, double-precision (meters), type: double
+# Ultrasonic sensor: digitized output (millimeters), type: uint16
+# 30 readings at 10 Hz (3-second measurement burst)
+# Use with: fuseSensors
+measurement,laser_m,ultrasonic_mm_uint16
+1,2.4521,2457
+2,2.4510,2457
+3,2.4509,2443
+4,2.4497,2454
+5,2.4495,2437
+6,2.4493,2445
+7,2.4492,2453
+8,2.4498,2445
+9,2.4486,2448
+10,2.4498,2449
+11,2.4502,2458
+12,2.4483,2446
+13,2.4507,2451
+14,2.4483,2450
+15,2.4506,2458
+16,2.4493,2452
+17,2.4502,2448
+18,2.4508,2448
+19,2.4496,2453
+20,2.4481,2452
+21,2.4502,2456
+22,2.4492,2452
+23,2.4511,2456
+24,2.4490,2453
+25,2.4496,2449
+26,2.4509,2440
+27,2.4500,2459
+28,2.4497,2446
+29,2.4499,2452
+30,2.4491,2453

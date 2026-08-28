@@ -16,12 +16,12 @@ Either or both of `varargin` and `varargout` may be empty.
 
 ### Examples
 
-Invoke the `cleanSignal` tool with three required inputs.
+Invoke the `cleanSignal` tool with two required inputs and an optional output location.
 ```MATLAB
 noisy = "file:/input/data/noisySignal.csv";
 clean = "file:/output/data/cleanSignal.csv";
 frequency = 60;
-prodserver.mcp.call("http://localhost:9910/signal/mcp", "cleanSignal", noisy, frequency, clean)
+prodserver.mcp.call("http://localhost:9910/cleanSignal/mcp", "cleanSignal", noisy, frequency, cleanURL=clean)
 ```
 
 ***

@@ -6,11 +6,12 @@ To start the server:
   python linePlot.py"
       --log-level DEBUG | INFO | WARNING | ERROR | CRITICAL
 	  --log-dir <folder>
+	  --port <port number>
 	  --timeout <seconds>
 ```
 Logging is optional but highly recommended. The MCP host must have write access to the log directory; granting that access is typically a host-specific process.
 
-`linePlot` primarily exists to demonstrate how to integrate multiple MCP tools into a single solution. The [cleanSignal](../../Examples/Periodic%20Noise/PeriodicNoise.md) example combines file system access with the `linePlot` and `cleanSignal` MCP tools to show that LLMs can manage intermediate results automatically.
+`linePlot` primarily exists to demonstrate how to integrate multiple MCP tools into a single solution. The [cleanSignal](../../Examples/Periodic%20Noise/walkthrough.md) example combines file system access with the `linePlot` and `cleanSignal` MCP tools to show that LLMs can manage intermediate results automatically.
 
 `linePlot` requires the `FastMCP` and `matplotlib` Python packages.
 

@@ -192,6 +192,36 @@ classdef tSchema < matlab.unittest.TestCase
             test.verifyEqual(defs.tools.outputSchema.properties.serial.type, "number");
         end
 
+        function survivesPreCall(test)
+            [~,~,~] = toyToolOne(1.0, uint64(5));
+            defs = prodserver.mcp.schema("toyToolOne", ...
+                @() callWithOutputs(@toyToolOne, 3, {2.0, uint64(10)}), ...
+                encoding="JSON");
+            test.verifyNotEmpty(defs);
+            test.verifyEqual(defs.tools.name, "toyToolOne");
+        end
+
+
+        function appdataFlagsCleanedUp(test)
+            prodserver.mcp.schema("toyToolOne", ...
+                @() callWithOutputs(@toyToolOne, 3, {1.0, uint64(5)}), ...
+                encoding="JSON");
+            test.verifyFalse(isappdata(0, 'mcp__realHandle__toyToolOne'));
+            test.verifyFalse(isappdata(0, 'mcp__inCall__toyToolOne'));
+        end
+
+        function dataFileAccessible(test)
+            [~,~,~] = schemaReadFile("schemaReadFile_data.csv");
+            defs = prodserver.mcp.schema("schemaReadFile", ...
+                @() callWithOutputs(@schemaReadFile, 3, ...
+                    {"schemaReadFile_data.csv"}), ...
+                encoding="JSON");
+            test.verifyNotEmpty(defs);
+            test.verifyEqual(defs.tools.name, "schemaReadFile");
+            test.verifyEqual( ...
+                defs.tools.inputSchema.properties.filename.type, "string");
+        end
+
     end
 end
 

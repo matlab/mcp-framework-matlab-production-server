@@ -18,13 +18,13 @@ A wrapper function replaces large parameters with URL parameters. It becomes the
 
 ```
 Original:    clean = cleanSignal(noisy, period)
-Wrapper:     cleanSignalMCP(noisyURL, period, cleanURL)
+Wrapper:     cleanSignalMCP(noisyURL, period, cleanURL=cleanURL)
 ```
 
 The wrapper:
 1. Reads `noisy` from the file at `noisyURL`
 2. Calls your original function: `clean = cleanSignal(noisy, period)`
-3. Writes `clean` to the file at `cleanURL`
+3. Writes `clean` to the file at `cleanURL` (if provided)
 
 Your original function is unchanged. The wrapper handles all data marshaling.
 
@@ -60,17 +60,20 @@ If `noisySignal` has more than 64 elements, the framework generates `cleanSignal
 ### Generated Wrapper Structure
 
 ```MATLAB
-function cleanSignalMCP(noisyURL, period, cleanURL)
+function cleanSignalMCP(noisyURL, period, out)
     arguments (Input)
-        noisyURL string     % file: URL pointing to input signal
-        period (1,1) double % Period (frequency) of the noise
-        cleanURL string     % file: URL where clean signal is saved
+        noisyURL (1,1) string  % file: URL pointing to input signal
+        period (1,1) double    % Period (frequency) of the noise
+        out.cleanURL (1,1) string = ""  % file: URL where clean signal is saved
     end
 
     marshaller = prodserver.mcp.io.MarshallURI();
     noisy = deserialize(marshaller, noisyURL);
-    clean = cleanSignal(noisy{1}, period);
-    serialize(marshaller, cleanURL, {clean});
+    noisy = noisy{1};
+    clean = cleanSignal(noisy, period);
+    if strlength(out.cleanURL) > 0
+        serialize(marshaller, out.cleanURL, {clean});
+    end
 end
 ```
 
@@ -163,7 +166,7 @@ The LLM never interacts with the array data directly. It provides a URL, and the
 - [Building MCP Tools — Functions with Large Data](../guides/building-tools.md#functions-with-large-data) — the build workflow for large-data functions
 - [Schemas](./schemas.md) — how wrappers change the generated schema
 - [Wire Encoding](./wire-encoding.md) — how values are serialized when they do cross the wire
-- [Periodic Noise example](../../Examples/Periodic%20Noise/PeriodicNoise.md) — automatic wrapper generation
+- [Periodic Noise example](../../Examples/Periodic%20Noise/walkthrough.md) — automatic wrapper generation
 - [Earthquake example](../../Examples/Earthquake/Earthquake.md) — custom wrapper
 
 --- Copyright 2026 The MathWorks, Inc. ---

@@ -1,0 +1,18 @@
+# Horizontal gradient of thermal frame A (Sobel edge detection output)
+# Positive values = left-to-right temperature increase (left edge of person)
+# Negative values = left-to-right temperature decrease (right edge of person)
+# Near-zero = uniform region (background or person interior)
+# type: int16
+# size: [12, 10]
+2,1,6,-2,2,-3,4,-1,0,1
+0,-5,0,2,-3,-1,0,1,1,1
+1,5,31,7,1,4,0,-27,1,0
+-1,4,33,13,4,-2,-7,-34,3,2
+-1,-1,33,7,9,-5,-5,-33,-1,-1
+0,-3,31,11,6,0,-11,-29,3,-1
+-3,-1,25,8,4,-5,-9,-30,3,-2
+4,-2,6,25,8,-6,-25,0,3,-2
+-1,1,2,22,1,-1,-21,-1,-2,1
+1,-1,0,20,1,-2,-17,0,4,-1
+-3,-1,0,2,-2,-3,0,4,-2,-2
+-1,-2,4,-1,0,2,2,-2,-2,3

@@ -187,7 +187,7 @@ ctf = prodserver.mcp.build("earthquakeAnalysis", ...
     server="http://localhost:9910");
 ```
 
-See the [Periodic Noise](../../Examples/Periodic%20Noise/PeriodicNoise.md) example for automatic marshaling and the [Earthquake](../../Examples/Earthquake/Earthquake.md) example for a custom wrapper.
+See the [Periodic Noise](../../Examples/Periodic%20Noise/walkthrough.md) example for automatic marshaling and the [Earthquake](../../Examples/Earthquake/Earthquake.md) example for a custom wrapper.
 
 ---
 
@@ -214,7 +214,7 @@ ctf = prodserver.mcp.build(["principalStress", "vonMises", "safetyFactor"], ...
 
 The endpoint becomes `http://localhost:9910/stressAnalysis/mcp`.
 
-See the [Multiple Tools example](../../Examples/MultiTool/MultipleTools.md) for a complete walkthrough.
+See the [Multiple Tools example](../../Examples/MultiTool/walkthrough.md) for a complete walkthrough.
 
 ---
 

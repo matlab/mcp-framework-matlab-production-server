@@ -2,14 +2,8 @@ function [ctf,endpoint] = buildMaterialsServer(opts)
 %buildMaterialsServer Build the Materials Engineering MCP server.
 %   ctf = buildMaterialsServer() builds the server without deploying.
 %
-%   [ctf,endpoint] = buildMaterialsServer(host="myserver") builds and
-%       deploys to the given host at the default port (9910).
-%
-%   [ctf,endpoint] = buildMaterialsServer(port=9920) builds and deploys
-%       to localhost at the given port.
-%
-%   [ctf,endpoint] = buildMaterialsServer(host="myserver",port=9920)
-%       builds and deploys to the given host and port.
+%   [ctf,endpoint] = buildMaterialsServer(host="http://myserver:9910")
+%       builds and deploys to the given server.
 %
 % This example demonstrates how MCP Resources enhance the usability of MCP
 % tools. The server exposes material property data as resources and
@@ -22,8 +16,7 @@ function [ctf,endpoint] = buildMaterialsServer(opts)
 % Copyright 2026 The MathWorks, Inc.
 
     arguments
-        opts.host string {prodserver.mcp.validation.mustBeHostName} = string.empty
-        opts.port double {prodserver.mcp.validation.mustBePortNumber} = double.empty
+        opts.host string {prodserver.mcp.validation.mustBeHost} = string.empty
     end
 
     thisFolder = fileparts(mfilename("fullpath"));
@@ -86,15 +79,7 @@ function [ctf,endpoint] = buildMaterialsServer(opts)
     % Deploy only if the user supplied host or port. Apply MPS defaults for
     % whichever was not specified.
     endpoint = "";
-    if ~isempty(opts.host) || ~isempty(opts.port)
-        host = opts.host;
-        if isempty(host)
-            host = "localhost";
-        end
-        port = opts.port;
-        if isempty(port)
-            port = 9910;
-        end
-        endpoint = prodserver.mcp.deploy(ctf, host, port);
+    if ~isempty(opts.host)
+        endpoint = prodserver.mcp.deploy(ctf, opts.host);
     end
 end

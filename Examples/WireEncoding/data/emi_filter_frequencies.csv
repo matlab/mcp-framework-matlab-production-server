@@ -1,0 +1,21 @@
+# EMI suppression filter for switch-mode power supply
+# Circuit: series RLC, R=50 Ohm, L=10 mH, C=100 nF, Vsource=120 V
+# Resonant frequency ~5033 Hz. Below resonance: capacitive. Above: inductive.
+# Frequencies chosen at mains harmonics and common interference bands.
+# Use with: analyzeACCircuit
+frequency_hz
+50
+60
+100
+120
+150
+180
+200
+250
+300
+360
+500
+1000
+2000
+5000
+10000

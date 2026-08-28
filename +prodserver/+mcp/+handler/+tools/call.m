@@ -157,7 +157,11 @@ function [result, httpCode, httpMsg, msgHeaders] = call(jrpc)
     % be delivered to the client as a legitimate JSON string. Which
     % is what Claude wants...
     c.type = "text";
-    c.text = jsonencode(r.structuredContent);
+    if isfield(r, 'structuredContent')
+        c.text = jsonencode(r.structuredContent);
+    else
+        c.text = "{}";
+    end
     r.content = {c} ;  % Must be array for Claude desktop.
     result.result = r;
 end

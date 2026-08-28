@@ -28,13 +28,13 @@ Deploying the CTF archive to MATLAB Production Server makes the MCP tool availab
 
 To check if the server will respond, send an HTTP GET request to the `ping` endpoint. Expect a `pong` response.
 ```MATLAB
-ping = "http://localhost:9910/pprimeSequence/ping";
+ping = "http://localhost:9910/primeSequence/ping";
 opts = weboptions(Timeout=180);
 pong = webread(ping,opts)
 ```
 To check that the server hosts the expected tool, use `prodserver.mcp.exist`:
 ```MATLAB
-tf = prodserver.mcp.exist(endpoint, "primeSequence", "Tools")
+tf = prodserver.mcp.exist(endpoint, "primeSequence", "Tool")
 ```
 If both of these tests are successful, you may test the tool's functionality -- that is, determine if it produces the expected results.
 
