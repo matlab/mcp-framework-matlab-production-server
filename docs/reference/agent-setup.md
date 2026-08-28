@@ -6,7 +6,7 @@ Register the MCP Framework skill marketplace for available AI coding agents. Thi
 
 The function detects which supported agents are installed and registers the MCP Framework skill catalog with each. If the `claude` CLI is available, it uses `claude plugin marketplace add` to register the catalog. Otherwise it writes directly to the Claude Code plugin registry.
 
-After running this function, you must install the plugin and reload it in your agent session before the skill becomes available. See the Examples section below for the complete workflow.
+After running this function, install the plugin and reload it in your agent session before the skill becomes available. See the Examples section below for the complete workflow.
 
 ### Inputs
 None.
@@ -16,7 +16,7 @@ None. Prints status messages to the command window.
 
 # Examples
 
-Register the marketplace and install the skill:
+Register the marketplace and install the skill.
 ```MATLAB
 prodserver.mcp.agent.setup
 ```
@@ -41,6 +41,7 @@ If no supported agents are found:
 ```MATLAB
 prodserver.mcp.agent.setup
 ```
+
 Output:
 ```
 Warning: No supported AI agents detected. Install Claude Code

@@ -2,7 +2,7 @@
 ```MATLAB
 definitions = schema(fcns, example, opts)
 ```
-Generate MCP tool schemas by observing function calls at runtime. Creates shadow wrappers that intercept calls to the specified functions, runs the provided examples, records argument types as JSON Schema fragments, then merges them into complete tool definitions compatible with `prodserver.mcp.build`.
+Generate MCP tool schemas by observing function calls at runtime. The function creates shadow wrappers that intercept calls to the specified functions, runs the provided examples, records argument types as JSON Schema fragments, and merges them into complete tool definitions compatible with `prodserver.mcp.build`.
 
 The returned `definitions` struct is directly usable as:
 ```MATLAB
@@ -20,14 +20,14 @@ prodserver.mcp.build(fcns, definition=definitions)
 | :---     | :--- | :---        | :---    |
 | definitions | struct | MCP tool definitions with `tools` and `signatures` fields. Directly usable as `build(fcns, definition=definitions)`. | struct |
 
-### Optional Inputs (Name/Value pairs)
+### Optional Inputs (Name/Value Pairs)
 Pass optional arguments with *argument=value* syntax following required inputs. For example: `encoding="JSON"`.
 | Argument | Type | Description | Default | Example |
 | :---     | :--- | :---        | :---    |:---     |
 | typemap | struct | Map of MATLAB type names (fieldnames) to JSON type names (values). Overrides default type mappings. | [] | struct('uint64','integer') |
 | encoding | WireEncoding | Wire encoding strategy: "Invertible", "JSON", or "Hybrid". | "Invertible" | "JSON" |
 
-All functions in `fcns` must be called at least once during example execution. If a function is never called, `schema` raises an error. For functions without argument blocks, parameter requiredness is inferred from the minimum observed argument count across all example calls. Name-value pair arguments appear in the schema only if the examples use them.
+All functions in `fcns` must be called at least once during example execution. If a function is never called, `schema` raises an error. For functions without argument blocks, the function infers parameter requiredness from the minimum observed argument count across all example calls. Name-value pair arguments appear in the schema only if the examples use them.
 
 See [Schemas](../concepts/schemas.md) for conceptual background on schema generation approaches.
 
@@ -65,7 +65,7 @@ ctf = prodserver.mcp.build("schemaCompute", ...
 
 ***
 
-Provide multiple examples as a cell array to communicate which parameters are optional. Here, parameters 3-5 are optional because the minimum call uses only 2 arguments:
+Provide multiple examples as a cell array to communicate which parameters are optional. Here, parameters 3--5 are optional because the minimum call uses only two arguments:
 ```MATLAB
 defs = prodserver.mcp.schema("schemaFlexNoBlock", ...
     {@() schemaFlexNoBlock(1,2), ...
@@ -74,7 +74,7 @@ defs = prodserver.mcp.schema("schemaFlexNoBlock", ...
 
 ***
 
-Run a file to exercise the target function:
+Run a file to exercise the target function.
 ```MATLAB
 defs = prodserver.mcp.schema("myTool", "test/myToolTests.m");
 ```

@@ -14,11 +14,11 @@ The framework draws from three sources, each contributing different aspects of t
 | Example calls | Observed types and shapes of inputs and outputs at runtime |
 | Argument blocks | Declared constraints, sizes, and per-parameter documentation |
 
-All three can work together. Comments provide meaning. Examples provide runtime type evidence. Argument blocks provide formal constraints and per-argument documentation. For simple data types like numeric arrays, two sources may be sufficent: the function comment and either argument blocks or example calls. 
+All three can work together. Comments provide meaning. Examples provide runtime type evidence. Argument blocks provide formal constraints and per-argument documentation. For simple data types like numeric arrays, two sources may be sufficient: the function comment and either argument blocks or example calls.
 
 ## Function Comments
 
-The comment block immediately after the `function` line describes the tool's **purpose**. The LLM reads this text to understand what the tool does and when to use it.
+The comment block immediately after the `function` line describes the tool **purpose**. The LLM reads this text to understand what the tool does and when to use it.
 
 ```MATLAB
 function sigma = principalStress(stressState, component)
@@ -32,11 +32,11 @@ function sigma = principalStress(stressState, component)
 %    sigma = principalStress([120 -50 80], "max") returns 151.73 MPa.
 ```
 
-The first contiguous block of comment lines is captured. A blank line or non-comment line terminates the block. Copyright notices and internal implementation comments that appear after a blank line are excluded.
+The framework captures the first contiguous block of comment lines. A blank line or non-comment line terminates the block. The framework excludes copyright notices and internal implementation comments that appear after a blank line.
 
-### Writing effective comments
+### Writing Effective Comments
 
-Write for the LLM, not for MATLAB's help system:
+Write for the LLM, not for the MATLAB help system:
 
 - State what each parameter means, not just its name
 - List valid values or ranges ("min", "max", "maxShear")
@@ -67,7 +67,7 @@ From this single call, the framework records:
 - `component`: string scalar
 - `sigma` (output): double scalar
 
-### Multiple examples for type variation
+### Multiple Examples for Type Variation
 
 When a parameter accepts different types across calls, provide multiple examples:
 
@@ -81,7 +81,7 @@ ctf = prodserver.mcp.build("convertSensor", ...
              @() convertSensor(voltages, "temperature")});
 ```
 
-The framework sees that `reading` is sometimes `uint16` and sometimes `double`, and records both patterns. 
+The framework sees that `reading` is sometimes `uint16` and sometimes `double`, and records both patterns.
 
 Specify multiple examples via a vector of:
 - Function handles
@@ -90,7 +90,7 @@ Specify multiple examples via a vector of:
 - Folders containing MATLAB unit test classes
 Function handles are the most immediate and folders of test classes the most complete.
 
-### Inferring optional parameters
+### Inferring Optional Parameters
 
 Call the function with different numbers of arguments to communicate which are optional:
 
@@ -108,24 +108,24 @@ The framework observes that the minimum call uses 2 arguments (`signal` and `win
 
 ## Argument Blocks
 
-When your function declares `arguments` blocks, the framework reads type, size, comments and constraints from them. 
-Constraints describe characteristics of an argument that limit the values a variable can take within its type -- `mustBePositive` or `mustBeSorted` for example. 
+When your function declares `arguments` blocks, the framework reads type, size, comments, and constraints from them.
+Constraints describe characteristics of an argument that limit the values a variable can take within its type—`mustBePositive` or `mustBeSorted` for example.
 
-Argument blocks may provide complete or partial type information. When only partial information can be specified explicit JSON schemas provide the rest.
+Argument blocks may provide complete or partial type information. When only partial information can be specified, explicit JSON schemas provide the rest.
 
 ### Usage Patterns
 
-Each declaration in an argument block contains a name and one or more of these properties: type, size, comment, constraint and default value. This declaration specifies a row vector of doubles which must be positive and sorted, with a default value of [17, 64, 81].
+Each declaration in an argument block contains a name and one or more of these properties: type, size, comment, constraint, and default value. This declaration specifies a row vector of doubles which must be positive and sorted, with a default value of [17, 64, 81].
 
 ```MATLAB
 % Fluid density in grams per milliliter
 density (1,:) double { mustBePositive, mustBeSorted } = [17, 64, 81]
 ```
-All of the properties are optional. The MCP Framework will capture whatever information the declaration provides.
+All of the properties are optional. The MCP Framework captures whatever information the declaration provides.
 
 You use argument blocks in one of three ways:
 - Completely specify simple types
-- Augment the type observed in example calls 
+- Augment the type observed in example calls
 - Specify argument properties with JSON Schema declarations
 
 **1. Simple data — complete declaration**
@@ -147,7 +147,7 @@ end
 The framework generates a complete schema from declarations alone. No `example` needed.
 
 **2. Structured or variable type data - augment example-inferred type**
-For arguments with internal structure argument blocks fill in gaps left by the example calls. 
+For arguments with internal structure, argument blocks fill in gaps left by the example calls.
 
 This `struct` declaration and comment tells the framework that the `material` parameter is a column vector of material properties.
 
@@ -177,11 +177,11 @@ function celsius = convertSensor(reading, channel)
     ...
 end
 ```
-The framework extracts the shapes and comments and relies on `example` calls for type information. 
+The framework extracts the shapes and comments and relies on `example` calls for type information.
 
 **3. Structured data with `%#schema` — explicit annotation**
 
-When examples alone are insufficient (in case of optional fields, constrained values, deeply nested structures), annotate the argument with the `%#schema` pragma:
+When examples alone are insufficient (optional fields, constrained values, deeply nested structures), annotate the argument with the `%#schema` pragma:
 
 ```MATLAB
     arguments (Input)
@@ -193,9 +193,9 @@ When examples alone are insufficient (in case of optional fields, constrained va
 
 `%#schema` allows you to affect the generated description in two ways: replace it (`=`) or add to it (`+`). You provide type information via either a JSON file or inline. See the [Schema Format reference](../reference/schema-format.md) for full syntax.
 
-### Comment placement
+### Comment Placement
 
-Two styles are supported and can be mixed:
+The framework supports two styles, which you can mix:
 
 - **Right-side comments** — concise, on the same line as the argument:
   ```MATLAB
@@ -211,7 +211,7 @@ Two styles are supported and can be mixed:
 
 The comment and argument must be contiguous — no blank line between them.
 
-### Output argument blocks
+### Output Argument Blocks
 
 Output arguments follow the same rules. Declaring output types helps the LLM interpret results:
 

@@ -1,10 +1,10 @@
-# prodserver.mcp.list
+# `prodserver.mcp.list`
 ```MATLAB
 items = list(endpoint,type)
 ```
-List the tools, resources or prompts on the given Model Context Protocol server. `type` must always be a single string. The output `items` is a MATLAB structure corresponding to the MCP JSON defintion of the available MCP primitives of `type`. Each element in `items` describes a single primitive.
+List the tools, resources, or prompts on the given Model Context Protocol server. `type` must always be a single string. The output `items` is a MATLAB structure corresponding to the MCP JSON definition of the available MCP primitives of `type`. Each element in `items` describes a single primitive.
 
-Tools, resouces and prompts are three of the _primitives_ potentially hosted by a Model Context Protocol server. Each primitive has a name and a description. Some primitives may have other properties.
+Tools, resources, and prompts are three of the *primitives* potentially hosted by a Model Context Protocol server. Each primitive has a name and a description. Some primitives have other properties.
 
 ### Inputs
 | Argument | Type | Description | Example
@@ -17,28 +17,28 @@ Tools, resouces and prompts are three of the _primitives_ potentially hosted by 
 | :---     | :--- | :---        | :---    |
 | items | struct | Varies by `type`, formed by encoding JSON description. | Tools structure with fields `name`, `description`, `inputSchema`, `outputSchema` and `server`. |
 
-### Optional Inputs (Name/Value pairs)
+### Optional Inputs (Name/Value Pairs)
 Pass optional arguments with *argument=value* syntax following required inputs. For example: `timeout=17`.
 | Argument | Type | Description | Default |
 | :---     | :--- | :---        | :---    |
-| delay | integer | Number of seconds pause between retries | 3 |
-| retry | integer | Number of times to retry on HTTP protocol errors (404, for example) | 2 | 
-| timeout | integer | Number of seconds to wait for a reply | 60 |
+| delay | integer | Number of seconds to pause between retries. | 3 |
+| retry | integer | Number of times to retry on HTTP protocol errors (404, for example). | 2 | 
+| timeout | integer | Number of seconds to wait for a reply. | 60 |
 
 
 Fields of the tool structure:
 
 | Field | Type | Description | 
 | :---  | :--- | :---        |
-| name  | string | The name of the tool. |
-| description | string | Human and AI-readable description of the tool. |
+| name  | string | Name of the tool. |
+| description | string | Human-readable and AI-readable description of the tool. |
 | inputSchema | struct | Type and description of each input parameter. |
 | outputSchema | struct | Type and description of each output parameter. |
 | server | string | MCP server structure. |
 
-The `properties` field of each schema is a structure with one field per parameter. Each parameter's field value captures the `type` and `description` of the parameter. 
+The `properties` field of each schema is a structure with one field per parameter. Each parameter field value captures the `type` and `description` of the parameter.
 
-The server field describes the server hosting the tool. It provides enough information to allow MCP hosts to call the tool. There are two types of servers: http and stdio.
+The server field describes the server hosting the tool and provides enough information for MCP hosts to call the tool. Two types of servers exist: http and stdio.
 
 **HTTP server structure**
 | Field | Type | Description | 
@@ -55,16 +55,16 @@ The server field describes the server hosting the tool. It provides enough infor
 
 # Examples
 
-List the tools available on the server running at `http://localhost:9910/primeSequence/mcp`:
+List the tools available on the server running at `http://localhost:9910/primeSequence/mcp`.
 ```MATLAB
 tools = list("http://localhost:9910/primeSequence/mcp","tool")
 ```
-The return value `tools` will be structure with fields `name`, `description`, `inputSchema`, `outputSchema` and `server`. 
+The return value `tools` is a structure with fields `name`, `description`, `inputSchema`, `outputSchema`, and `server`.
 
 `inputSchema` and `outputSchema` are optional. If they do not appear, the tool has none of the corresponding parameters.
 
 ***
-Input schema of the `cleanSignal` tool, which has three inputs: `noisy`, `frequency` and `clean`. A nested structure:
+Input schema of the `cleanSignal` tool, which has three inputs: `noisy`, `frequency`, and `clean`. A nested structure:
 
 ```
 inputSchema
@@ -79,6 +79,6 @@ inputSchema
                  type: 'string'
             description: 'The filtered signal after removing the periodic noise, as a file: URI.'
 ```
-The `outputSchema` has an analogous structure.
+`outputSchema` has an analogous structure.
 
 --- Copyright 2025-2026 The MathWorks, Inc. ---

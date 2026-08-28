@@ -1,6 +1,6 @@
 # MCP Resources
 
-Serve read-only reference data alongside your tools. Resources give the LLM access to real values — material properties, calibration coefficients, configuration tables — so it doesn't have to guess or ask the user.
+Serve read-only reference data alongside your tools. Resources give the LLM access to real values — material properties, calibration coefficients, configuration tables — so it does not have to guess or ask the user.
 
 [Resources](https://modelcontextprotocol.io/docs/concepts/resources) are an official part of the Model Context Protocol. They provide a standard way for MCP servers to expose data that clients can discover and read. Unlike tools (which perform computation), resources are purely informational — an LLM reads them for context before deciding what to do. MCP Framework lets you attach resources to any server you build, embedding the data in the deployed archive.
 
@@ -44,7 +44,7 @@ resource = struct( ...
     'mimeType', 'application/json');
 ```
 
-### Required fields
+### Required Fields
 
 | Field | Type | Description |
 | :--- | :--- | :--- |
@@ -53,7 +53,7 @@ resource = struct( ...
 
 If `contents` is a file path, `build` reads the file and embeds its content in the archive. The file is read once at build time.
 
-### Optional fields
+### Optional Fields
 
 | Field | Type | Description |
 | :--- | :--- | :--- |
@@ -62,7 +62,7 @@ If `contents` is a file path, `build` reads the file and embeds its content in t
 | `description` | string | Helps the LLM decide whether to read this resource |
 | `mimeType` | string | MIME type of the content. Defaults to `text/plain`. |
 
-### Content sources
+### Content Sources
 
 ```MATLAB
 % Literal string content
@@ -119,17 +119,17 @@ Tool: read_mcp_resource
 Input: {"url": "mcp://materials/aluminum_6061"}
 ```
 
-### Built-in resource
+### Built-in Resource
 
-Every server automatically includes a wire-encoding resource at `mcp://protocol/tools/wire-format/parameters/encoding_rules`. This documents how tool parameters are encoded over the wire. You don't define it — it's always present.
+Every server automatically includes a wire-encoding resource at `mcp://protocol/tools/wire-format/parameters/encoding_rules`. This documents how tool parameters are encoded over the wire. You do not define it — it is always present.
 
 ---
 
 ## Design Guidelines
 
-1. **Include a catalog resource** that lists all other resources with brief descriptions. This helps the LLM discover what's available without reading everything.
+1. **Include a catalog resource** that lists all other resources with brief descriptions. This helps the LLM discover what is available without reading everything.
 
-2. **Write clear descriptions.** The LLM uses the `description` field to decide which resources to read. A vague description means it reads resources it doesn't need.
+2. **Write clear descriptions.** The LLM uses the `description` field to decide which resources to read. A vague description means it reads resources it does not need.
 
 3. **Use JSON for structured data.** Set `mimeType` to `application/json`. LLMs parse JSON reliably.
 
@@ -137,7 +137,7 @@ Every server automatically includes a wire-encoding resource at `mcp://protocol/
 
 5. **One resource per entity.** One material per resource is better than all materials in one resource. The LLM reads only what it needs, conserving tokens.
 
-### URI schemes
+### URI Schemes
 
 Resource URIs can use any scheme. Choose one that conveys the domain:
 
@@ -147,7 +147,7 @@ Resource URIs can use any scheme. Choose one that conveys the domain:
 | `data://` | Dataset references | `data://sensors/channel_3` |
 | `config://` | Configuration | `config://filter/butterworth` |
 
-The URI must be unique within a server. The scheme is for readability — the framework doesn't route based on it.
+The URI must be unique within a server. The scheme is for readability — the framework does not route based on it.
 
 ---
 

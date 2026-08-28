@@ -4,7 +4,7 @@ Monitor your deployed MCP tools using the counters that the framework emits at r
 
 ## Introduction
 
-MCP Framework metrics build on [MATLAB Production Server's metrics system](https://www.mathworks.com/help/mps/restfuljson/restful-api-for-discovery-and-diagnostics.html). MPS exposes server-level counters and gauges (requests accepted, failed, queued, CPU and memory usage) via a REST endpoint in Prometheus format. MCP Framework adds its own counters on top — tracking requests per MCP server and calls per tool — and exposes all of them through the `prodserver.mcp.metrics.Catalog` object in MATLAB.
+MCP Framework metrics build on the [MATLAB Production Server metrics system](https://www.mathworks.com/help/mps/restfuljson/restful-api-for-discovery-and-diagnostics.html). MPS exposes server-level counters and gauges (requests accepted, failed, queued, CPU and memory usage) via a REST endpoint in Prometheus format. MCP Framework adds its own counters on top — tracking requests per MCP server and calls per tool — and exposes all of them through the `prodserver.mcp.metrics.Catalog` object in MATLAB.
 
 Key points:
 
@@ -32,7 +32,7 @@ m = catalog.name("MCP_principalStress_Call");
 fprintf("Tool called %d times\n", m.value)
 ```
 
-If `m` is empty, the tool hasn't been called since the last server restart. If `prodserver.mcp.metrics` throws `prodserver:mcp:MetricsDisabled`, metrics aren't enabled on the server — see [Enabling metrics on MPS](#enabling-metrics-on-mps).
+If `m` is empty, the tool has not been called since the last server restart. If `prodserver.mcp.metrics` throws `prodserver:mcp:MetricsDisabled`, metrics are not enabled on the server — see [Enabling metrics on MPS](#enabling-metrics-on-mps).
 
 ---
 
@@ -96,7 +96,7 @@ Use `scope()` to get metrics at a specific level of the hierarchy:
 catalog = prodserver.mcp.metrics("http://localhost:9910/principalStress/mcp");
 
 catalog.scope(prodserver.mcp.metrics.Scope.MCP)       % All MCP framework metrics
-catalog.scope(prodserver.mcp.metrics.Scope.Server)    % Only this archive's metrics
+catalog.scope(prodserver.mcp.metrics.Scope.Server)    % Only this archive metrics
 catalog.scope(prodserver.mcp.metrics.Scope.Instance)  % MPS instance metrics
 ```
 

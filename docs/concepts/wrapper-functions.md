@@ -10,11 +10,11 @@ Consider a function that filters a noisy signal:
 function clean = cleanSignal(noisy, period)
 ```
 
-The `noisy` input might be 10,000 floating-point samples. Encoding that as JSON text consumes roughly 100,000 tokens. The LLM doesn't need to see the data — it only needs to tell the tool where the data lives.
+The `noisy` input might be 10,000 floating-point samples. Encoding that as JSON text consumes roughly 100,000 tokens. The LLM does not need to see the data — it only needs to tell the tool where the data lives.
 
 ## How Wrapper Functions Work
 
-A wrapper function replaces large parameters with URL parameters. It becomes the tool's entry point — the LLM calls the wrapper, not your original function:
+A wrapper function replaces large parameters with URL parameters. It becomes the tool entry point — the LLM calls the wrapper, not your original function:
 
 ```
 Original:    clean = cleanSignal(noisy, period)
@@ -40,7 +40,7 @@ Scalar parameters (a cutoff frequency, a sample rate) pass through unchanged.
 
 ## Automatic Generation
 
-By default (`wrapper="Auto"`), the framework inspects your function's parameters and generates a wrapper only when at least one parameter exceeds 64 elements. If all parameters are small, no wrapper is generated and your function serves as the tool's entry point directly. The 64-element threshold distinguishes scalars and small vectors (which serialize cheaply as JSON) from arrays that benefit from external storage.
+By default (`wrapper="Auto"`), the framework inspects the function parameters and generates a wrapper only when at least one parameter exceeds 64 elements. If all parameters are small, no wrapper is generated and your function serves as the tool entry point directly. The 64-element threshold distinguishes scalars and small vectors (which serialize cheaply as JSON) from arrays that benefit from external storage.
 
 The framework determines which parameters are large by examining argument blocks:
 - Arguments declared as `(1,1)` are always scalar — passed directly
@@ -55,9 +55,9 @@ ctf = prodserver.mcp.build("cleanSignal", ...
     server="http://localhost:9910");
 ```
 
-If `noisySignal` has more than 64 elements, the framework generates `cleanSignalMCP.m` and deploys it as the tool's entry point.
+If `noisySignal` has more than 64 elements, the framework generates `cleanSignalMCP.m` and deploys it as the tool entry point.
 
-### Generated wrapper structure
+### Generated Wrapper Structure
 
 ```MATLAB
 function cleanSignalMCP(noisyURL, period, cleanURL)
@@ -105,7 +105,7 @@ ctf = prodserver.mcp.build("plotTrajectories", ...
     server="http://localhost:9910");
 ```
 
-The framework uses your wrapper as the tool's entry point and generates the tool description from its argument blocks and comments.
+The framework uses your wrapper as the tool entry point and generates the tool description from its argument blocks and comments.
 
 ## Marshaling Utilities
 
@@ -150,7 +150,7 @@ To force wrapper generation regardless of parameter size, pass `wrapper=""`. To 
 
 ## Effect on Schemas
 
-When a wrapper externalizes a parameter, the tool's schema describes the URL — a string — not the underlying data type. The LLM sees:
+When a wrapper externalizes a parameter, the tool schema describes the URL — a string — not the underlying data type. The LLM sees:
 
 ```json
 {"noisyURL": {"type": "string", "description": "file: URL pointing to input signal"}}

@@ -163,6 +163,6 @@ Optional flags:
 
 The bridge requires the `requests` Python package.
 
-You don't call the bridge directly — configure your MCP client to launch it as a command (see the [Claude Desktop](#claude-desktop) example above).
+You do not call the bridge directly — configure your MCP client to launch it as a command (see the [Claude Desktop](#claude-desktop) example above).
 
 --- Copyright 2026 The MathWorks, Inc. ---

@@ -40,15 +40,15 @@ For deployments where authentication is not needed (internal networks, developme
 
 ## MCP-Specific Considerations
 
-### No per-tool authentication
+### No Per-Tool Authentication
 
 MPS authentication applies at the server level, not per-tool. All tools on an instance share the same authentication configuration. If you need different access levels for different tools, deploy them to separate MPS instances.
 
-### HTTP, not Streamable HTTP
+### HTTP, Not Streamable HTTP
 
 MCP Framework creates pure HTTP servers. It does not support Streamable HTTP or HTTP with server-sent events (SSE). Each tool call is a single request-response pair. This simplifies security — there are no long-lived connections to manage.
 
-### Data marshaling and file access
+### Data Marshaling and File Access
 
 When tools use [wrapper functions](./wrapper-functions.md) for large data, the `file:` URLs reference local filesystem paths on the MPS host. Ensure that:
 
@@ -56,7 +56,7 @@ When tools use [wrapper functions](./wrapper-functions.md) for large data, the `
 - The MPS process has write access to output data locations
 - Data paths are not exposed to untrusted clients (the LLM sees only the URL, but a compromised client could craft arbitrary paths)
 
-### Discovery endpoint
+### Discovery Endpoint
 
 The [discovery endpoint](./discovery.md) reveals tool names and descriptions. If tool existence is sensitive information, either disable discovery (`discovery=false` in `build`) or restrict network access to the MPS instance.
 
