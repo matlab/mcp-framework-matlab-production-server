@@ -1,9 +1,9 @@
 function str = sanitizeForURI(str)
-%santiziseForURI Make a string safe to use as part of a URI. Convert all
+%sanitizeForURI Make a string safe to use as part of a URI. Convert all
 %reserved characters to underscore.
 
 % Copyright 2022-2026 The MathWorks, Inc.
 
-    reserved = ":/?#[]@!$&'()*+,;=";
-    str = strrep(str,reserved,"_");
+    str = replace(str, prodserver.mcp.internal.Constants.InvalidInURI, "_");
+
 end
