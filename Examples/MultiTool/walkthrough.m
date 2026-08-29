@@ -48,7 +48,10 @@ cellfun(@(t) t.name, tools, 'UniformOutput', false)
 % Use the |twinDragon| tool to generate 200,000 fractal points.
 
 thisFolder = fileparts(mfilename("fullpath"));
-N = 200000;
+% Allow override on machines without graphics hardware acceleration
+if exist("N","var") == false || isempty(N)
+    N = 200000;
+end
 dragonXY = fullfile(thisFolder, "TwinDragonXY.mat");
 dragonURL = "file:" + replace(dragonXY, filesep, "/");
 fprintf(1,"Start Generate %s %f.2\n",endpoint,round(toc(t),2));

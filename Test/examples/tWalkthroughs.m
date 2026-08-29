@@ -83,6 +83,20 @@ classdef tWalkthroughs < matlab.unittest.TestCase
             % Close any figures opened during the walkthrough
             cleanup = onCleanup(@() close("all"));
 
+            % Special case for MultiTool, which renders a dense image --
+            % machines that lack hardware acceleration can take over an
+            % hour to render a 200,000 point scatter plot. So reduce number
+            % of points to something any machine can render. The point of
+            % the test is to validate the code path, after all. There is
+            % code in the MultiTool walkthrough that allows N to be
+            % overridden.
+            if strcmpi(example.name,"MultiTool")
+                ri = renderinfo;
+                if strcmpi(ri.Details.HardwareSupportLevel, 'None')
+                    N = 1000; %#ok<NASGU>
+                end
+            end
+
             % Inject mpsServer and run the walkthrough script
             t = tic;
             mpsServer = test.server; %#ok<NASGU>
