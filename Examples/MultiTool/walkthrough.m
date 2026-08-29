@@ -54,7 +54,7 @@ if exist("N","var") == false || isempty(N)
 end
 dragonXY = fullfile(thisFolder, "TwinDragonXY.mat");
 dragonURL = "file:" + replace(dragonXY, filesep, "/");
-fprintf(1,"Start Generate %s %f.2\n",endpoint,round(toc(t),2));
+fprintf(1,"Start Generate %s %d %f.2\n",endpoint,N,round(toc(t),2));
 prodserver.mcp.call(endpoint, "twinDragon", N, "dragonURL", dragonURL);
 fprintf(1,"End Generate %s %f.2\n",endpoint,round(toc(t),2));
 
@@ -65,7 +65,7 @@ jpg = fullfile(thisFolder, "TwinDragonImage.jpg");
 color1 = "#FF0000";
 color2 = "#0000FF";
 dragonSizeURL = "file:" + replace(fullfile(thisFolder, "TwinDragonSize.mat"), filesep, "/");
-fprintf(1,"Start Render %s %f.2\n",jpg,round(toc(t),2));
+fprintf(1,"Start Render %s %d %f.2\n",jpg,N,round(toc(t),2));
 prodserver.mcp.call(endpoint, "dragonDraw", dragonURL, color1, color2, jpg, "szURL", dragonSizeURL);
 fprintf(1,"End Render %s %f.2\n",jpg,round(toc(t),2));
 
