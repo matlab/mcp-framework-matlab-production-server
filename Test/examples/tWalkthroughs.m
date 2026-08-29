@@ -66,7 +66,9 @@ classdef tWalkthroughs < matlab.unittest.TestCase
     methods (Test)
 
         function runWalkthrough(test, example)
-            import matlab.unittest.fixtures.*
+            import matlab.unittest.fixtures.TemporaryFolderFixture
+            import matlab.unittest.fixtures.CurrentFolderFixture
+            import matlab.unittest.fixtures.PathFixture
 
             % Clean up deployed archives after this test
             test.applyFixture(prodserver.mcp.test.mixin.RemoveArchive( ...
@@ -82,9 +84,12 @@ classdef tWalkthroughs < matlab.unittest.TestCase
             cleanup = onCleanup(@() close("all"));
 
             % Inject mpsServer and run the walkthrough script
+            t = tic;
             mpsServer = test.server; %#ok<NASGU>
             run(fullfile(tmp.Folder, "walkthrough.m"));
-            close all force
+
+            fprintf(1,"%s took %.2f seconds\n",example.name,...
+                round(toc(t),2));
         end
 
     end
