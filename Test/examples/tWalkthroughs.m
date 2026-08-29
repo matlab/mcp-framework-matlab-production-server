@@ -91,7 +91,7 @@ classdef tWalkthroughs < matlab.unittest.TestCase
             % code in the MultiTool walkthrough that allows N to be
             % overridden.
             if strcmpi(example.name,"MultiTool")
-                ri = renderinfo;
+                ri = rendererinfo;
                 if strcmpi(ri.Details.HardwareSupportLevel, 'None')
                     N = 1000; %#ok<NASGU>
                 end
