@@ -199,10 +199,10 @@ jobs:
         uses: actions/checkout@v3
       - name: Add MATLAB to PATH
         uses: ./.github/actions/setup-matlab-path
-      - name: Start MPS and run end-to-end tests
+      - name: Start MPS and run example tests
         uses: mw-actions/matlab-actions-run-command@v3
         with:
-          command: addpath(pwd); addpath('.github/workflows/scripts'); [c1,c2,mps] = startMPS(); runTests('examples', 'test-results/examples.xml', ["examples"], mps)
+          command: addpath(pwd); addpath('.github/workflows/scripts'); [c1,c2,mps] = startMPS(); runTests('examples', 'test-results/examples.xml', [], mps)
       - name: Upload example test results
         if: always()
         uses: actions/upload-artifact@v3
@@ -222,7 +222,7 @@ jobs:
       - name: Start MPS and run end-to-end tests
         uses: mw-actions/matlab-actions-run-command@v3
         with:
-          command: addpath(pwd); addpath('.github/workflows/scripts'); [c1,c2,mps] = startMPS(); runTests('integration/call', 'test-results/call.xml', ["call"], mps)
+          command: addpath(pwd); addpath('.github/workflows/scripts'); [c1,c2,mps] = startMPS(); runTests('integration', 'test-results/call.xml', ["call"], mps)
       - name: Upload e2e test results
         if: always()
         uses: actions/upload-artifact@v3
