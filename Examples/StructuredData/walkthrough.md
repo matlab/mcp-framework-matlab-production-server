@@ -11,8 +11,8 @@ Tests whether any circles in two lists overlap. Schema describes an array of obj
 ```MATLAB
 function tf = circlesIntersect(c1, c2)
     arguments
-        c1 (1,:) struct  %#schema circle.json
-        c2 (1,:) struct  %#schema circle.json
+        c1 (1,:) struct  %#schema =circle.json
+        c2 (1,:) struct  %#schema =circle.json
     end
 ```
 
@@ -23,8 +23,8 @@ Analyzes a simply-supported beam under load. Schema describes two levels of nest
 ```MATLAB
 function result = analyzeBeam(beam_spec, load_case)
     arguments
-        beam_spec (1,:) struct  %#schema beam_spec.json
-        load_case (1,:) struct  %#schema load_case.json
+        beam_spec (1,:) struct  %#schema =beam_spec.json
+        load_case (1,:) struct  %#schema =load_case.json
     end
 ```
 

@@ -24,6 +24,7 @@ Pass optional arguments with *argument=value* syntax following required inputs. 
 | retry | integer | Number of times to retry HTTP requests. | 10 | 17 |
 | timeout | integer | Number of seconds to wait for HTTP requests. | 180 | 60 |
 | verify | integer | Number of times to retry upload verification. Zero turns off verification. | 5 | 3 |
+| delay | integer | Number of seconds to pause between retries. | 2 | 5 |
 
 If `verify` is non-zero, `deploy` sends a `ping` to the uploaded archive to verify that upload and installation succeeded. A newly uploaded archive is typically recognized by MATLAB Production Server very quickly. Expect verification to take a few seconds.
 

@@ -50,7 +50,7 @@ Before starting your client, set breakpoints in your MATLAB code or the MCP Fram
 3. Call the primeSequence MCP tool with `prodserver.mcp.call`.
 
 ```MATLAB
-seq = prodserver.mcp.call("http://localhost/primeSequence/mcp",11,"balanced") 
+seq = prodserver.mcp.call("http://localhost/primeSequence/mcp", "primeSequence", 11, "balanced") 
 ```
 
 ## Your Own Tools

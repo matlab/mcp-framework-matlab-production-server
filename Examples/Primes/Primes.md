@@ -51,7 +51,7 @@ Test the `primeSequence` tool by generating two types of prime sequences. Verify
 Generate the first 11 balanced primes:
 ```MATLAB
 bpr = prodserver.mcp.call(endpoint, "primeSequence", 11, "balanced")'
-    bpr = 1×17
+    bpr = 1×11
         5    53   157   173   211   257   263   373   563   593   607   
 ```
 Generate the first 9 Eisenstein primes:

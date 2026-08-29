@@ -10,13 +10,13 @@ Tools and resources are two of the *primitives* potentially hosted by a Model Co
 | Argument | Type | Description | Example
 | :---     | :--- | :---        | :---    |
 | endpoint | string | Network endpoint of MCP server. | "http://localhost:9910/primeSequence/mcp" |
-| name | string | Name of the MCP primitive | "primeSequenceMCP" |
-| type | string | Type of MCP primitive | "tool" or "resource" |
+| name | string | Name(s) of the MCP primitive(s). Scalar or vector. | "primeSequenceMCP" or ["toolA","toolB"] |
+| type | Primitive | Type of MCP primitive. Scalar or same size as `name`. | "tool" or "resource" |
 
 ### Outputs
 | Argument | Type | Description | Example
 | :---     | :--- | :---        | :---    |
-| tf | logical | Does the MCP primitive exist? | true |
+| tf | logical | Does the MCP primitive exist? Same size as `name`. | true or [true false true] |
 
 ### Optional Inputs (Name/Value Pairs)
 Pass optional arguments with *argument=value* syntax following required inputs. For example: `timeout=17`.
