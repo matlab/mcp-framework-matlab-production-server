@@ -36,7 +36,7 @@ function tf = ping(endpoint,opts)
             catch me
                 % Allow retry on HTTP / web service errors. All others are
                 % immediately fatal.
-                if contains(me.identifier,"MATLAB:webservices")
+                if contains(me.identifier,"MATLAB:webservices") == false
                     tries = opts.retry + 1;
                     tf = false;
                 end

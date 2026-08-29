@@ -18,8 +18,8 @@ Determine whether the MCP tool at `endpoint` is active and accepting requests. T
 Pass optional arguments with *argument=value* syntax following required inputs. For example: `timeout=17`.
 | Argument | Type | Description | Default |
 | :---     | :--- | :---        | :---    |
-| delay | integer | Number of seconds to pause between retries | 3 |
-| retry | integer | Number of times to retry on HTTP protocol errors (404, for example) | 2 | 
+| delay | integer | Number of seconds to pause between retries | 2 |
+| retry | integer | Number of times to retry on HTTP protocol errors (404, for example) | 30 | 
 | timeout | integer | Number of seconds to wait for a reply | 60 |
 
 # Examples
@@ -33,7 +33,7 @@ The return value `tf` is a scalar logical true or false.
 
 Return false for a badly formed MCP tool URL.
 ```MATLAB
-tf = exist("WWW://localhost:9910/primeSequence/mcp")
+tf = ping("WWW://localhost:9910/primeSequence/mcp")
 ```
 The return value `tf` is false, since WWW:// is an invalid MCP tool URL prefix.
 

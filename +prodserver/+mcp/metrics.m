@@ -1,8 +1,8 @@
-function measurements = metrics(uri,opts)
+function catalog = metrics(uri,opts)
 % metrics Retrieve metrics from MATLAB Production Server instance at URI.
-% 
-%    measurements = metrics(URI,SCOPE) returns the metrics recorded by the
-%    MATLAB Production Server at URI, filtered by SCOPE.
+%
+%    catalog = metrics(URI) returns the metrics recorded by the
+%    MATLAB Production Server at URI.
 
 % Copyright 2026 The MathWorks, Inc.
 
@@ -75,6 +75,6 @@ function measurements = metrics(uri,opts)
         result = result(1:end-1);
     end
 
-    measurements = prodserver.mcp.metrics.Catalog(result,uri.uri);
+    catalog = prodserver.mcp.metrics.Catalog(result,uri.uri);
 
 end

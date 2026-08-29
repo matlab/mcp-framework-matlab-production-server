@@ -2,28 +2,28 @@
 ```MATLAB
 items = list(endpoint,type)
 ```
-List the tools, resources, or prompts on the given Model Context Protocol server. `type` must always be a single string. The output `items` is a MATLAB structure corresponding to the MCP JSON definition of the available MCP primitives of `type`. Each element in `items` describes a single primitive.
+List the tools or resources on the given Model Context Protocol server. `type` must always be a single string. The output `items` is a cell array of MATLAB structures corresponding to the MCP JSON definitions of the available MCP primitives of `type`. Each element in `items` describes a single primitive.
 
-Tools, resources, and prompts are three of the *primitives* potentially hosted by a Model Context Protocol server. Each primitive has a name and a description. Some primitives have other properties.
+Tools and resources are two of the *primitives* potentially hosted by a Model Context Protocol server. Each primitive has a name and a description. Some primitives have other properties.
 
 ### Inputs
 | Argument | Type | Description | Example
 | :---     | :--- | :---        | :---    |
 | endpoint | string | Network endpoint of MCP server. | "http://localhost:9910/primeSequence/mcp" |
-| type | string | Type of MCP primitive | "tool", "resource" or "prompt" |
+| type | string | Type of MCP primitive | "tool" or "resource" |
 
 ### Outputs
 | Argument | Type | Description | Example
 | :---     | :--- | :---        | :---    |
-| items | struct | Varies by `type`, formed by encoding JSON description. | Tools structure with fields `name`, `description`, `inputSchema`, `outputSchema` and `server`. |
+| items | cell | Cell array of structs, one per primitive. Each struct varies by `type`. | Tools structure with fields `name`, `description`, `inputSchema`, `outputSchema` and `server`. |
 
 ### Optional Inputs (Name/Value Pairs)
 Pass optional arguments with *argument=value* syntax following required inputs. For example: `timeout=17`.
 | Argument | Type | Description | Default |
 | :---     | :--- | :---        | :---    |
-| delay | integer | Number of seconds to pause between retries. | 3 |
-| retry | integer | Number of times to retry on HTTP protocol errors (404, for example). | 2 | 
-| timeout | integer | Number of seconds to wait for a reply. | 60 |
+| delay | integer | Number of seconds to pause between retries. | 2 |
+| retry | integer | Number of times to retry on HTTP protocol errors (404, for example). | 10 | 
+| timeout | integer | Number of seconds to wait for a reply. | 30 |
 
 
 Fields of the tool structure:
@@ -64,20 +64,20 @@ The return value `tools` is a structure with fields `name`, `description`, `inpu
 `inputSchema` and `outputSchema` are optional. If they do not appear, the tool has none of the corresponding parameters.
 
 ***
-Input schema of the `cleanSignal` tool, which has three inputs: `noisy`, `frequency`, and `clean`. A nested structure:
+Input schema of the `cleanSignal` tool. The auto-generated wrapper externalizes the large `noisy` input and `clean` output as file URLs:
 
 ```
 inputSchema
     properties
-        noisy
+        noisyURL
                    type: 'string'
-            description: 'The noisy input signal as a file: URL.'
-        frequency
+            description: 'URL pointing to the input value for noisy.'
+        period
                   type: 'number'
-            description: 'The frequency or period of the noise to remove.'       
-        clean
+            description: 'period'
+        cleanURL
                  type: 'string'
-            description: 'The filtered signal after removing the periodic noise, as a file: URI.'
+            description: 'URL pointing to the output value for clean.'
 ```
 `outputSchema` has an analogous structure.
 

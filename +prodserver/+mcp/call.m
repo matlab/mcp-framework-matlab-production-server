@@ -193,7 +193,7 @@ function [varargout] = call(endpoint, tool, varargin)
                 result = rmfield(result,req);
             end
             names = fieldnames(result);
-            values = cellfun(@(n)results.(n),names);
+            values = cellfun(@(n)result.(n),names);
             optOut = [names;values]; optOut = optOut{:};
     
             varargout = [ varargout, optOut ];

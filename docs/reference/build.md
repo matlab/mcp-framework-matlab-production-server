@@ -60,7 +60,7 @@ ctf = prodserver.mcp.build("plotTrajectories", folder="/work/mcp/tools");
 Build the MATLAB function `starChart` into an MCP tool of the same name. Automatically generate a wrapper function. Specify import options for the `ngc` and `constellation` parameters.
 
 ```MATLAB
-importer.ngc = delimtedTextImportOptions(DataLines=1,ImportErrorRule='error');
+importer.ngc = delimitedTextImportOptions(DataLines=1,ImportErrorRule='error');
 importer.constellation = delimitedTextImportOptions(ImportErrorRule='omit');
 ctf = prodserver.mcp.build("starChart",import=importer);
 ```

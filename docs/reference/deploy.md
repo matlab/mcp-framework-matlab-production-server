@@ -19,12 +19,12 @@ Upload a Model Context Protocol-enabled CTF archive to an active MATLAB Producti
 Pass optional arguments with *argument=value* syntax following required inputs. For example: `timeout=120`.
 | Argument | Type | Description | Default | Example | 
 | :---     | :--- | :---        | :---    |:---     |
-| https | logical | Use HTTPS. Uses HTTP if false. | false | true | 
+| scheme | string | URL scheme. | "http" | "https" | 
 | overwrite | logical | Overwrite existing archives. | true | true | 
-| retry | integer | Number of times to retry HTTP requests. | 2 | 17 |
+| retry | integer | Number of times to retry HTTP requests. | 10 | 17 |
 | timeout | integer | Number of seconds to wait for HTTP requests. | 180 | 60 |
-| token | string | JSON Web Token for authorization. | None | N/A | 
 | verify | integer | Number of times to retry upload verification. Zero turns off verification. | 5 | 3 |
+| delay | integer | Number of seconds to pause between retries. | 2 | 5 |
 
 If `verify` is non-zero, `deploy` sends a `ping` to the uploaded archive to verify that upload and installation succeeded. A newly uploaded archive is typically recognized by MATLAB Production Server very quickly. Expect verification to take a few seconds.
 
@@ -33,7 +33,7 @@ If `verify` is non-zero, `deploy` sends a `ping` to the uploaded archive to veri
 Upload `primeSequence.ctf` to a MATLAB Production Server instance running at `localhost:9910` using HTTPS.
 
 ```MATLAB
-endpoint = prodserver.mcp.deploy("/work/deploy/primeSequence.ctf","localhost",9910,https=true);
+endpoint = prodserver.mcp.deploy("/work/deploy/primeSequence.ctf","localhost",9910,scheme="https");
 ```
 ***
 

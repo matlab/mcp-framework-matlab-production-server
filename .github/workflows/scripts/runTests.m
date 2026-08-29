@@ -30,20 +30,6 @@ function runTests(suite, resultsFile, folders, mps)
         end
     end
 
-    % The example-server tests build, deploy, and call the shipped
-    % Examples/** servers against a live MPS. They live in Test/examples
-    % (a sibling of Test/integration), so fold them into the run whenever the
-    % "call" e2e suite is selected -- the same signal runCoverage.m uses. Like
-    % the call tests, they read the server from MW_MCP_MPS_TEST_SERVER, so the
-    % mps handle (used only for log capture) is not the right gate.
-    if nargin >= 3 && ~isempty(folders) && ismember("call", folders)
-        exampleFolder = fullfile(repoRoot, "Test", "examples");
-        if isfolder(exampleFolder)
-            tests = [tests, TestSuite.fromFolder(...
-                exampleFolder, "IncludingSubfolders", true)];
-        end
-    end
-
     [resultsDir, ~, ~] = fileparts(resultsFile);
     if ~isfolder(resultsDir)
         mkdir(resultsDir);

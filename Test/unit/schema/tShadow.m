@@ -29,20 +29,22 @@ classdef tShadow < matlab.unittest.TestCase
             test.verifyTrue(isfile(fullfile(shadowDir, "toyToolOne.m")));
         end
 
-        function codeContainsRmpath(test)
+        function codeContainsReentrancyGuard(test)
             shadowDir = prodserver.mcp.internal.generateShadow("toyToolOne");
             cleanup = onCleanup(@() rmdir(shadowDir,'s'));
             code = fileread(fullfile(shadowDir, "toyToolOne.m"));
-            test.verifyTrue(contains(code, "rmpath("));
+            test.verifyTrue(contains(code, ...
+                "getappdata(0, flagKey)"), ...
+                "Expected re-entrancy guard using flagKey");
         end
 
-        function codeContainsAddpathTwice(test)
+        function codeContainsRealHandle(test)
             shadowDir = prodserver.mcp.internal.generateShadow("toyToolOne");
             cleanup = onCleanup(@() rmdir(shadowDir,'s'));
             code = fileread(fullfile(shadowDir, "toyToolOne.m"));
-            matches = count(code, "addpath(");
-            test.verifyEqual(matches, 2, ...
-                "Expected addpath in both try and catch blocks");
+            test.verifyTrue(contains(code, ...
+                "getappdata(0, 'mcp__realHandle__toyToolOne')"), ...
+                "Expected pre-bound handle lookup");
         end
 
         function codeContainsObsRecord(test)

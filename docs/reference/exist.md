@@ -2,29 +2,29 @@
 ```MATLAB
 tf = exist(endpoint,name,type)
 ```
-Check for existence of named tools, resources, and prompts on the given Model Context Protocol server. `name` may be a list with multiple names, but `type` must always be a single string. The output `tf` is the same size as `name`. Each element in `tf` indicates whether the corresponding element of `name` is a known `type` on the server at `endpoint`.
+Check for existence of named tools and resources on the given Model Context Protocol server. `name` may be a list with multiple names, but `type` must always be a single string. The output `tf` is the same size as `name`. Each element in `tf` indicates whether the corresponding element of `name` is a known `type` on the server at `endpoint`.
 
-Tools, resources, and prompts are three of the *primitives* potentially hosted by a Model Context Protocol server. Each primitive has a name and a description.
+Tools and resources are two of the *primitives* potentially hosted by a Model Context Protocol server. Each primitive has a name and a description.
 
 ### Inputs
 | Argument | Type | Description | Example
 | :---     | :--- | :---        | :---    |
 | endpoint | string | Network endpoint of MCP server. | "http://localhost:9910/primeSequence/mcp" |
-| name | string | Name of the MCP primitive | "primeSequenceMCP" |
-| type | string | Type of MCP primitive | "tool", "resource" or "prompt" |
+| name | string | Name(s) of the MCP primitive(s). Scalar or vector. | "primeSequenceMCP" or ["toolA","toolB"] |
+| type | Primitive | Type of MCP primitive. Scalar or same size as `name`. | "tool" or "resource" |
 
 ### Outputs
 | Argument | Type | Description | Example
 | :---     | :--- | :---        | :---    |
-| tf | logical | Does the MCP primitive exist? | true |
+| tf | logical | Does the MCP primitive exist? Same size as `name`. | true or [true false true] |
 
 ### Optional Inputs (Name/Value Pairs)
 Pass optional arguments with *argument=value* syntax following required inputs. For example: `timeout=17`.
 | Argument | Type | Description | Default |
 | :---     | :--- | :---        | :---    |
-| delay | integer | Number of seconds to pause between retries. | 3 |
-| retry | integer | Number of times to retry on HTTP protocol errors (404, for example). | 2 | 
-| timeout | integer | Number of seconds to wait for a reply. | 60 |
+| delay | integer | Number of seconds to pause between retries. | 2 |
+| retry | integer | Number of times to retry on HTTP protocol errors (404, for example). | 10 | 
+| timeout | integer | Number of seconds to wait for a reply. | 30 |
 
 # Examples
 

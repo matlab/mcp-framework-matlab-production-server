@@ -39,13 +39,13 @@ Your function is now available to any MCP client connected to that server. See t
 
 ## Key Features
 
-- **[Building MCP tools](./docs/guides/building-tools.md)** — The framework packages your functions and deploys them to MPS. Supports [single functions](./Examples/Primes/Primes.md), [multi-tool servers](./Examples/MultiTool/MultipleTools.md), [large data](./Examples/Periodic%20Noise/PeriodicNoise.md), and [structured inputs](./Examples/StructuredData/StructuredData.md).
-- **[MCP Resources](./docs/guides/resources.md)** — Serve read-only reference data (material properties, calibration tables) alongside your tools, so the LLM uses real values instead of guessing. [Materials example](./Examples/Materials/Materials.md)
+- **[Building MCP tools](./docs/guides/building-tools.md)** — The framework packages your functions and deploys them to MPS. Supports [single functions](./Examples/Primes/walkthrough.md), [multi-tool servers](./Examples/MultiTool/walkthrough.md), [large data](./Examples/Periodic%20Noise/walkthrough.md), and [structured inputs](./Examples/StructuredData/walkthrough.md).
+- **[MCP Resources](./docs/guides/resources.md)** — Serve read-only reference data (material properties, calibration tables) alongside your tools, so the LLM uses real values instead of guessing. [Materials example](./Examples/Materials/walkthrough.md)
 - **[Server metrics](./docs/guides/server-metrics.md)** — Monitor deployed tools with built-in counters at framework, server, and tool level.
 - **[AI agent skills](./docs/guides/agent-skills.md)** — Let Claude Code build and deploy tools on your behalf from natural language.
 - **[Discovery](./docs/concepts/discovery.md)** — Deployed tools register with the MPS discovery endpoint so clients can find them automatically.
 
-**Documentation:** [Getting Started](./docs/getting-started.md) | [Guides](./docs/guides/) | [Concepts](./docs/concepts/) | [Reference](./docs/reference/)
+**Documentation:** [Getting Started](./docs/getting-started.md) | [Examples](./Examples/) | [Guides](./docs/guides/) | [Concepts](./docs/concepts/) | [Reference](./docs/reference/)
 
 ## License
 

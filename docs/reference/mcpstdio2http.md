@@ -6,6 +6,7 @@ To start the server proxy:
   python mcpstdio2http.py"
     --log-level DEBUG | INFO | WARNING | ERROR | CRITICAL
 	  --log-dir <folder>
+    --log-file <filename>
     --url <MCP Server URL>
 	  --timeout <seconds>
 ```

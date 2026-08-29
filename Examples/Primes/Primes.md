@@ -28,13 +28,13 @@ Deploying the CTF archive to MATLAB Production Server makes the MCP tool availab
 
 To check if the server will respond, send an HTTP GET request to the `ping` endpoint. Expect a `pong` response.
 ```MATLAB
-ping = "http://localhost:9910/pprimeSequence/ping";
+ping = "http://localhost:9910/primeSequence/ping";
 opts = weboptions(Timeout=180);
 pong = webread(ping,opts)
 ```
 To check that the server hosts the expected tool, use `prodserver.mcp.exist`:
 ```MATLAB
-tf = prodserver.mcp.exist(endpoint, "primeSequence", "Tools")
+tf = prodserver.mcp.exist(endpoint, "primeSequence", "Tool")
 ```
 If both of these tests are successful, you may test the tool's functionality -- that is, determine if it produces the expected results.
 
@@ -51,7 +51,7 @@ Test the `primeSequence` tool by generating two types of prime sequences. Verify
 Generate the first 11 balanced primes:
 ```MATLAB
 bpr = prodserver.mcp.call(endpoint, "primeSequence", 11, "balanced")'
-    bpr = 1×17
+    bpr = 1×11
         5    53   157   173   211   257   263   373   563   593   607   
 ```
 Generate the first 9 Eisenstein primes:

@@ -25,7 +25,7 @@ Pass optional arguments with *argument=value* syntax following required inputs. 
 | Argument | Type | Description | Default | Example |
 | :---     | :--- | :---        | :---    |:---     |
 | typemap | struct | Map of MATLAB type names (fieldnames) to JSON type names (values). Overrides default type mappings. | [] | struct('uint64','integer') |
-| encoding | WireEncoding | Wire encoding strategy: "Invertible", "JSON", or "Hybrid". | "Invertible" | "JSON" |
+| encoding | WireEncoding | Wire encoding strategy: "Invertible", "JSON", or "Hybrid". | "JSON" | "Invertible" |
 
 All functions in `fcns` must be called at least once during example execution. If a function is never called, `schema` raises an error. For functions without argument blocks, the function infers parameter requiredness from the minimum observed argument count across all example calls. Name-value pair arguments appear in the schema only if the examples use them.
 

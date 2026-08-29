@@ -1,0 +1,25 @@
+# Audio crossover network for 2-way loudspeaker
+# Circuit: series RLC, R=8 Ohm, L=1.2 mH, C=22 uF, Vsource=10 V
+# Crossover frequency ~980 Hz (where inductive and capacitive reactance balance)
+# Use with: analyzeACCircuit
+frequency_hz
+100
+150
+200
+300
+500
+750
+1000
+1500
+2000
+3000
+4000
+5000
+6000
+8000
+10000
+12000
+15000
+18000
+20000
+22000

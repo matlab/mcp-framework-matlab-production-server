@@ -2,14 +2,8 @@ function [ctf,endpoint] = buildWireEncodingServer(opts)
 %buildWireEncodingServer Build the Wire Encoding demonstration MCP server.
 %   ctf = buildWireEncodingServer() builds the server without deploying.
 %
-%   [ctf,endpoint] = buildWireEncodingServer(host="myserver") builds and
-%       deploys to the given host at the default port (9910).
-%
-%   [ctf,endpoint] = buildWireEncodingServer(port=9920) builds and deploys
-%       to localhost at the given port.
-%
-%   [ctf,endpoint] = buildWireEncodingServer(host="myserver",port=9920)
-%       builds and deploys to the given host and port.
+%   [ctf,endpoint] = buildWireEncodingServer(host="http://myserver:9910")
+%       builds and deploys to the given server.
 %
 % This example demonstrates five engineering tools that require the MCP
 % Framework wire encoding format to function correctly. Each tool showcases
@@ -24,13 +18,11 @@ function [ctf,endpoint] = buildWireEncodingServer(opts)
 % Copyright 2026 The MathWorks, Inc.
 
     arguments
-        opts.host string {prodserver.mcp.validation.mustBeHostName} = string.empty
-        opts.port double {prodserver.mcp.validation.mustBePortNumber} = double.empty
+        opts.host string {prodserver.mcp.validation.mustBeHost} = string.empty
     end
 
     thisFolder = fileparts(mfilename("fullpath"));
-    projectRoot = fullfile(thisFolder, "..", "..");
-    dataFolder = fullfile(projectRoot, "Test", "data", "examples", "WireEncoding");
+    dataFolder = fullfile(thisFolder, "data");
 
     % Define data resources. Each CSV file is an MCP resource that an LLM
     % can read to obtain input data for the tools.
@@ -130,15 +122,7 @@ function [ctf,endpoint] = buildWireEncodingServer(opts)
         encoding="Invertible");
 
     endpoint = "";
-    if ~isempty(opts.host) || ~isempty(opts.port)
-        host = opts.host;
-        if isempty(host)
-            host = "localhost";
-        end
-        port = opts.port;
-        if isempty(port)
-            port = 9910;
-        end
-        endpoint = prodserver.mcp.deploy(ctf, host, port);
+    if ~isempty(opts.host)
+        endpoint = prodserver.mcp.deploy(ctf, opts.host);
     end
 end

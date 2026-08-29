@@ -190,6 +190,26 @@ jobs:
           git pull --rebase
           git push
 
+  example-tests:
+    name: Example Tests
+    runs-on: [self-hosted, hasSFSAccess, glnxa64]
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Add MATLAB to PATH
+        uses: ./.github/actions/setup-matlab-path
+      - name: Start MPS and run example tests
+        uses: mw-actions/matlab-actions-run-command@v3
+        with:
+          command: addpath(pwd); addpath('.github/workflows/scripts'); [c1,c2,mps] = startMPS(); runTests('examples', 'test-results/examples.xml', [], mps)
+      - name: Upload example test results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: example-test-results-glnxa64
+          path: test-results/
+
   e2e-tests:
     name: End-to-End Tests
     runs-on: [self-hosted, hasSFSAccess, glnxa64]
