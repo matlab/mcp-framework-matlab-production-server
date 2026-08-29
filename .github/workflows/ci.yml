@@ -202,7 +202,7 @@ jobs:
       - name: Start MPS and run end-to-end tests
         uses: mw-actions/matlab-actions-run-command@v3
         with:
-          command: addpath(pwd); addpath('.github/workflows/scripts'); [c1,c2,mps] = startMPS(); runTests('example', 'test-results/example.xml', ["example"], mps)
+          command: addpath(pwd); addpath('.github/workflows/scripts'); [c1,c2,mps] = startMPS(); runTests('examples', 'test-results/examples.xml', ["examples"], mps)
       - name: Upload example test results
         if: always()
         uses: actions/upload-artifact@v3
