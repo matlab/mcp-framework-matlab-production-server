@@ -84,6 +84,7 @@ classdef tWalkthroughs < matlab.unittest.TestCase
             % Inject mpsServer and run the walkthrough script
             mpsServer = test.server; %#ok<NASGU>
             run(fullfile(tmp.Folder, "walkthrough.m"));
+            close all force
         end
 
     end
