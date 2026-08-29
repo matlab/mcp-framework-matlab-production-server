@@ -11,8 +11,11 @@
 
 % Copyright 2025-2026 The MathWorks, Inc.
 
-% Deploy to this MATLAB Production Server.
-mpsServer = "http://localhost:9910";
+% Deploy to this MATLAB Production Server unless another one already
+% specified.
+if isempty(mpsServer)
+    mpsServer = "http://localhost:9910";
+end
 
 %% Obtain Tool Definitions from MCP Server
 % Query the deployed cleanSignal server for its tool definitions.
