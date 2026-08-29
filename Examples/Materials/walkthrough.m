@@ -7,7 +7,7 @@
 
 % Deploy to this MATLAB Production Server unless another one already
 % specified.
-if isempty(mpsServer)
+if exist("mpsServer","var") == false || isempty(mpsServer)
     mpsServer = "http://localhost:9910";
 end
 

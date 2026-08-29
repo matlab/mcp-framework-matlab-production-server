@@ -6,7 +6,7 @@
 
 % Deploy to this MATLAB Production Server unless another one already
 % specified.
-if isempty(mpsServer)
+if exist("mpsServer","var") == false || isempty(mpsServer)
     mpsServer = "http://localhost:9910";
 end
 
@@ -21,7 +21,7 @@ fcn = ["chaosdragon", "chaosfractal", "snowflake", ...
     "mandelbrot", "renderDragon", "drawvector", "drawpoints"];
 t= tic;
 
-fprintf(1,"Start build %s %f.2\n","Fractalizer",,round(toc(t),2));
+fprintf(1,"Start build %s %f.2\n","Fractalizer",round(toc(t),2));
 ctf = prodserver.mcp.build(fcn, tool=tool, archive="Fractalizer", folder="./deploy");
 fprintf(1,"Finish build %s %f.2\n","Fractalizer",round(toc(t),2));
 
