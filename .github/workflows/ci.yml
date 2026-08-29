@@ -195,7 +195,7 @@ jobs:
     runs-on: [self-hosted, hasSFSAccess, glnxa64]
     timeout-minutes: 30
     steps:
-   S   - name: Checkout repository
+      - name: Checkout repository
         uses: actions/checkout@v3
       - name: Add MATLAB to PATH
         uses: ./.github/actions/setup-matlab-path
