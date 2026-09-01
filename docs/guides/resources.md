@@ -17,7 +17,7 @@ Serve read-only reference data alongside your tools. Resources give the LLM acce
 
 ## When to Use Resources
 
-Use resources when your tools need reference data the LLM should not hallucinate:
+Use resources when your tools need reference data that the LLM should not hallucinate:
 
 | Domain | Resource content | Paired tool |
 | :--- | :--- | :--- |

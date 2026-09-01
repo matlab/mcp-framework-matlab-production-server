@@ -32,7 +32,7 @@ Ask your agent to build a tool. For example:
 
 > Build an MCP tool from principalStress.m and deploy it to localhost:9910.
 
-Or with more options:
+Optionally, include more options:
 
 > Build cleanSignal.m and filterSignal.m as a multi-tool server on localhost:9910. Include the data file calibration.mat.
 
