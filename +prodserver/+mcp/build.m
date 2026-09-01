@@ -226,16 +226,14 @@ function [ctf,endpoint] = build(fcn, opts)
     % Include the wire-encoding resource only when at least one tool uses
     % Invertible encoding.
     if any(wireEncoding == "Invertible")
-        resourceList = MCPConstants.WireEncodingResource;
+        resourceList = { MCPConstants.WireEncodingResource };
     else
-        resourceList = struct.empty(1,0);
+        resourceList = {};
     end
 
-    % Default resource value struct.empty(1,0) won't concatenate with any
-    % structure, so test required. Cell array because fields of each
-    % resource structure may vary.
+    % Cell array because fields of each resource structure may vary.
     if ~isempty(opts.resource)
-        resourceList = [ {resourceList}, num2cell(opts.resource) ];
+        resourceList = [ resourceList, num2cell(opts.resource) ];
     end
     
     % Generate resource definitions and add them to the structure saved
