@@ -24,8 +24,8 @@ classdef tSchemaCI < MCPCaller & ...
             test.verifyTrue(iscell(resource),"Not a cell array");
             resource = resource{1};
             test.verifyTrue(isstruct(resource),"Not a structure");
-            rName = [resource.name];
-            encoding_rules = prodserver.mcp.read(endpoint,rName);
+            rURI = string(resource.uri);
+            encoding_rules = prodserver.mcp.read(endpoint,rURI);
             test.verifyEqual(numel(encoding_rules),1,"Number of encoding documents");
             resourceTextFile = fullfile(fileparts(mfilename("fullpath")),...
                 "..","..","..", "+prodserver","+mcp","+jsonrpc",...
@@ -48,6 +48,15 @@ classdef tSchemaCI < MCPCaller & ...
                 encoding_rules_resource,"text"), "text field");
             test.verifyEqual(encoding_rules_resource.text, char(resourceText), ...
                 "MCP resource reading tool");
+
+            % Verify resource existence lookup by URI
+            tf = prodserver.mcp.exist(endpoint, ...
+                prodserver.mcp.MCPConstants.WireEncodingResourceURI, "Resource");
+            test.verifyTrue(tf, "Wire-encoding resource should exist");
+
+            tf = prodserver.mcp.exist(endpoint, ...
+                "nonexistent://fake", "Resource");
+            test.verifyFalse(tf, "Nonexistent resource should not exist");
         end
     end
 

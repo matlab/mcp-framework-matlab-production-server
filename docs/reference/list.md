@@ -4,7 +4,7 @@ items = list(endpoint,type)
 ```
 List the tools or resources on the given Model Context Protocol server. `type` must always be a single string. The output `items` is a cell array of MATLAB structures corresponding to the MCP JSON definitions of the available MCP primitives of `type`. Each element in `items` describes a single primitive.
 
-Tools and resources are two of the *primitives* potentially hosted by a Model Context Protocol server. Each primitive has a name and a description. Some primitives have other properties.
+Tools and resources are two of the *primitives* potentially hosted by a Model Context Protocol server. Tools have a name and description. Resources have a URI and optional name. Some primitives have other properties.
 
 ### Inputs
 | Argument | Type | Description | Example
@@ -15,7 +15,7 @@ Tools and resources are two of the *primitives* potentially hosted by a Model Co
 ### Outputs
 | Argument | Type | Description | Example
 | :---     | :--- | :---        | :---    |
-| items | cell | Cell array of structs, one per primitive. Each struct varies by `type`. | Tools structure with fields `name`, `description`, `inputSchema`, `outputSchema` and `server`. |
+| items | cell | Cell array of structs, one per primitive. Structure fields vary by `type`. | See tool and resource structure tables below. |
 
 ### Optional Inputs (Name/Value Pairs)
 Pass optional arguments with *argument=value* syntax following required inputs. For example: `timeout=17`.
@@ -34,7 +34,7 @@ Fields of the tool structure:
 | description | string | Human-readable and AI-readable description of the tool. |
 | inputSchema | struct | Type and description of each input parameter. |
 | outputSchema | struct | Type and description of each output parameter. |
-| server | string | MCP server structure. |
+| server | struct | MCP server structure. |
 
 The `properties` field of each schema is a structure with one field per parameter. Each parameter field value captures the `type` and `description` of the parameter.
 
@@ -80,5 +80,24 @@ inputSchema
             description: 'URL pointing to the output value for clean.'
 ```
 `outputSchema` has an analogous structure.
+
+***
+Fields of the resource structure:
+
+| Field | Type | Description |
+| :---  | :--- | :---        |
+| uri | string | Unique identifier for the resource. Pass this to `read` and `exist`. |
+| name | string | Machine-readable name. May be absent. |
+| title | string | Human-readable display title. May be absent. |
+| description | string | Describes the resource content. May be absent. |
+| mimeType | string | MIME type of the content. |
+| server | struct | MCP server structure (same as tools). |
+
+***
+List resources and read one by URI:
+```MATLAB
+resources = prodserver.mcp.list("http://localhost:9910/myServer/mcp", "Resource")
+result = prodserver.mcp.read(endpoint, resources{1}.uri);
+```
 
 --- Copyright 2025-2026 The MathWorks, Inc. ---
