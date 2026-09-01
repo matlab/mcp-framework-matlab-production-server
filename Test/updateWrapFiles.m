@@ -41,42 +41,50 @@ function updateWrapFiles(opts)
     nUpdated = 0;
     nUnchanged = 0;
 
+    encodings = ["Invertible", "JSON"];
+    suffixes  = [".wrap",      ".json.wrap"];
+
     for k = 1:numel(manifest)
         fcn  = manifest(k).fcn;
         tool = fcn + "MCP";
-        wrapFile = fullfile(testRoot, "tools", ...
-            manifest(k).folder, fcn + ".wrap");
 
-        % Generate the wrapper code.
         extraOpts = {};
         if ~isempty(manifest(k).typemap)
             extraOpts = {"typemap", manifest(k).typemap};
         end
-        code = prodserver.mcp.internal.mcpWrapper(fcn, tool, extraOpts{:});
 
-        % Replace UUID variable with placeholder.
-        marshalVars = unique(extract(code, varPattern));
-        if ~isempty(marshalVars)
-            code = replace(code, marshalVars(1), "!marshalVar");
-        end
+        for e = 1:numel(encodings)
+            wrapFile = fullfile(testRoot, "tools", ...
+                manifest(k).folder, fcn + suffixes(e));
 
-        % Compare with existing .wrap file.
-        if isfile(wrapFile)
-            old = strjoin(readlines(wrapFile), newline);
-        else
-            old = "";
-        end
+            code = prodserver.mcp.internal.mcpWrapper(fcn, tool, ...
+                extraOpts{:}, encoding=encodings(e));
 
-        if strcmp(code, old)
-            nUnchanged = nUnchanged + 1;
-            fprintf("  unchanged: %s\n", wrapFile);
-        else
-            nUpdated = nUpdated + 1;
-            if strcmpi(opts.action,"preview")
-                fprintf("  would update: %s\n", wrapFile);
+            % Replace UUID variable with placeholder.
+            marshalVars = unique(extract(code, varPattern));
+            if ~isempty(marshalVars)
+                code = replace(code, marshalVars(1), "!marshalVar");
+            end
+
+            % Compare with existing file.
+            if isfile(wrapFile)
+                old = strjoin(readlines(wrapFile), newline);
             else
-                writelines(code, wrapFile,TrailingLineEndingRule="never");
-                fprintf("  updated: %s\n", wrapFile);
+                old = "";
+            end
+
+            if strcmp(code, old)
+                nUnchanged = nUnchanged + 1;
+                fprintf("  unchanged: %s\n", wrapFile);
+            else
+                nUpdated = nUpdated + 1;
+                if strcmpi(opts.action,"preview")
+                    fprintf("  would update: %s\n", wrapFile);
+                else
+                    writelines(code, wrapFile, ...
+                        TrailingLineEndingRule="never");
+                    fprintf("  updated: %s\n", wrapFile);
+                end
             end
         end
     end

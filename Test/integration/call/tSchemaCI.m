@@ -15,6 +15,42 @@ classdef tSchemaCI < MCPCaller & ...
 
     end
 
+    methods
+        function validateResource(test,endpoint)
+            % Read the default resource
+            resource = prodserver.mcp.list(endpoint,"Resource");
+            test.verifyFalse(isempty(resource),"No resources!");
+            test.verifyEqual(numel(resource),1,"Wrong number of resources");
+            test.verifyTrue(iscell(resource),"Not a cell array");
+            resource = resource{1};
+            test.verifyTrue(isstruct(resource),"Not a structure");
+            rName = [resource.name];
+            encoding_rules = prodserver.mcp.read(endpoint,rName);
+            test.verifyEqual(numel(encoding_rules),1,"Number of encoding documents");
+            resourceTextFile = fullfile(fileparts(mfilename("fullpath")),...
+                "..","..","..", "+prodserver","+mcp","+jsonrpc",...
+                "wire_encoding_rules.txt");
+            resourceText = string(fileread(resourceTextFile));
+            test.verifyEqual(encoding_rules,resourceText);
+
+            % Use the built-in resource-reading tool to read the resource.
+            % (Ensures the tool was packaged with the vanilla server.)
+            encoding_rules_resource = prodserver.mcp.call(endpoint,...
+                prodserver.mcp.MCPConstants.ReadResourceTool, ...
+                prodserver.mcp.MCPConstants.WireEncodingResourceURI);
+
+            test.verifyTrue(prodserver.mcp.internal.hasField(...
+                encoding_rules_resource,"mimeType"));
+            test.verifyTrue(prodserver.mcp.jsonrpc.isMIMETypeText(...
+                encoding_rules_resource.mimeType),"MIME type");
+
+            test.verifyTrue(prodserver.mcp.internal.hasField(...
+                encoding_rules_resource,"text"), "text field");
+            test.verifyEqual(encoding_rules_resource.text, char(resourceText), ...
+                "MCP resource reading tool");
+        end
+    end
+
     methods(Test)
 
         function literal(test)
@@ -47,6 +83,10 @@ classdef tSchemaCI < MCPCaller & ...
             names = cellfun(@(t)string(t.name),d);
             found = strcmp(fcn,names);
             test.verifyEqual(nnz(found),1,"Too many tools named " + fcn);
+
+            % Make sure the wire-encoding resource is present, as
+            % Invertible requires it.
+            validateResource(test,endpoint);
                 
             % Extract the tool definition structure.
             d = d{found};
@@ -159,6 +199,10 @@ classdef tSchemaCI < MCPCaller & ...
 
             % Deploy
             endpoint = prodserver.mcp.deploy(ctf,test.host,test.port);
+
+            % Make sure the wire-encoding resource is present, as
+            % Invertible requires it.
+            validateResource(test,endpoint);
 
             % Generate circles and squares with area less than 11
             %

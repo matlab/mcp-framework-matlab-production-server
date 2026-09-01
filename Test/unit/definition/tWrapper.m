@@ -1,10 +1,14 @@
 classdef tWrapper < matlab.unittest.TestCase & ...
-   prodserver.mcp.test.mixin.ExternalData 
+   prodserver.mcp.test.mixin.ExternalData
 
 % Copyright 2025-2026 The MathWorks, Inc.
 
     properties
         toolsFolder
+    end
+
+    properties (TestParameter)
+        encoding = struct('Invertible', "Invertible", 'JSON', "JSON")
     end
 
     methods (TestClassSetup)
@@ -16,7 +20,7 @@ classdef tWrapper < matlab.unittest.TestCase & ...
             pkgFolder = fullfile(testFolder,"../../..");
             test.applyFixture(PathFixture(pkgFolder));
         end
-        
+
         function requireToyTools(test)
             rtt = test.applyFixture(prodserver.mcp.test.mixin.RequireToyTools());
             test.toolsFolder = rtt.toolFolder;
@@ -25,10 +29,14 @@ classdef tWrapper < matlab.unittest.TestCase & ...
     end
 
     methods
-        function validateWrapperText(test,tool,code)
+        function validateWrapperText(test,tool,code,encoding)
             % Grab the known-good wrapper (which "code" should match
             % exactly).
-            wrapFile = fullfile(test.toolsFolder,tool+".wrap");
+            if encoding == "JSON"
+                wrapFile = fullfile(test.toolsFolder,tool+".json.wrap");
+            else
+                wrapFile = fullfile(test.toolsFolder,tool+".wrap");
+            end
             wrap = readlines(wrapFile);
 
             % The generated code contains a unique UUID-named variable. In
@@ -57,13 +65,13 @@ classdef tWrapper < matlab.unittest.TestCase & ...
             end
         end
 
-        function validateWrapperFile(test,tool,wrapFile)
+        function validateWrapperFile(test,tool,wrapFile,encoding)
         % Compare the contents of wrapFile to a known good wrapper for
         % tool.
             test.verifyEqual(exist(wrapFile,"file"),2,wrapFile);
             wrapCode = readlines(wrapFile);
             wrapCode = strjoin(wrapCode,newline);
-            validateWrapperText(test,tool,wrapCode);
+            validateWrapperText(test,tool,wrapCode,encoding);
         end
     end
 
@@ -79,12 +87,12 @@ classdef tWrapper < matlab.unittest.TestCase & ...
             wrapFolder = tFolder.Folder;
 
             % Generate wrapper for function with externalized parameters
-            fcn = "toyFileSchema"; 
+            fcn = "toyFileSchema";
             [wrap,def] = prodserver.mcp.internal.wrapForMCP(fcn,"",...
-                wrapFolder);
+                wrapFolder, encoding="Invertible");
 
             % Expect the definition to use $defs to capture the schemas of
-            % the externalized variables r and z. 
+            % the externalized variables r and z.
             test.verifyTrue(iscell(def),"Defs not a cell array");
             actualDefs = def{1};
             test.verifyEqual(numel(wrap),numel(def),"wrap count ~= def count");
@@ -95,7 +103,7 @@ classdef tWrapper < matlab.unittest.TestCase & ...
             test.verifyEqual(actualDefs,expectedDefs,"Schemas of externalized variables");
         end
 
-        function wrapMyriad(test)
+        function wrapMyriad(test, encoding)
         % Generate many wrappers with a single call.
 
             % Temporary folder to contain wrappers
@@ -110,7 +118,7 @@ classdef tWrapper < matlab.unittest.TestCase & ...
             % Vanilla argument list -- tools only, no GenAI.
             typemap.geom = "float";
             wrap = prodserver.mcp.internal.wrapForMCP(fcn,["","",""], ...
-                wrapFolder,typemap=typemap);
+                wrapFolder,typemap=typemap, encoding=encoding);
 
             test.verifyEqual(numel(wrap),numel(fcn),"Wrapper count");
 
@@ -119,12 +127,12 @@ classdef tWrapper < matlab.unittest.TestCase & ...
             % functions AND check for a match with the golden files. Gotta
             % love equal's transitive property.
             for n = 1:numel(wrap)
-                validateWrapperFile(test,fcn(n),wrap(n));
+                validateWrapperFile(test,fcn(n),wrap(n),encoding);
             end
 
         end
 
-        function wrapLongComments(test)
+        function wrapLongComments(test, encoding)
         % Some of the descriptive comments span multiple lines. Don't miss
         % any.
 
@@ -142,15 +150,15 @@ classdef tWrapper < matlab.unittest.TestCase & ...
 
             % Generate wrappers for tool with duplicate names in
             % argument list.
-            fcn = "toyToolThree";   
+            fcn = "toyToolThree";
             wrapper = fcn + MCPConstants.WrapperFileSuffix;
 
             % Vanilla argument list -- tools only, no GenAI.
             wrapFile = prodserver.mcp.internal.wrapForMCP(fcn,"",...
-                wrapFolder);
+                wrapFolder, encoding=encoding);
             rehash
 
-            validateWrapperFile(test,fcn,wrapFile);
+            validateWrapperFile(test,fcn,wrapFile,encoding);
 
             % Collect the expected values
             three = "saam";
@@ -198,7 +206,8 @@ classdef tWrapper < matlab.unittest.TestCase & ...
             wrapper = fcn + "MCP";
 
             % Vanilla argument list -- tools only, no GenAI.
-            wrapFile = prodserver.mcp.internal.wrapForMCP(fcn,"",wrapFolder);
+            wrapFile = prodserver.mcp.internal.wrapForMCP(fcn,"",wrapFolder, ...
+                encoding="Invertible");
             rehash
 
             test.verifyEqual(exist(wrapFile,"file"),2,fcn);
@@ -230,17 +239,18 @@ classdef tWrapper < matlab.unittest.TestCase & ...
             test.verifyEqual(bData,out_b,out_bURL);
         end
 
-        function wrapOne(test)
+        function wrapOne(test, encoding)
         % Golden file-type test. Inherently fragile, but easy to write.
 
             import prodserver.mcp.internal.Constants
 
             % Generate a wrapper for toyToolOne
             tool = "toyToolOne";
-            code = prodserver.mcp.internal.mcpWrapper(tool,tool+"MCP");
+            code = prodserver.mcp.internal.mcpWrapper(tool,tool+"MCP", ...
+                encoding=encoding);
 
-            validateWrapperText(test,tool,code);
-            
+            validateWrapperText(test,tool,code,encoding);
+
             % Run the wrapper to make sure the generated function is actual,
             % working MATLAB code.
 
@@ -280,31 +290,31 @@ classdef tWrapper < matlab.unittest.TestCase & ...
 
         end
 
-        function wrapArgOrder(test)
+        function wrapArgOrder(test, encoding)
         % Wrap a function whose arguments are not in alphabetical order to
         % be sure parameter name does not affect argument's location in
         % argument list.
 
             import prodserver.mcp.internal.Constants
-    
+
             % Generate a wrapper for toyToolTwo
             tool = "toyToolTwo";
             wrapper = tool+"MCP";
             types.geom = "double";
             code = prodserver.mcp.internal.mcpWrapper(tool,wrapper,...
-                typemap=types);
-    
-            validateWrapperText(test,tool,code);
-    
+                typemap=types, encoding=encoding);
+
+            validateWrapperText(test,tool,code,encoding);
+
             % Run the wrapper to make sure the generated function is actual,
             % working MATLAB code.
-    
+
             import matlab.unittest.fixtures.TemporaryFolderFixture
             import matlab.unittest.fixtures.PathFixture
             tempFolder = TemporaryFolderFixture();
             test.applyFixture(tempFolder);
             test.applyFixture(PathFixture(tempFolder.Folder));
-    
+
             writelines(code,fullfile(tempFolder.Folder,tool+"MCP.m"));
             rehash  % Otherwise the feval fails. A bug? Slow file system?
 
@@ -324,7 +334,7 @@ classdef tWrapper < matlab.unittest.TestCase & ...
             % Invoke wrapper
             feval(wrapper,oURL,mURL,chiralURL=cURL,asymmetryURL=aURL);
 
-            cw = fetch(test,cURL); 
+            cw = fetch(test,cURL);
             aw = fetch(test,aURL);
 
             test.verifyEqual(cw,c,"chiral");

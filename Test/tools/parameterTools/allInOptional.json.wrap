@@ -1,0 +1,23 @@
+function [x,y,z] = allInOptionalMCP(a,b,c,d)
+% Thee output, four input test function.  All inputs optional. Outputs 
+% are always optional in MATLAB.
+    arguments(Input)
+        % Optional A
+        a (1,1) double = 2
+        % Optional B
+        b (1,1) double = 3
+        % Optional C
+        c (1,1) double = 4
+        % Optional D
+        d (1,1) double = 5
+    end
+    arguments(Output)
+        % Value X
+        x (1,1) double
+        % Value Y
+        y (1,1) double
+        % Value Z
+        z (1,1) double
+    end
+    [x,y,z] = allInOptional(a,b,c,d);
+end

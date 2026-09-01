@@ -37,7 +37,8 @@ classdef tExternal < matlab.unittest.TestCase & ...
             % Generate a wrapper for optInExtOut
             tool = "optInExtOut";
             toolMCP = tool+"MCP";
-            [code,indirect] = prodserver.mcp.internal.mcpWrapper(tool,toolMCP);
+            [code,indirect] = prodserver.mcp.internal.mcpWrapper(tool,toolMCP, ...
+                encoding="Invertible");
             writelines(code,fullfile(test.tempFolder,toolMCP+".m"));
 
             % Make sure the wrapper works -- first call the original

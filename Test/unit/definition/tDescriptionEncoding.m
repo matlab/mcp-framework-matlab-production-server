@@ -165,7 +165,7 @@ classdef tDescriptionEncoding < matlab.unittest.TestCase
             test.applyFixture(PathFixture(tFolder.Folder));
 
             [wrapper, defs] = prodserver.mcp.internal.wrapForMCP( ...
-                fcn, "", tFolder.Folder);
+                fcn, "", tFolder.Folder, encoding="Invertible");
             [~, tool] = fileparts(wrapper);
             td = prodserver.mcp.internal.defineForMCP(fcn, tool, defs=defs, ...
                 encoding="Invertible");

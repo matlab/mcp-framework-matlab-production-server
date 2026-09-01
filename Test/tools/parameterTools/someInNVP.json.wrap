@@ -1,0 +1,25 @@
+function [x,y,z] = someInNVPMCP(a,b,opts)
+% Three output, four input test function.  Last two inputs optional. 
+% Outputs are always optional in MATLAB.
+    arguments(Input)
+        % Required A
+        a (1,1) double
+        % Required B
+        b (1,1) double
+        % Optional C
+        opts.c (1,1) double = 4
+        % Optional D
+        opts.d (1,1) double = 5
+    end
+    arguments(Output)
+        % Value X
+        x (1,1) double
+        % Value Y
+        y (1,1) double
+        % Value Z
+        z (1,1) double
+    end
+    c = opts.c;
+    d = opts.d;
+    [x,y,z] = someInNVP(a,b,c=c,d=d);
+end

@@ -150,7 +150,8 @@ function [ctf,endpoint] = build(fcn, opts)
     [wrapper,defs] = prodserver.mcp.internal.wrapForMCP(fcn, ...
         opts.wrapper, opts.folder, AI=availableAI, timeout=opts.timeout, ...
         maxLiteralSize=opts.maxLiteralSize, retry=opts.retry,...
-        import=fieldnames(opts.import),typemap=opts.typemap);
+        import=fieldnames(opts.import),typemap=opts.typemap, ...
+        encoding=opts.encoding);
 
     if ~isempty(wrapper)
         files = [files, wrapper];
@@ -222,15 +223,17 @@ function [ctf,endpoint] = build(fcn, opts)
         wrapperFcn,defArgs{:},AI=availableAI,encoding=wireEncoding, ...
         stage=prodserver.mcp.BuildStage.Definition);
 
-    % All servers have a resource that describes the wire-encoding used for
-    % tool parameters.
-    resourceList = MCPConstants.WireEncodingResource;
+    % Include the wire-encoding resource only when at least one tool uses
+    % Invertible encoding.
+    if any(wireEncoding == "Invertible")
+        resourceList = { MCPConstants.WireEncodingResource };
+    else
+        resourceList = {};
+    end
 
-    % Default resource value struct.empty(1,0) won't concatenate with any
-    % structure, so test required. Cell array because fields of each
-    % resource structure may vary.
+    % Cell array because fields of each resource structure may vary.
     if ~isempty(opts.resource)
-        resourceList = [ {resourceList}, num2cell(opts.resource) ];
+        resourceList = [ resourceList, num2cell(opts.resource) ];
     end
     
     % Generate resource definitions and add them to the structure saved

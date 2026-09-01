@@ -280,5 +280,64 @@ classdef tWrapper < matlab.unittest.TestCase
             end
 
         end
+
+        function wrapJSONExternal(test)
+        % Wrapper for externalized args under JSON encoding must not
+        % contain Invertible-specific content (wire-encoding references,
+        % $defs, encoding resource URI).
+
+            import prodserver.mcp.MCPConstants
+
+            rtt = test.applyFixture(prodserver.mcp.test.mixin.RequireParamTools());
+            test.toolFolder = rtt.toolFolder;
+
+            fcn = "allIndirect";
+            prodserver.mcp.build(fcn, folder=test.tempFolder, ...
+                stop="Definition", encoding="JSON");
+
+            wrap = fullfile(test.tempFolder, fcn + "MCP.m");
+            test.verifyEqual(exist(wrap,"file"), 2, wrap);
+
+            code = fileread(wrap);
+
+            test.verifyFalse(contains(code, "wire-encoded"), ...
+                "JSON wrapper should not mention wire-encoding");
+            test.verifyFalse(contains(code, MCPConstants.WireEncodingResourceURI), ...
+                "JSON wrapper should not reference wire-encoding resource");
+            test.verifyFalse(contains(code, "$defs"), ...
+                "JSON wrapper should not reference $defs");
+
+            test.verifyTrue(contains(code, "MarshallURI"), ...
+                "Externalized wrapper should use MarshallURI");
+            test.verifyTrue(contains(code, "URL"), ...
+                "Externalized wrapper should have URL parameters");
+        end
+
+        function noWireResourceForJSON(test)
+        % JSON-encoded build should not include the wire-encoding resource.
+
+            import prodserver.mcp.MCPConstants
+
+            rtt = test.applyFixture(prodserver.mcp.test.mixin.RequireParamTools());
+            test.toolFolder = rtt.toolFolder;
+
+            fcn = "allIndirect";
+            prodserver.mcp.build(fcn, folder=test.tempFolder, ...
+                stop="Definition", encoding="JSON");
+
+            d = load(fullfile(test.tempFolder, MCPConstants.DefinitionFile));
+            resources = d.(MCPConstants.ResourceVariable);
+            if isempty(resources)
+                return;
+            end
+            if iscell(resources)
+                uris = cellfun(@(r) string(r.uri), resources);
+            else
+                uris = string({resources.uri});
+            end
+            test.verifyFalse(any(contains(uris, "wire-format")), ...
+                "JSON-encoded build should not include wire-encoding resource");
+        end
+
     end
 end
