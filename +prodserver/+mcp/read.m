@@ -22,6 +22,8 @@ function result = read(endpoint, uri, opts)
     % Require that the server publish resources.
     [session,id] = prodserver.mcp.internal.initialize(endpoint, ...
         require="Resource");
+    terminator = onCleanup(@()prodserver.mcp.internal.terminate( ...
+        endpoint,session)); %#ok<NASGU>
 
     %
     % List resources, to verify that URI exists at ENDPOINT
