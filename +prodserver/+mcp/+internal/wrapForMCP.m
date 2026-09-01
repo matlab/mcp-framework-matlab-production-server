@@ -15,11 +15,17 @@ function [wrappers,indirect] = wrapForMCP(fcns,wrappers,folder,opts)
         opts.AI = []
         opts.timeout double = 30
         opts.retry double = 2
+        opts.encoding prodserver.mcp.WireEncoding = "JSON"
     end
 
     import prodserver.mcp.MCPConstants
     
     prodserver.mcp.validation.mustBeSameSize(1,{wrappers,fcns});
+
+    enc = opts.encoding;
+    if isscalar(enc)
+        enc = repmat(enc, size(fcns));
+    end
 
     % Generate or copy wrapper for each function.
     indirect = cell(size(fcns));
@@ -37,7 +43,7 @@ function [wrappers,indirect] = wrapForMCP(fcns,wrappers,folder,opts)
             try
                 [code,def] = prodserver.mcp.internal.mcpWrapper(fcns(n), wrapFcn, ...
                     import=opts.import,maxLiteralSize=opts.maxLiteralSize, ...
-                    typemap=opts.typemap);
+                    typemap=opts.typemap,encoding=enc(n));
             catch me
                 if isAuto && ismember(me.identifier, ...
                         ["prodserver:mcp:InputArgBlockRequired", ...

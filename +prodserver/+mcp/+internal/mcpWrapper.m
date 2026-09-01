@@ -22,6 +22,7 @@ function [code,indirect] = mcpWrapper(fcn,tool,opts)
         opts.maxLiteralSize = prodserver.mcp.MCPConstants.MaxLiteralSize
         % Map of MATLAB type names to JSON type names
         opts.typemap struct = [];
+        opts.encoding (1,1) prodserver.mcp.WireEncoding = "JSON"
     end
 
     import prodserver.mcp.MCPConstants
@@ -47,7 +48,7 @@ function [code,indirect] = mcpWrapper(fcn,tool,opts)
     % parameter is call-by-value or call-by-reference.
     td = prodserver.mcp.internal.mcpDefinition(tool,fcn,...
         typemap=opts.typemap,stage=prodserver.mcp.BuildStage.Wrapper,...
-        encoding="Invertible");
+        encoding=opts.encoding);
 
     % Determine which inputs and outputs are to be passed as literals. We
     % distinguish between "literal" and "externalized" -- literal data is
@@ -80,7 +81,7 @@ function [code,indirect] = mcpWrapper(fcn,tool,opts)
     % modify their descriptions.
     [indirect, td.tools] = externalizeParameters(td.tools,...
         namesIn(~isLiteralIn), externIn, ...
-        namesOut(~isLiteralOut), externOut);
+        namesOut(~isLiteralOut), externOut, opts.encoding);
 
     % Merge tool description and signature data into a single structure
     % used for subsequent code generation.
@@ -419,23 +420,36 @@ function [code,indirect] = mcpWrapper(fcn,tool,opts)
     code = code + "end" + newline;
 end
 
-function txt = assembleExternalizedDescription(orig, param,io,ioMsg)
+function txt = assembleExternalizedDescription(orig, param,io,ioMsg,encoding)
 % Create a description for the externalized parameter named in param.
 
     import prodserver.mcp.MCPConstants
-    refLoc = sprintf(MCPConstants.ReferenceSchemaLocationFormat,io,param);
-    if startsWith(io,"input")
-        prefix = MCPConstants.ReferenceSchemaInputPrefix;
+    if encoding == prodserver.mcp.WireEncoding.Invertible
+        refLoc = sprintf(MCPConstants.ReferenceSchemaLocationFormat,io,param);
+        if startsWith(io,"input")
+            prefix = MCPConstants.ReferenceSchemaInputPrefix;
+        else
+            prefix = MCPConstants.ReferenceSchemaOutputPrefix;
+        end
+        txt = sprintf("%s '%s'. %s %s. %s", ioMsg, orig, prefix, refLoc, ...
+            MCPConstants.ByReferenceContent);
     else
-        prefix = MCPConstants.ReferenceSchemaOutputPrefix;
+        if startsWith(io,"input")
+            txt = sprintf("%s '%s'. %s", ioMsg, orig, ...
+                MCPConstants.ByReferenceContent);
+        else
+            txt = sprintf("%s '%s'. This value never returned inline." + ...
+                " Read result from URL using scheme-appropriate method:" + ...
+                " file system read for file: URLs, HTTP GET for" + ...
+                " http:// URLs and so on. %s", ioMsg, orig, ...
+                MCPConstants.ByReferenceContent);
+        end
     end
-    txt = sprintf("%s '%s'. %s %s. %s", ioMsg, orig, prefix, refLoc, ...
-        MCPConstants.ByReferenceContent);
     txt = strtrim(string(textwrap(txt,MCPConstants.WrapTextLen)));
 end
 
 function [indirect,tool] = externalizeParameters(tool,origIn,externIn,...
-    origOut,externOut)
+    origOut,externOut,encoding)
 % Extract schema using original name, store using externalized name. If
 % there are no externalized variables, indirect will be empty and tool will
 % be unchanged.
@@ -457,7 +471,7 @@ function [indirect,tool] = externalizeParameters(tool,origIn,externIn,...
     for n = 1:numel(origIn)
         indirect.inputSchema.(externIn(n)) = allowBareScalar(tool.inputSchema.properties.(origIn(n)));
         d = assembleExternalizedDescription(origIn(n), externIn(n), "inputSchema", ...
-            MCPConstants.ByReferenceInMsg);
+            MCPConstants.ByReferenceInMsg, encoding);
         % Add by-reference comment to description.
         dd = splitlines(tool.inputSchema.properties.(origIn(n)).description);
         dd = [d; dd];
@@ -467,7 +481,7 @@ function [indirect,tool] = externalizeParameters(tool,origIn,externIn,...
     for n = 1:numel(origOut)
         indirect.outputSchema.(externOut(n)) = allowBareScalar(tool.outputSchema.properties.(origOut(n)));
         d = assembleExternalizedDescription(origOut(n), externOut(n), "outputSchema",...
-            MCPConstants.ByReferenceOutMsg);
+            MCPConstants.ByReferenceOutMsg, encoding);
         dd = splitlines(tool.outputSchema.properties.(origOut(n)).description);
         dd = [d; dd];
         tool.outputSchema.properties.(origOut(n)).description = ...

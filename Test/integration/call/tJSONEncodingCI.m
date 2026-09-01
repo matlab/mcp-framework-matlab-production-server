@@ -316,6 +316,59 @@ classdef tJSONEncodingCI < MCPCaller
             test.verifyEqual(double(aSerial), double(eSerial), AbsTol=1e-10);
         end
 
+        function externalArrayJSON(test)
+        % Build and call a tool with externalized args under JSON encoding.
+        % Externalized variables are always passed as file:// URIs.
+
+            import prodserver.mcp.io.MarshallURI
+
+            fcn = "allIndirect";
+            archive = "jsonEncExternal";
+            test.applyFixture(prodserver.mcp.test.mixin.RemoveArchive(...
+                test.server, archive));
+
+            test.applyFixture(...
+                prodserver.mcp.test.mixin.RequireParamTools());
+
+            ctf = prodserver.mcp.build(fcn, folder=test.tempFolder, ...
+                archive=archive, encoding="JSON");
+            endpoint = prodserver.mcp.deploy(ctf, test.server);
+
+            tf = prodserver.mcp.exist(endpoint, fcn, "Tool", ...
+                delay=10, retry=5);
+            test.verifyTrue(tf, fcn + " not found at " + endpoint);
+
+            a = 10; b = 20; c = 30; d = 40;
+            [eX, eY, eZ] = allIndirect(a, b, c, d);
+
+            m = MarshallURI();
+            urlFolder = replace(test.tempFolder, filesep, "/");
+            aFile = "file://" + urlFolder + "/a.mat";
+            bFile = "file://" + urlFolder + "/b.mat";
+            cFile = "file://" + urlFolder + "/c.mat";
+            dFile = "file://" + urlFolder + "/d.mat";
+            xFile = "file://" + urlFolder + "/x.mat";
+            yFile = "file://" + urlFolder + "/y.mat";
+            zFile = "file://" + urlFolder + "/z.mat";
+
+            serialize(m, aFile, {a});
+            serialize(m, bFile, {b});
+            serialize(m, cFile, {c});
+            serialize(m, dFile, {d});
+
+            prodserver.mcp.call(endpoint, fcn, ...
+                aFile, bFile, cFile, dFile, ...
+                xURL=xFile, yURL=yFile, zURL=zFile);
+
+            aX = deserialize(m, xFile); aX = aX{1};
+            aY = deserialize(m, yFile); aY = aY{1};
+            aZ = deserialize(m, zFile); aZ = aZ{1};
+
+            test.verifyEqual(double(aX), double(eX), AbsTol=1e-10);
+            test.verifyEqual(double(aY), double(eY), AbsTol=1e-10);
+            test.verifyEqual(double(aZ), double(eZ), AbsTol=1e-10);
+        end
+
         function hybridEncoding(test)
             % Smoke test for Hybrid encoding mode — should behave like
             % Invertible (typed wrappers) for now.
