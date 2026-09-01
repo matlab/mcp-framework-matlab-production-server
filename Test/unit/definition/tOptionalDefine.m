@@ -93,7 +93,7 @@ classdef tOptionalDefine < matlab.unittest.TestCase & ...
             fcn = "toyURLOptions";
            
             wrap = prodserver.mcp.internal.wrapForMCP(fcn,"", tfolder, ...
-                import=fieldnames(importer));
+                import=fieldnames(importer), encoding="Invertible");
 
             expectedFile = fullfile(tfolder,fcn+MCPConstants.WrapperFileSuffix+".m");
             test.verifyEqual(exist(expectedFile,"file"),2,fcn);
@@ -188,7 +188,8 @@ classdef tOptionalDefine < matlab.unittest.TestCase & ...
             % Generate wrapper 
             fcn = "toyScalarNVOptions"; 
 
-            wrap = prodserver.mcp.internal.wrapForMCP(fcn,"", tfolder);
+            wrap = prodserver.mcp.internal.wrapForMCP(fcn,"", tfolder, ...
+                encoding="Invertible");
 
             expectedFile = fullfile(tfolder,fcn+MCPConstants.WrapperFileSuffix+".m");
             test.verifyEqual(exist(expectedFile,"file"),2,fcn);
