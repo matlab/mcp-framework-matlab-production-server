@@ -37,7 +37,8 @@ function updateToyJsonFiles(opts)
 
     for k = 1:numel(simpleTools)
         tool = simpleTools(k);
-        td = prodserver.mcp.internal.defineForMCP(tool, tool);
+        td = prodserver.mcp.internal.defineForMCP(tool, tool, ...
+            encoding="Invertible");
         json = jsonencode(td.tools{1});
         toolDir = fileparts(which(tool));
         [nUpdated, nUnchanged] = compareAndWrite( ...
@@ -50,7 +51,8 @@ function updateToyJsonFiles(opts)
     % and sent through a JSON round-trip.
     tools = ["toyToolOne", "toyToolTwo", "toyToolThree"];
     typemap.geom = "double";
-    td = prodserver.mcp.internal.defineForMCP(tools, tools, typemap=typemap);
+    td = prodserver.mcp.internal.defineForMCP(tools, tools, typemap=typemap, ...
+        encoding="Invertible");
     definition.tools = td.tools;
     definition.signatures = td.signatures;
     definition = jsondecode(jsonencode(definition));
@@ -69,10 +71,11 @@ function updateToyJsonFiles(opts)
     importFields = ["ngc", "constellation", "messier", "name"];
 
     prodserver.mcp.internal.wrapForMCP(fcn, "", tmpDir, ...
-        import=importFields);
+        import=importFields, encoding="Invertible");
     rehash
     wrapperTool = fcn + MCPConstants.WrapperFileSuffix;
-    td = prodserver.mcp.internal.defineForMCP(fcn, wrapperTool);
+    td = prodserver.mcp.internal.defineForMCP(fcn, wrapperTool, ...
+        encoding="Invertible");
     json = jsonencode(td.tools{1});
     [nUpdated, nUnchanged] = compareAndWrite( ...
         fullfile(toyDir, wrapperTool + ".json"), json, ...
@@ -80,7 +83,8 @@ function updateToyJsonFiles(opts)
 
     % --- Defs structure (toyFileSchemaDefs.json) ---
     % Second return value of wrapForMCP for toyFileSchema.
-    [~, def] = prodserver.mcp.internal.wrapForMCP("toyFileSchema", "", tmpDir);
+    [~, def] = prodserver.mcp.internal.wrapForMCP("toyFileSchema", "", tmpDir, ...
+        encoding="Invertible");
     json = jsonencode(def{1});
     [nUpdated, nUnchanged] = compareAndWrite( ...
         fullfile(toyDir, "toyFileSchemaDefs.json"), json, ...

@@ -7,6 +7,10 @@ classdef tParameters < matlab.unittest.TestCase & ...
         toolsFolder
     end
 
+    properties (TestParameter)
+        encoding = struct('Invertible', "Invertible", 'JSON', "JSON")
+    end
+
     methods (TestClassSetup)
 
         function requireToyTools(test)
@@ -17,10 +21,14 @@ classdef tParameters < matlab.unittest.TestCase & ...
     end
 
     methods
-        function validateWrapperText(test,tool,code)
+        function validateWrapperText(test,tool,code,encoding)
             % Grab the known-good wrapper (which "code" should match
             % exactly).
-            wrapFile = fullfile(test.toolsFolder,tool+".wrap");
+            if encoding == "JSON"
+                wrapFile = fullfile(test.toolsFolder,tool+".json.wrap");
+            else
+                wrapFile = fullfile(test.toolsFolder,tool+".wrap");
+            end
             wrap = readlines(wrapFile);
 
             % The generated code contains a unique UUID-named variable. In
@@ -33,7 +41,7 @@ classdef tParameters < matlab.unittest.TestCase & ...
                 wrap = replace(wrap,"!marshalVar",marshalVar);
             end
             wrap = strjoin(wrap,newline);
-                
+
             % Generated wrapper should be identical to "golden file".
             % Compare line by line to aid debugging / failure
             % identification.
@@ -49,19 +57,19 @@ classdef tParameters < matlab.unittest.TestCase & ...
             end
         end
 
-        function validateWrapperFile(test,tool,wrapFile)
+        function validateWrapperFile(test,tool,wrapFile,encoding)
         % Compare the contents of wrapFile to a known good wrapper for
         % tool.
             test.verifyEqual(exist(wrapFile,"file"),2,wrapFile);
             wrapCode = readlines(wrapFile);
             wrapCode = strjoin(wrapCode,newline);
-            validateWrapperText(test,tool,wrapCode);
+            validateWrapperText(test,tool,wrapCode,encoding);
         end
     end
 
     methods(Test)
 
-        function allInRequired(test)
+        function allInRequired(test, encoding)
         % All inputs required
 
             import prodserver.mcp.internal.Constants
@@ -70,9 +78,9 @@ classdef tParameters < matlab.unittest.TestCase & ...
             % Generate a wrapper for threeFour
             tool = "threeFour";
             code = prodserver.mcp.internal.mcpWrapper(tool,tool+"MCP", ...
-                encoding="Invertible");
+                encoding=encoding);
 
-            validateWrapperText(test,tool,code);
+            validateWrapperText(test,tool,code,encoding);
 
             % Run the wrapper to ensure the generated code works.
 
@@ -100,7 +108,7 @@ classdef tParameters < matlab.unittest.TestCase & ...
 
         end
 
-        function allInOptional(test)
+        function allInOptional(test, encoding)
         % All inputs optional (with default values)
 
             import prodserver.mcp.internal.Constants
@@ -109,9 +117,9 @@ classdef tParameters < matlab.unittest.TestCase & ...
             % Generate a wrapper for allInOptional
             tool = "allInOptional";
             code = prodserver.mcp.internal.mcpWrapper(tool,tool+"MCP", ...
-                encoding="Invertible");
+                encoding=encoding);
 
-            validateWrapperText(test,tool,code);
+            validateWrapperText(test,tool,code,encoding);
 
             % Run the wrapper to ensure the generated code works.
 
@@ -143,7 +151,7 @@ classdef tParameters < matlab.unittest.TestCase & ...
 
         end
 
-        function someInNVP(test)
+        function someInNVP(test, encoding)
         % Some inputs as name-value pairs.
             import prodserver.mcp.internal.Constants
             import prodserver.mcp.MCPConstants
@@ -151,9 +159,9 @@ classdef tParameters < matlab.unittest.TestCase & ...
             % Generate a wrapper for someInNVP
             tool = "someInNVP";
             code = prodserver.mcp.internal.mcpWrapper(tool,tool+"MCP", ...
-                encoding="Invertible");
+                encoding=encoding);
 
-            validateWrapperText(test,tool,code);
+            validateWrapperText(test,tool,code,encoding);
 
             % Run the wrapper to ensure the generated code works.
 
@@ -181,7 +189,7 @@ classdef tParameters < matlab.unittest.TestCase & ...
 
         end
 
-        function oneIndirectOutput(test)
+        function oneIndirectOutput(test, encoding)
         % One externalized output, all inputs required.
 
             import prodserver.mcp.internal.Constants
@@ -189,9 +197,9 @@ classdef tParameters < matlab.unittest.TestCase & ...
             % Generate a wrapper for oneIndirectOutput
             tool = "oneIndirectOutput";
             code = prodserver.mcp.internal.mcpWrapper(tool,tool+"MCP", ...
-                encoding="Invertible");
+                encoding=encoding);
 
-            validateWrapperText(test,tool,code);
+            validateWrapperText(test,tool,code,encoding);
 
             % Run the wrapper to make sure the generated function is actual,
             % working MATLAB code.
@@ -224,7 +232,7 @@ classdef tParameters < matlab.unittest.TestCase & ...
             test.verifyEqual(az,ez,"Z");
         end
 
-        function allIndirect(test)
+        function allIndirect(test, encoding)
         % All inputs and outputs indirect, but none optional.
 
             import prodserver.mcp.internal.Constants
@@ -232,10 +240,10 @@ classdef tParameters < matlab.unittest.TestCase & ...
             % Generate a wrapper for allIndirect
             tool = "allIndirect";
             code = prodserver.mcp.internal.mcpWrapper(tool,tool+"MCP", ...
-                encoding="Invertible");
+                encoding=encoding);
 
-            validateWrapperText(test,tool,code);
-            
+            validateWrapperText(test,tool,code,encoding);
+
             % Run the wrapper to make sure the generated function is actual,
             % working MATLAB code.
 
@@ -260,7 +268,7 @@ classdef tParameters < matlab.unittest.TestCase & ...
             bURL = stow(test,urlFolder,"b",b);
             cURL = stow(test,urlFolder,"c",c);
             dURL = stow(test,urlFolder,"d",d);
-            
+
             % Outputs
             xURL = sink(test,"X",urlFolder);
             yURL = sink(test,"Y",urlFolder);
