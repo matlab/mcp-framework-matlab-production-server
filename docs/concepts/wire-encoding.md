@@ -93,7 +93,7 @@ Wire encoding applies to any parameter whose type or shape would be lost in plai
 - The output contains complex values, NaN, or specific integer types
 - The function dispatches on `class()` — accepting different numeric types at the same position
 
-Every MCP server built by the framework exposes the wire encoding specification as a built-in resource at `mcp://protocol/tools/wire-format/parameters/encoding_rules`. LLMs read this resource to learn the encoding rules before calling tools that require them.
+When you build with Invertible encoding, the framework includes a wire-encoding resource at `mcp://protocol/tools/wire-format/parameters/encoding_rules`. LLMs read this resource to learn the encoding rules before calling tools that require them. Servers that use only JSON encoding don't include this resource.
 
 ## Why Not Nested JSON Arrays?
 

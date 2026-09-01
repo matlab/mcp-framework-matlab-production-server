@@ -1,21 +1,29 @@
 function items = list(endpoint, type, opts)
 % List all of the MCP primitives of TYPE available at ENDPOINT.
-% Returns a cell array of MATLAB structures corresponding to the MCP 
-% protocol JSON description of the available primitives, or empty if none 
-% exist.
+% Returns a cell array of MATLAB structures corresponding to the MCP
+% protocol JSON description of the available primitives, or empty if none
+% exist. Structure fields vary by TYPE.
 %
 % Examples:
 %
-%    tools = prodsever.mcp.list("http://localhost:9910/cleanSignal/mcp", "Tools")
+%    tools = prodserver.mcp.list("http://localhost:9910/cleanSignal/mcp", "Tool")
 %    tools{1} =
 %        struct with fields:
 %                  name: 'cleanSignal'
 %           description: 'Removes periodic noise from a signal using ' ...
 %           inputSchema: [1x1 struct]
 %          outputSchema: [1x1 struct]
-%                server: "http://localhost:9910/cleanSignal/mcp"
+%                server: [1x1 struct]
 %
-% See also: prodserver.mcp.Primitive
+%    resources = prodserver.mcp.list("http://localhost:9910/myServer/mcp", "Resource")
+%    resources{1} =
+%        struct with fields:
+%                   uri: 'mcp://protocol/tools/wire-format/parameters/encoding_rules'
+%                  name: 'encoding_rules'
+%              mimeType: 'text/plain'
+%                server: [1x1 struct]
+%
+% See also: prodserver.mcp.Primitive, prodserver.mcp.read, prodserver.mcp.exist
 
 % Copyright 2025-2026 The MathWorks, Inc.
 

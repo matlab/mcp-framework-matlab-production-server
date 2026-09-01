@@ -1,14 +1,15 @@
-function result = read(endpoint, resource, opts)
+function result = read(endpoint, uri, opts)
 % read Read Model Context Protocol resource from server at endpoint.
 %
-%    result = read(ENDPOINT, RESOURCE) reads RESOURCE from the MCP server
-%    at ENDPOINT.
+%    result = read(ENDPOINT, URI) reads the resource identified by URI
+%    from the MCP server at ENDPOINT. URI is the unique resource
+%    identifier returned by list(ENDPOINT, "Resource").
 
 % Copyright 2025-2026 The MathWorks, Inc.
 
     arguments (Input)
-        endpoint (1,1) string
-        resource string
+        endpoint (1,1) string {prodserver.mcp.validation.mustBeMCPServer}
+        uri string {mustBeNonempty}
         opts.TextAsString logical = true;
         opts.timeout double {mustBePositive} = 60
         opts.retry double {mustBePositive} = 3
@@ -23,7 +24,7 @@ function result = read(endpoint, resource, opts)
         require="Resource");
 
     %
-    % List resources, to verify that RESOURCE exists at ENDPOINT
+    % List resources, to verify that URI exists at ENDPOINT
     %
 
     [items,id] = prodserver.mcp.internal.list(endpoint,session, ...
@@ -31,7 +32,7 @@ function result = read(endpoint, resource, opts)
     resources = items.resources;
 
     % Out, out, damn char!
-    names = cellfun(@(t)string(t.name),resources);
+    uris = cellfun(@(t)string(t.uri),resources);
 
     headers = [
         matlab.net.http.HeaderField('Content-Type', 'application/json'), ...
@@ -40,16 +41,16 @@ function result = read(endpoint, resource, opts)
         matlab.net.http.HeaderField(MCPConstants.SessionId, char(session))
         ];
 
-    result = cell(size(resource));
-    istext = false(1,numel(resource));
-    for n = 1:numel(resource)
+    result = cell(size(uri));
+    istext = false(1,numel(uri));
+    for n = 1:numel(uri)
 
-        found = strcmp(resource(n),names);
+        found = strcmp(uri(n),uris);
         if nnz(found) ~= 1
             error("prodserver:mcp:NonUniqueResource", "Resources must " + ...
-                 "exist and have unique names. Found %d resources " + ...
-                 "named %s.", nnz(found), ...
-                resource(n));
+                 "exist and have unique URIs. Found %d resources " + ...
+                 "with URI %s.", nnz(found), ...
+                uri(n));
         end
         % found is known to have only one non-zero element, so this is safe
         % for any cell-array of structures.

@@ -107,7 +107,7 @@ Build and deploy in one step:
 MCP clients discover resources via the `resources/list` protocol method. You can query them from MATLAB:
 
 ```MATLAB
-resources = prodserver.mcp.list(endpoint, "resource")
+resources = prodserver.mcp.list(endpoint, "Resource")
 ```
 
 ### Reading
@@ -119,9 +119,16 @@ Tool: read_mcp_resource
 Input: {"url": "mcp://materials/aluminum_6061"}
 ```
 
+From MATLAB, use `prodserver.mcp.read` to fetch a resource by URI:
+
+```MATLAB
+resources = prodserver.mcp.list(endpoint, "Resource");
+result = prodserver.mcp.read(endpoint, resources{1}.uri);
+```
+
 ### Built-in Resource
 
-Every server automatically includes a wire-encoding resource at `mcp://protocol/tools/wire-format/parameters/encoding_rules`. This documents how tool parameters are encoded over the wire. You do not define it — it is always present.
+Servers built with Invertible encoding automatically include a wire-encoding resource at `mcp://protocol/tools/wire-format/parameters/encoding_rules`. This documents how tool parameters are encoded over the wire. You don't define it — `build` adds it whenever at least one tool uses Invertible encoding. Servers that use only JSON encoding don't include it.
 
 ---
 

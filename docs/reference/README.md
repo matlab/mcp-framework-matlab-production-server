@@ -16,6 +16,7 @@ Call each function with its full namespace prefix, for example `prodserver.mcp.b
 | [list](./list.md) | List MCP primitives at an endpoint | `list(endpoint, "Tools")` |
 | [metrics](./metrics.md) | Retrieve server metrics catalog | `metrics(endpoint)` |
 | [ping](./ping.md) | Check if a server is responsive | `ping(endpoint)` |
+| [read](./read.md) | Read an MCP resource by URI | `read(endpoint, "mcp://materials/aluminum_6061")` |
 | [schema](./schema.md) | Generate tool descriptions by observing calls | `schema("myFunc", @() myFunc(1,2))` |
 
 ## Utilities

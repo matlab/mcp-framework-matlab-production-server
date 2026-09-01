@@ -1,10 +1,11 @@
-function tf = exist(endpoint, name, type, opts)
+function tf = exist(endpoint, identifier, type, opts)
 %exist Check existence of tools, resources and prompts on the given server.
 %
-%   tf = exist(endpoint, name, type) returns TRUE if NAME exists as a TYPE
-%       on the MCP server at ENDPOINT. NAME may be a list of names. TYPE
-%       must be a scalar.
-%    
+%   tf = exist(endpoint, identifier, type) returns TRUE if IDENTIFIER
+%       exists as a TYPE on the MCP server at ENDPOINT. For tools,
+%       IDENTIFIER is the tool name. For resources, IDENTIFIER is the
+%       resource URI. IDENTIFIER may be a list. TYPE must be a scalar.
+%
 % See also: prodserver.mcp.Primitive
 
 % Copyright 2025-2026 The MathWorks, Inc.
@@ -12,8 +13,8 @@ function tf = exist(endpoint, name, type, opts)
 
     arguments
         endpoint string { prodserver.mcp.validation.mustBeMCPServer }
-        name string { mustBeTextScalar }
-        type prodserver.mcp.Primitive { prodserver.mcp.validation.mustBeSameSize(2,name,type) }
+        identifier string { mustBeTextScalar }
+        type prodserver.mcp.Primitive { prodserver.mcp.validation.mustBeSameSize(2,identifier,type) }
         opts.timeout double {mustBePositive} = 30
         opts.retry double {mustBePositive} = 10
         opts.delay double {mustBePositive} = 2
@@ -21,7 +22,7 @@ function tf = exist(endpoint, name, type, opts)
 
     import prodserver.mcp.internal.hasField
 
-    tf = false(size(name));
+    tf = false(size(identifier));
 
     %
     % Initialize connection via JSON-RPC "initialize" message.
@@ -33,7 +34,7 @@ function tf = exist(endpoint, name, type, opts)
         delay=opts.delay);
 
     %
-    % Check TYPE, to verify that NAME exists at ENDPOINT
+    % Check TYPE, to verify that IDENTIFIER exists at ENDPOINT
     %
 
     % Get a list of all the elements of each requested primitive type
@@ -46,23 +47,28 @@ function tf = exist(endpoint, name, type, opts)
             % Name of the primitive type's field in items
             t = mcpName(type(n));
             p = items.(t);
-    
-            % Names of all the <type> primitives on the server.
-    
+
+            % Resources are identified by URI; other primitives by name.
+            if type(n) == prodserver.mcp.Primitive.Resource
+                field = "uri";
+            else
+                field = "name";
+            end
+
             % Out, out, damn char!
             if iscell(p)
-                names = cellfun(@(r)string(r.name),p);
+                ids = cellfun(@(r)string(r.(field)),p);
             elseif isstruct(p)
                 if isempty(p) == false
-                    names = string({p.name});
-                else 
-                    names = {};
+                    ids = string({p.(field)});
+                else
+                    ids = {};
                 end
             end
-        
-            % If we find exactly one primitive with the requested name,
-            % the primitive "exists".
-            found = strcmp(name,names);
+
+            % If we find exactly one primitive with the requested
+            % identifier, the primitive "exists".
+            found = strcmp(identifier(n),ids);
             if nnz(found) == 1
                 tf(n) = true;
             end
