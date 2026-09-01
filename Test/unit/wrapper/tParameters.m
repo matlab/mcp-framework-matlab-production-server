@@ -69,7 +69,8 @@ classdef tParameters < matlab.unittest.TestCase & ...
 
             % Generate a wrapper for threeFour
             tool = "threeFour";
-            code = prodserver.mcp.internal.mcpWrapper(tool,tool+"MCP");
+            code = prodserver.mcp.internal.mcpWrapper(tool,tool+"MCP", ...
+                encoding="Invertible");
 
             validateWrapperText(test,tool,code);
 
@@ -107,7 +108,8 @@ classdef tParameters < matlab.unittest.TestCase & ...
 
             % Generate a wrapper for allInOptional
             tool = "allInOptional";
-            code = prodserver.mcp.internal.mcpWrapper(tool,tool+"MCP");
+            code = prodserver.mcp.internal.mcpWrapper(tool,tool+"MCP", ...
+                encoding="Invertible");
 
             validateWrapperText(test,tool,code);
 
@@ -148,7 +150,8 @@ classdef tParameters < matlab.unittest.TestCase & ...
 
             % Generate a wrapper for someInNVP
             tool = "someInNVP";
-            code = prodserver.mcp.internal.mcpWrapper(tool,tool+"MCP");
+            code = prodserver.mcp.internal.mcpWrapper(tool,tool+"MCP", ...
+                encoding="Invertible");
 
             validateWrapperText(test,tool,code);
 
@@ -185,7 +188,8 @@ classdef tParameters < matlab.unittest.TestCase & ...
 
             % Generate a wrapper for oneIndirectOutput
             tool = "oneIndirectOutput";
-            code = prodserver.mcp.internal.mcpWrapper(tool,tool+"MCP");
+            code = prodserver.mcp.internal.mcpWrapper(tool,tool+"MCP", ...
+                encoding="Invertible");
 
             validateWrapperText(test,tool,code);
 
@@ -227,7 +231,8 @@ classdef tParameters < matlab.unittest.TestCase & ...
 
             % Generate a wrapper for allIndirect
             tool = "allIndirect";
-            code = prodserver.mcp.internal.mcpWrapper(tool,tool+"MCP");
+            code = prodserver.mcp.internal.mcpWrapper(tool,tool+"MCP", ...
+                encoding="Invertible");
 
             validateWrapperText(test,tool,code);
             

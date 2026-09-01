@@ -73,7 +73,7 @@ classdef tResource < matlab.unittest.TestCase
             % Build any random MCP tool -- all of them should have this
             % resource.
             prodserver.mcp.build("toyToolOne",stop="Definition", ...
-                folder=test.tempFolder);
+                folder=test.tempFolder, encoding="Invertible");
 
             % Load the definition file
             def = load(fullfile(test.tempFolder,MCPConstants.DefinitionFile));
@@ -115,7 +115,8 @@ classdef tResource < matlab.unittest.TestCase
             % Build any random MCP tool -- all of them should have this
             % resource.
             prodserver.mcp.build("toyToolOne",stop="Definition", ...
-                folder=test.tempFolder, resource=clientResource);
+                folder=test.tempFolder, resource=clientResource, ...
+                encoding="Invertible");
 
             % Load the definition file
             def = load(fullfile(test.tempFolder,MCPConstants.DefinitionFile));
@@ -161,7 +162,7 @@ classdef tResource < matlab.unittest.TestCase
             % Build any random MCP tool -- all of them should have this
             % resource.
             prodserver.mcp.build("toyToolOne",stop="Definition", ...
-                folder=test.tempFolder);
+                folder=test.tempFolder, encoding="Invertible");
 
             % Load the definition file
             def = load(fullfile(test.tempFolder,MCPConstants.DefinitionFile));

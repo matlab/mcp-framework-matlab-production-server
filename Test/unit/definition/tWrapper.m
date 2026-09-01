@@ -81,7 +81,7 @@ classdef tWrapper < matlab.unittest.TestCase & ...
             % Generate wrapper for function with externalized parameters
             fcn = "toyFileSchema"; 
             [wrap,def] = prodserver.mcp.internal.wrapForMCP(fcn,"",...
-                wrapFolder);
+                wrapFolder, encoding="Invertible");
 
             % Expect the definition to use $defs to capture the schemas of
             % the externalized variables r and z. 
@@ -110,7 +110,7 @@ classdef tWrapper < matlab.unittest.TestCase & ...
             % Vanilla argument list -- tools only, no GenAI.
             typemap.geom = "float";
             wrap = prodserver.mcp.internal.wrapForMCP(fcn,["","",""], ...
-                wrapFolder,typemap=typemap);
+                wrapFolder,typemap=typemap, encoding="Invertible");
 
             test.verifyEqual(numel(wrap),numel(fcn),"Wrapper count");
 
@@ -147,7 +147,7 @@ classdef tWrapper < matlab.unittest.TestCase & ...
 
             % Vanilla argument list -- tools only, no GenAI.
             wrapFile = prodserver.mcp.internal.wrapForMCP(fcn,"",...
-                wrapFolder);
+                wrapFolder, encoding="Invertible");
             rehash
 
             validateWrapperFile(test,fcn,wrapFile);
@@ -198,7 +198,8 @@ classdef tWrapper < matlab.unittest.TestCase & ...
             wrapper = fcn + "MCP";
 
             % Vanilla argument list -- tools only, no GenAI.
-            wrapFile = prodserver.mcp.internal.wrapForMCP(fcn,"",wrapFolder);
+            wrapFile = prodserver.mcp.internal.wrapForMCP(fcn,"",wrapFolder, ...
+                encoding="Invertible");
             rehash
 
             test.verifyEqual(exist(wrapFile,"file"),2,fcn);
@@ -237,10 +238,11 @@ classdef tWrapper < matlab.unittest.TestCase & ...
 
             % Generate a wrapper for toyToolOne
             tool = "toyToolOne";
-            code = prodserver.mcp.internal.mcpWrapper(tool,tool+"MCP");
+            code = prodserver.mcp.internal.mcpWrapper(tool,tool+"MCP", ...
+                encoding="Invertible");
 
             validateWrapperText(test,tool,code);
-            
+
             % Run the wrapper to make sure the generated function is actual,
             % working MATLAB code.
 
@@ -292,7 +294,7 @@ classdef tWrapper < matlab.unittest.TestCase & ...
             wrapper = tool+"MCP";
             types.geom = "double";
             code = prodserver.mcp.internal.mcpWrapper(tool,wrapper,...
-                typemap=types);
+                typemap=types, encoding="Invertible");
     
             validateWrapperText(test,tool,code);
     
