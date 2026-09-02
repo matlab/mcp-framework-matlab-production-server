@@ -25,7 +25,33 @@ jobs:
           sparse-checkout: reviews
           sparse-checkout-cone-mode: true
 
+      - name: Checkout PR head for change detection
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          path: pr-head
+
+      - name: Check for code changes
+        id: detect
+        if: github.event_name == 'pull_request'
+        run: |
+          cd pr-head
+          BASE="origin/${{ github.event.pull_request.base.ref }}"
+          CHANGED=$(git diff --name-only "$BASE"...HEAD)
+          if echo "$CHANGED" | grep -qE '^[+]prodserver/|^server/|^src/|^Test/|^Examples/|^Utilities/|^\.github/'; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "code=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Skip review for docs-only PR
+        if: github.event_name == 'pull_request' && steps.detect.outputs.code != 'true'
+        run: echo "Docs-only PR — review gate skipped."
+
       - name: Check for review and response
+        if: github.event_name == 'workflow_dispatch' || steps.detect.outputs.code == 'true'
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             PR=${{ inputs.pr_number }}
