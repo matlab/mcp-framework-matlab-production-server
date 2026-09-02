@@ -1,7 +1,7 @@
 function data = contents(url)
 % contents Read a named resource from the MCP tool definition file.
 
-% Copyright 2026-2026 The MathWorks, Inc.
+% Copyright 2026 The MathWorks, Inc.
 
     import prodserver.mcp.MCPConstants
     

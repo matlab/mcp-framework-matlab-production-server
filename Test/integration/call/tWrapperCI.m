@@ -1,6 +1,6 @@
 classdef tWrapperCI < MCPCaller
 
-% Copyright 2026-2026 The MathWorks, Inc.
+% Copyright 2026 The MathWorks, Inc.
 
     methods (TestMethodSetup)
         function scratchSpace(test)

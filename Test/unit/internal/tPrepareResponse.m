@@ -1,7 +1,7 @@
 classdef tPrepareResponse < matlab.unittest.TestCase
 % Test the prepareResponse internal function
 
-% Copyright 2026-2026 The MathWorks, Inc.
+% Copyright 2026 The MathWorks, Inc.
 
     methods(Test)
 

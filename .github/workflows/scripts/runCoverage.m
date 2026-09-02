@@ -4,7 +4,7 @@ function runCoverage(suites, outputName)
 %   runCoverage("unit") runs only unit tests.
 %   runCoverage(["unit","integration","call"], "combined") runs everything.
 
-% Copyright 2026-2026 The MathWorks, Inc.
+% Copyright 2026 The MathWorks, Inc.
 
     if nargin < 1
         suites = ["unit", "integration", "call"];
