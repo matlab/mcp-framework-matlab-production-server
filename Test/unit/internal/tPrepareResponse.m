@@ -1,7 +1,7 @@
 classdef tPrepareResponse < matlab.unittest.TestCase
 % Test the prepareResponse internal function
 
-% Copyright 2026-2026 The MathWorks, Inc.
+% Copyright 2026 The MathWorks, Inc.
 
     methods(Test)
 
@@ -24,7 +24,7 @@ classdef tPrepareResponse < matlab.unittest.TestCase
             encData = jsonencode(data);
             encData = unicode2native(data,"UTF-8");
             w = whos("encData");
-            test.verifyEqual(value,string(w.bytes));
+            test.verifyEqual(value,char(string(w.bytes)));
         end
     end
 end

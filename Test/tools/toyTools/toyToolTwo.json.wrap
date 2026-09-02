@@ -1,0 +1,41 @@
+function toyToolTwoMCP(objectURL,mirrorURL,out)
+% Are the object and the mirror chiral or achiral? If achiral, what is 
+% the first orientation-reversing asymmetry?
+% Some inputs to this tool are optional output locations: URLs where the
+% server writes results. Provide a writable URL to receive each output.
+    arguments(Input)
+        % URL pointing to the input value for 'object'. The content of the URL
+        % is:
+        % A geometrical form
+        objectURL (1,1) string 
+        % URL pointing to the input value for 'mirror'. The content of the URL
+        % is:
+        % The planar mirror reflection of object
+        mirrorURL (1,1) string 
+        % URL pointing to the output value for 'chiral'. This value never
+        % returned inline. Read result from URL using scheme-appropriate method:
+        % file system read for file: URLs, HTTP GET for http:// URLs and so on.
+        % The content of the URL is:
+        % True if mirror can be rotated to match object
+        out.chiralURL (1,1) string  = ""
+        % URL pointing to the output value for 'asymmetry'. This value never
+        % returned inline. Read result from URL using scheme-appropriate method:
+        % file system read for file: URLs, HTTP GET for http:// URLs and so on.
+        % The content of the URL is:
+        % The asymmetry number if not
+        out.asymmetryURL (1,1) string  = ""
+    end
+    !marshalVar = prodserver.mcp.io.MarshallURI();
+    % deserialize always returns a cell array.
+    object = deserialize(!marshalVar,objectURL);
+    object = object{1};
+    mirror = deserialize(!marshalVar,mirrorURL);
+    mirror = mirror{1};
+    [chiral,asymmetry] = toyToolTwo(object,mirror);
+    if strlength(out.chiralURL) > 0
+        serialize(!marshalVar, out.chiralURL, {chiral});
+    end
+    if strlength(out.asymmetryURL) > 0
+        serialize(!marshalVar, out.asymmetryURL, {asymmetry});
+    end
+end

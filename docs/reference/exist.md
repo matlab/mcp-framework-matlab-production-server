@@ -1,22 +1,20 @@
 # `prodserver.mcp.exist`
 ```MATLAB
-tf = exist(endpoint,name,type)
+tf = exist(endpoint, identifier, type)
 ```
-Check for existence of named tools and resources on the given Model Context Protocol server. `name` may be a list with multiple names, but `type` must always be a single string. The output `tf` is the same size as `name`. Each element in `tf` indicates whether the corresponding element of `name` is a known `type` on the server at `endpoint`.
-
-Tools and resources are two of the *primitives* potentially hosted by a Model Context Protocol server. Each primitive has a name and a description.
+Check whether a tool or resource exists on the MCP server at `endpoint`. For tools, `identifier` is the tool name. For resources, `identifier` is the resource URI. `identifier` may be a vector to check multiple items at once, but `type` must be a single string. The output `tf` is the same size as `identifier`.
 
 ### Inputs
 | Argument | Type | Description | Example
 | :---     | :--- | :---        | :---    |
-| endpoint | string | Network endpoint of MCP server. | "http://localhost:9910/primeSequence/mcp" |
-| name | string | Name(s) of the MCP primitive(s). Scalar or vector. | "primeSequenceMCP" or ["toolA","toolB"] |
-| type | Primitive | Type of MCP primitive. Scalar or same size as `name`. | "tool" or "resource" |
+| endpoint | string | Network endpoint of MCP server. | `"http://localhost:9910/primeSequence/mcp"` |
+| identifier | string | Tool name or resource URI. Scalar or vector. | `"primeSequenceMCP"` or `"mcp://materials/aluminum_6061"` |
+| type | Primitive | Type of MCP primitive. Scalar or same size as `identifier`. | `"Tool"` or `"Resource"` |
 
 ### Outputs
 | Argument | Type | Description | Example
 | :---     | :--- | :---        | :---    |
-| tf | logical | Does the MCP primitive exist? Same size as `name`. | true or [true false true] |
+| tf | logical | Does the MCP primitive exist? Same size as `identifier`. | `true` or `[true false true]` |
 
 ### Optional Inputs (Name/Value Pairs)
 Pass optional arguments with *argument=value* syntax following required inputs. For example: `timeout=17`.
@@ -28,17 +26,23 @@ Pass optional arguments with *argument=value* syntax following required inputs. 
 
 # Examples
 
-Determine if the tool `primeSequenceMCP` exists on the server running at `http://localhost:9910/primeSequence/mcp`.
+Check whether a tool exists:
 ```MATLAB
-tf = exist("http://localhost:9910/primeSequence/mcp","primeSequenceMCP", "tool")
+tf = prodserver.mcp.exist("http://localhost:9910/primeSequence/mcp", ...
+    "primeSequenceMCP", "Tool")
 ```
-The return value `tf` is a scalar logical true or false.
-***
 
-Determine if the tools `toolOne`, `toolTwo`, and `toolThree` exist on the server `http://mcp.mathworks.com:8675/mcp`.
+Check multiple tools at once:
 ```MATLAB
-tf = exist("http://localhost:9910/primeSequence/mcp",["toolOne", "toolTwo", "toolThree"], "tool")
+tf = prodserver.mcp.exist("http://localhost:9910/primeSequence/mcp", ...
+    ["toolOne", "toolTwo", "toolThree"], "Tool")
 ```
-The return value `tf` is a three-element vector of logical values. `tf(1)` indicates the existence of `toolOne`, `tf(2)` the existence of `toolTwo`, and `tf(3)` the existence of `toolThree`.
+The return value `tf` is a three-element logical vector. `tf(1)` indicates the existence of `toolOne`, `tf(2)` the existence of `toolTwo`, and `tf(3)` the existence of `toolThree`.
+
+Check whether a resource exists by URI:
+```MATLAB
+tf = prodserver.mcp.exist(endpoint, ...
+    "mcp://protocol/tools/wire-format/parameters/encoding_rules", "Resource")
+```
 
 --- Copyright 2025-2026 The MathWorks, Inc. ---

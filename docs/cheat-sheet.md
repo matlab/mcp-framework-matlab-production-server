@@ -54,7 +54,9 @@ prodserver.mcp.ping(endpoint)                          % true if live
 prodserver.mcp.call(endpoint, "myFunc", arg1, arg2)    % direct invocation
 prodserver.mcp.list(endpoint, "Tool")                  % list tools
 prodserver.mcp.list(endpoint, "Resource")              % list resources
-prodserver.mcp.exist(endpoint, "myFunc", "tool")       % check specific tool
+prodserver.mcp.exist(endpoint, "myFunc", "Tool")       % check specific tool
+prodserver.mcp.exist(endpoint, uri, "Resource")        % check specific resource
+prodserver.mcp.read(endpoint, uri)                     % read resource by URI
 ```
 
 ---

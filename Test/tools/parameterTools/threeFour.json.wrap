@@ -1,0 +1,23 @@
+function [x,y,z] = threeFourMCP(a,b,c,d)
+% Thee output, four input test function.  All inputs required. Outputs 
+% are always optional in MATLAB.
+    arguments(Input)
+        % Required A
+        a (1,1) double
+        % Required B
+        b (1,1) double
+        % Required C
+        c (1,1) double
+        % Required D
+        d (1,1) double
+    end
+    arguments(Output)
+        % Value X
+        x (1,1) double
+        % Value Y
+        y (1,1) double
+        % Value Z
+        z (1,1) double
+    end
+    [x,y,z] = threeFour(a,b,c,d);
+end

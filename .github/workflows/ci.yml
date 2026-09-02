@@ -14,8 +14,35 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  changes:
+    name: Detect Changes
+    runs-on: [self-hosted, glnxa64]
+    outputs:
+      code: ${{ steps.detect.outputs.code }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Detect code vs docs-only changes
+        id: detect
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          BASE="origin/${{ github.event.pull_request.base.ref }}"
+          CHANGED=$(git diff --name-only "$BASE"...HEAD)
+          if echo "$CHANGED" | grep -qE '^[+]prodserver/|^server/|^src/|^Test/|^Examples/|^Utilities/|^\.github/'; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "code=false" >> "$GITHUB_OUTPUT"
+          fi
+
   unit-tests:
     name: Unit Tests
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: [self-hosted, hasSFSAccess, glnxa64]
     timeout-minutes: 15
     steps:
@@ -55,6 +82,8 @@ jobs:
 
   go-tests:
     name: Go Tests
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: [self-hosted, glnxa64]
     timeout-minutes: 10
     steps:
@@ -94,6 +123,8 @@ jobs:
 
   integration-tests:
     name: Integration Tests
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: [self-hosted, hasSFSAccess, glnxa64]
     timeout-minutes: 20
     steps:
@@ -192,6 +223,8 @@ jobs:
 
   example-tests:
     name: Example Tests
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: [self-hosted, hasSFSAccess, glnxa64]
     timeout-minutes: 10
     steps:
@@ -212,6 +245,8 @@ jobs:
 
   e2e-tests:
     name: End-to-End Tests
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: [self-hosted, hasSFSAccess, glnxa64]
     timeout-minutes: 30
     steps:
@@ -229,3 +264,25 @@ jobs:
         with:
           name: e2e-test-results-glnxa64
           path: test-results/
+
+  ci-status:
+    name: CI Status
+    if: always()
+    needs: [changes, unit-tests, go-tests, integration-tests, example-tests, e2e-tests]
+    runs-on: [self-hosted, glnxa64]
+    steps:
+      - name: Check results
+        run: |
+          if [ "${{ needs.changes.outputs.code }}" != "true" ]; then
+            echo "Docs-only PR — tests skipped."
+            exit 0
+          fi
+          if [ "${{ needs.unit-tests.result }}" = "failure" ] || \
+             [ "${{ needs.go-tests.result }}" = "failure" ] || \
+             [ "${{ needs.integration-tests.result }}" = "failure" ] || \
+             [ "${{ needs.example-tests.result }}" = "failure" ] || \
+             [ "${{ needs.e2e-tests.result }}" = "failure" ]; then
+            echo "One or more test jobs failed."
+            exit 1
+          fi
+          echo "All tests passed."

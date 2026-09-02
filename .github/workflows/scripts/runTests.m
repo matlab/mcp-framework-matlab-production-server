@@ -4,7 +4,7 @@ function runTests(suite, resultsFile, folders, mps)
 %   runTests('integration', 'test-results/int.xml', ["build","client"])
 %   runTests('integration', 'test-results/call.xml', ["call"], mps)
 
-% Copyright 2026-2026 The MathWorks, Inc.
+% Copyright 2026 The MathWorks, Inc.
 
     import matlab.unittest.TestRunner
     import matlab.unittest.TestSuite
