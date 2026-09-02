@@ -2,7 +2,7 @@ function [a,b,c] = toyToolDupNames(a,x,b,n)
 % This is a tool in which some inputs have the same name as some outputs.
 % Or is it the outputs that have the same name as the inputs? 
 
-% Copyright 2026-2026 The MathWorks, Inc.
+% Copyright 2026 The MathWorks, Inc.
 
     arguments(Input)
         % A collection of data

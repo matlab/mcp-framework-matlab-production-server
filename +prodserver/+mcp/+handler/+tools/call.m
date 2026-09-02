@@ -73,7 +73,7 @@ function [result, httpCode, httpMsg, msgHeaders] = call(jrpc)
     kind = ParameterKind(sig.(fcn).input.kind);
     optional = sig.(fcn).input.order(kind == ParameterKind.Optional);
     optional = intersect(optional, actual, "stable");
-    nvp = setdiff(actual,[in; optional]);
+    nvp = setdiff(actual,[in(:); optional(:)]);
 
     % All required arguments must be present.
     if isempty(intersect(in,actual))

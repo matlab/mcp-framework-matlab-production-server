@@ -11,12 +11,13 @@ function [result, httpCode, httpMsg, msgHeaders] = read(jrpc)
     result.id = jrpc.id;
 
     if isfield(jrpc,"params") && isfield(jrpc.params,"uri")
-        r.contents = prodserver.mcp.handler.resource.contents(...
-            jrpc.params.uri);
-        if isempty(r.contents)
+        c = prodserver.mcp.handler.resource.contents(jrpc.params.uri);
+        if isempty(c)
             % No matching URI.
             httpCode = 204;
             httpMsg = 'No Content';
+        else
+            r.contents = {c};
         end
     else
         error("prodserver:mcp:BadResourceRead", "Request to read " + ...

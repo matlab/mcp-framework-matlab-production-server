@@ -5,6 +5,7 @@
 import os
 import re
 import sys
+import json
 import logging
 import requests
 import argparse
@@ -59,6 +60,13 @@ def main():
         if payload == "\n":
             continue
 
+        # Notifications have no "id" — the server must never send a
+        # response for them, even if the server returns an error.
+        try:
+            is_notification = "id" not in json.loads(payload)
+        except (json.JSONDecodeError, TypeError):
+            is_notification = False
+
         # Forward to HTTP MCP server
         try:
             resp = requests.post(
@@ -68,38 +76,41 @@ def main():
                 timeout=args.timeout,
             )
             resp.raise_for_status()
-            logger.debug(f"Response: ***{resp}***") 
-            
+            logger.debug(f"Response: ***{resp}***")
+
             # We'll just pass through the response as-is.
-            
+
             resp_bytes = resp.content
             resp = resp_bytes.decode('UTF-8')
- 
+
             # stdio protocol requires reponse on a single line.
             resp = nospace(resp.replace("\n", " "))+"\n"
-            
+
             logger.debug(f"Content: ***{resp}***")
-            
-            # If the server data is empty after processing, 
+
+            # If the server data is empty after processing,
             # emit no response, not even a newline.
             if len(resp) > 1:
                 stdout.write(resp)
                 stdout.flush()
             else:
                 logger.debug("No response sent")
-            
+
         except Exception as e:
             err = str(e)
             logger.error(f"Error proxying MCP request: {err}\n")
-            logger.error(f"Repsonse: ###{resp.text}###")
-            # Let the caller know that an error occurred.
-            resp_bytes = resp.content
-            resp = resp_bytes.decode('UTF-8')
- 
-            # stdio protocol requires reponse on a single line.
-            resp = nospace(resp.replace("\n", " "))+"\n"
-            stdout.write(resp)
-            stdout.flush()
+            if is_notification:
+                logger.debug("Suppressing error response for notification")
+            else:
+                logger.error(f"Repsonse: ###{resp.text}###")
+                # Let the caller know that an error occurred.
+                resp_bytes = resp.content
+                resp = resp_bytes.decode('UTF-8')
+
+                # stdio protocol requires reponse on a single line.
+                resp = nospace(resp.replace("\n", " "))+"\n"
+                stdout.write(resp)
+                stdout.flush()
             #break
 
 if __name__ == "__main__":

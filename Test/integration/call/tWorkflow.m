@@ -1,7 +1,7 @@
 classdef tWorkflow < MCPCaller & ...
         prodserver.mcp.test.mixin.ExternalData
 
-% Copyright 2026-2026 The MathWorks, Inc.
+% Copyright 2026 The MathWorks, Inc.
 
     methods (TestMethodSetup)
         function scratchSpace(test)

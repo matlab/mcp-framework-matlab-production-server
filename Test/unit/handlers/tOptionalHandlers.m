@@ -44,6 +44,8 @@ classdef tOptionalHandlers < prodserver.mcp.test.base.MCPHandlerBase
 
                 if hasField(response,"error")
                     test.verifyFalse(true,response.error.message);
+                elseif hasField(response,"result.isError")
+                    test.verifyFalse(true, response.result.content.text);
                 end
                 test.verifyTrue(hasField(response,"result"),"No result field");
                 test.verifyTrue(hasField(response.result,"structuredContent.report"), ...

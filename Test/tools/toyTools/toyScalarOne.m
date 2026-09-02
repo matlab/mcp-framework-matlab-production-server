@@ -2,7 +2,7 @@ function y = toyScalarOne(x)
 %toyScalarOne Test function that adds one to its input. Both input and
 %output are scalar double-precision numbers. 
 
-% Copyright 2026-2026 The MathWorks, Inc.
+% Copyright 2026 The MathWorks, Inc.
 
     arguments(Input)
         x (1,1) double  % A scalar double.

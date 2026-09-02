@@ -3,7 +3,7 @@ function nvp = setHeaderValue(nvp, name, value)
 %of HTTP headers -- an Nx2 cell array or an array of
 %matlab.net.http.HeaderField.
 
-% Copyright 2026-2026 The MathWorks, Inc.
+% Copyright 2026 The MathWorks, Inc.
 
     arguments (Input)
         nvp 
