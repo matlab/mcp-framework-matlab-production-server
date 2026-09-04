@@ -2,13 +2,16 @@
 
 Build your first MCP tool from a MATLAB function, deploy it to MATLAB Production Server, and call it from an AI agent. This takes about five minutes once you have the prerequisites in place.
 
-*Prerequisites: MATLAB R2025b+, MATLAB Compiler SDK, a running instance of MATLAB Production Server (R2022a+), and an MCP client such as Claude Desktop or VS Code with Copilot.*
+## Prerequisites
 
----
+- [MATLAB](https://www.mathworks.com/products/matlab.html) R2025b or later
+- [MATLAB Compiler SDK&trade;](https://www.mathworks.com/products/matlab-compiler-sdk.html)
+- [MATLAB Production Server](https://www.mathworks.com/products/matlab-production-server.html) R2022a or later
+- An [MCP client](https://modelcontextprotocol.io/clients) (Claude Desktop, Claude Code, VS Code with Copilot, or any HTTP-capable client)
 
 ## Write a Function
 
-Any MATLAB function can become an MCP tool. This example uses `principalStress`, which computes principal stresses from a 2D stress state using Mohr's circle.
+You can create an MCP tool from any MATLAB function. This example uses `principalStress`, which computes principal stresses from a 2D stress state using Mohr's circle.
 
 ```MATLAB
 function sigma = principalStress(stressState, component)
@@ -115,8 +118,6 @@ The LLM reads the tool description, calls `principalStress` multiple times with 
 ---
 
 ## Next Steps
-
-You have a working MCP tool. Where to go next depends on what you need.
 
 | Goal | Read |
 |------|------|

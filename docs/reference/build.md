@@ -50,7 +50,7 @@ Build the MATLAB function `primeSequence` into the MCP tool `primeSequence`. Do 
 
 ***
 
-Build the MATLAB function `plotTrajectories` into the MCP tool `plotTrajectories`. Automatically generate a data marshaling wrapper function. Set the output folder to "/work/mcp/tools". Do not upload the generated tool to any MATLAB Production Server.
+Build the MATLAB function `plotTrajectories` into the MCP tool `plotTrajectories`. Automatically generate a data marshaling wrapper function. Set the output folder to "/work/mcp/tools". Do not upload the generated tool to any MATLAB Production Server instance.
 ```MATLAB
 ctf = prodserver.mcp.build("plotTrajectories", folder="/work/mcp/tools");
 ```
