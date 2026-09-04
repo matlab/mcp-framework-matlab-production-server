@@ -50,7 +50,7 @@ function filePath = discoverySignatures(folder, archive)
     entryJson = jsonencode(entry, PrettyPrint=true);
     entryJson = "    " + replace(string(entryJson), newline, newline + "    ");
     schemaLine = sprintf('    "_schemaVersion": "%s"', ...
-        MCPConstants.DiscoverySchemaVersion);
+        MCPConstants.SignatureSchemaVersion);
     fcnLine = sprintf('    "%s": %s', fcnName, entryJson);
     json = sprintf('{\n%s,\n%s\n}', schemaLine, fcnLine);
 

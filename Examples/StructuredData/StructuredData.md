@@ -108,10 +108,13 @@ load = struct('type', 'point', 'magnitude', 5000, 'position', 1.5);
 result = prodserver.mcp.call(endpoint2, "analyzeBeam", beam, load)
 result =
   struct with fields:
-          max_stress_Pa: 4.5000e+07
-       max_deflection_m: 2.1094e-04
-    natural_frequency_Hz: 57.34
-    ...
+                 max_stress_Pa: 4.5000e+07
+            max_deflection_m: 0.0034
+        natural_frequency_Hz: 25.5126
+    second_moment_of_area_m4: 4.1667e-06
+       cross_section_area_m2: 0.0050
+                     summary: 'Max stress 45 MPa, max deflection 3.375 mm, natural frequency 25.51 Hz.'
+
 ```
 
 ## How Schemas Help the LLM

@@ -167,6 +167,6 @@ classdef MCPConstants
         % Discovery
         %
 
-        DiscoverySchemaVersion = "1.1.0";
+        SignatureSchemaVersion = "1.1.0";
     end
 end
