@@ -19,7 +19,7 @@ The response lists every deployed archive on the instance. Each archive entry in
 
 ```json
 {
-  "discoverySchemaVersion": "1.2.0",
+  "discoverySchemaVersion": "1.0.0",
   "archives": {
     "analysisTools": {
       "archiveSchemaVersion": "1.2.0",
@@ -76,10 +76,10 @@ This returns the MATLAB-level signatures of every tool in the archive — parame
       ]
     },
     "output": {
-      "name": ["sigma"],
-      "type": ["double"],
-      "kind": ["Required"],
-      "order": ["sigma"],
+      "name": "sigma",
+      "type": "double",
+      "kind": "Optional",
+      "order": "sigma",
       "validation": [
         {"size": "(1,1)", "type": "double", "fcn": []}
       ]
@@ -115,11 +115,12 @@ The tool still functions normally — it responds to MCP requests at its endpoin
 
 ## Querying from MATLAB
 
-The `prodserver.mcp.list` function wraps the two-step process:
+Use `prodserver.mcp.list` to query the list of MCP tools from within MATLAB. `prodserver.mcp.list` does not use the `/api/discovery` endpoint. It sends an MCP `tools/list` request to the server instead:
 
 ```MATLAB
 tools = prodserver.mcp.list("http://localhost:9910/analysisTools/mcp", "Tool")
 ```
+The `/api/discovery` endpoint is meant for clients that cannot call `tools/list`.
 
 ## Configuration Requirements
 

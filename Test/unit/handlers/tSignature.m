@@ -28,6 +28,23 @@ classdef tSignature < prodserver.mcp.test.base.MCPHandlerBase
 
     methods (Test)
 
+        function options(test)
+            import prodserver.mcp.MCPConstants
+
+            % Get base request structure
+            req = test.request;
+            req.Headers = [req.Headers; {MCPConstants.ContentType, 'text/plain'}];
+            req.Method = 'OPTIONS';
+            req.Headers = [req.Headers; {MCPConstants.ContentLength, 0}];
+            response = prodserver.mcp.internal.signatureHandler(req);
+            result = prodserver.mcp.internal.decodeBody(response);
+            test.verifyTrue(isstruct(result));
+            test.verifyTrue(isempty(fieldnames(result)));
+            allowed = prodserver.mcp.internal.getHeaderValue('Allow', ...
+                response.Headers);
+            test.verifyEqual(allowed,'GET, POST, OPTIONS');
+        end
+
         function cathode(test)
 
             import prodserver.mcp.MCPConstants
@@ -35,6 +52,7 @@ classdef tSignature < prodserver.mcp.test.base.MCPHandlerBase
             % Get base request structure
             req = test.request;
             req.Headers = [req.Headers; {MCPConstants.ContentType, 'text/plain'}];
+            req.Method = 'GET';
 
             % Test 1: All signatures (empty body)
             reqT = req;
@@ -47,6 +65,7 @@ classdef tSignature < prodserver.mcp.test.base.MCPHandlerBase
 
             % Test 2: A single signature
             reqT = req;
+            reqT.Method = 'POST';
             reqT.Body.Data = "plotTrajectories";
             reqT.Headers = [reqT.Headers; {MCPConstants.ContentLength, strlength(reqT.Body.Data)}];
             response = prodserver.mcp.internal.signatureHandler(reqT);
@@ -60,6 +79,7 @@ classdef tSignature < prodserver.mcp.test.base.MCPHandlerBase
                 "            plotTrajectories     ,     primeSequence   "];
             for b = body
                 reqT = req;
+                reqT.Method = 'POST';
                 reqT.Body.Data = b;
                 reqT.Headers = [reqT.Headers; {MCPConstants.ContentLength, strlength(reqT.Body.Data)}];
                 response = prodserver.mcp.internal.signatureHandler(reqT);
@@ -71,11 +91,13 @@ classdef tSignature < prodserver.mcp.test.base.MCPHandlerBase
 
             % Test 4: Signature that doesn't exist -- should return empty.
             reqT = req;
+            reqT.Method = 'POST';
             reqT.Body.Data = "unknownUnknowns";
             reqT.Headers = [reqT.Headers; {MCPConstants.ContentLength, strlength(reqT.Body.Data)}];
             response = prodserver.mcp.internal.signatureHandler(reqT);
             result = prodserver.mcp.internal.decodeBody(response);
-            test.verifyTrue(isempty(result));
+            test.verifyTrue(isstruct(result));
+            test.verifyTrue(isempty(fieldnames(result)));
         end
 
         function anode(test)
@@ -85,15 +107,17 @@ classdef tSignature < prodserver.mcp.test.base.MCPHandlerBase
             req.Headers = [req.Headers; {MCPConstants.ContentType, 'application/json'};
                 {MCPConstants.ContentLength, '0'}];
 
-            body = { 17, { struct.empty }, struct('x',21), 867.5309 };
-            for b = body
+            body = { 17, { struct.empty }, struct('x',21), 867.5309, ...
+                "NotAFunction"};
+            code = [400, 400, 400, 400, 404];
+            for n = 1:numel(body)
                 reqT = req;
-                reqT.Body = b{1};
+                reqT.Method = 'POST';
+                reqT.Body = body{n};
                 reqT = prodserver.mcp.internal.encodeBody(reqT);
                 reqT.Headers = [reqT.Headers; {MCPConstants.ContentLength, numel(reqT.Body)}];
-                test.verifyError(...
-                    @()prodserver.mcp.internal.signatureHandler(reqT), ...
-                    "prodserver:mcp:InvalidSignatureListType", class(b{1}));
+                response = prodserver.mcp.internal.signatureHandler(reqT);
+                test.verifyEqual(response.HttpCode, code(n));
             end
         end
     end

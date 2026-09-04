@@ -222,7 +222,7 @@ function pt = parameterTypeName(param,name)
             end
         else
             if strcmpi(param.type,MCPConstants.Array)
-                param.itmes.type = name;
+                param.items.type = name;
             else
                 param.type = name;
             end

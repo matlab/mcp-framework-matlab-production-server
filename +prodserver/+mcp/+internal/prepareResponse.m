@@ -9,6 +9,7 @@ function response = prepareResponse(code, msg, opts)
         opts.body = []
         opts.ct char = ''
         opts.sid string = string.empty
+        opts.headers cell = {};
     end
 
 
@@ -23,6 +24,9 @@ function response = prepareResponse(code, msg, opts)
         'Content-Length' '0'; ...
         'Content-Type' opts.ct;}});
 
+    if ~isempty(opts.headers)
+        response.Headers = [response.Headers; opts.headers];
+    end
     if ~isempty(opts.body)
         response.Body = opts.body;
     end 
