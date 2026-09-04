@@ -10,7 +10,7 @@ function [varargout] = call(endpoint, tool, varargin)
 %   (order matters) while optional arguments are order-independent
 %   name/value pairs.
 %
-% Examples:a
+% Examples:
 %
 %  Invoke "cleanSignal" tool with three required inputs:
 %
