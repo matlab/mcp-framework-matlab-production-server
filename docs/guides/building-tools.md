@@ -22,7 +22,7 @@ Your next step is to [connect a client](./client-configuration.md).
 
 ## Build and Deploy
 
-`build` turns your MATLAB function into an MCP server. Pass it:
+`build` turns your MATLAB function into an MCP server. Pass it these arguments:
 - the name of your function
 - an example function call
 - the network address of your MATLAB Production Server instance
@@ -33,13 +33,13 @@ Your next step is to [connect a client](./client-configuration.md).
     server="http://localhost:9910");
 ```
 
-This:
+This does the following:
 1. Runs your example call to determine the input/output types
 2. Combines argument types and source file comments into a tool description for the LLM
 3. Packages everything into a deployable archive (`.ctf`)
 4. Uploads the archive to MATLAB Production Server
 
-The `example` argument tells the framework *how* to call your function. The framework watches that call and infers parameter types from what it observes.
+The `example` argument tells the framework how to call your function. The framework watches that call and infers parameter types from what it observes.
 
 Because all inputs here are small (a 3-element vector and a string), the framework passes them directly — no data marshaling needed. See [Functions with large data](#functions-with-large-data) for when the framework generates a wrapper automatically.
 
@@ -53,9 +53,9 @@ The framework combines three sources to produce a complete tool description — 
 2. **Example calls** — observed types and shapes of both inputs and outputs
 3. **Argument blocks** — declared constraints, sizes, and per-argument documentation
 
-Each source contributes different information. Together they give the LLM everything it needs to call your function correctly and interpret the results.
+Each source contributes different information. Together, they give the LLM everything it needs to call your function correctly and interpret the results.
 
-Your role in the process:
+Your role in the process is as follows:
 - Describe what your function does in the comment following the function line.
 - Specify the type, size and shape of each parameter using example calls and argument blocks.
 
@@ -81,7 +81,7 @@ Write comments for the LLM: be specific about what each parameter means, what va
 
 ### Example Calls
 
-The `example` argument to `build` tells the framework how to call your function. The framework runs each example and observes the types and shapes of both inputs *and* outputs:
+The `example` argument to `build` tells the framework how to call your function. The framework runs each example and observes the types and shapes of both inputs and outputs:
 
 ```MATLAB
 ctf = prodserver.mcp.build("principalStress", ...
@@ -157,7 +157,7 @@ For full details on how the framework generates descriptions, see [Describing Fu
 
 ## Functions with Large Data
 
-When your function accepts or returns large arrays, passing them directly in the JSON request wastes tokens and can exceed message limits. The framework solves this with *data marshaling* — routing large values through file storage.
+When your function accepts or returns large arrays, passing them directly in the JSON request wastes tokens and can exceed message limits. The framework solves this with data marshaling — routing large values through file storage.
 
 ### Automatic Wrapper Generation
 

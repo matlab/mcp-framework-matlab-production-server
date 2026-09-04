@@ -1,6 +1,6 @@
 # MCP Framework for MATLAB Production Server
 
-Publish MATLAB&reg; functions as [Model Context Protocol](https://modelcontextprotocol.io/) tools on [MATLAB Production Server&trade;](https://www.mathworks.com/products/matlab-production-server.html). AI agents call your functions, gaining domain-specific expertise in engineering, science, and data analysis.
+Publish MATLAB&reg; functions as [Model Context Protocol](https://modelcontextprotocol.io/) tools on [MATLAB Production Server&trade;](https://www.mathworks.com/products/matlab-production-server.html). AI agents call your functions, offering the speed, reliability, and domain-specific performance of MATLAB.
 
 ## Prerequisites
 
@@ -21,8 +21,10 @@ prodserver.mcp.agent.setup
 
 ## Quick Start
 
+To deploy a function as an MCP tool to an instance of MATLAB Production Server running on `localhost:9910`, run the following MATLAB code.
+
 ```MATLAB
-% Build an MCP tool — the framework runs your example to determine parameter types
+% Build an MCP tool from a function — the framework runs your example to determine parameter types
 ctf = prodserver.mcp.build("principalStress", ...
     example=@() principalStress([120 -50 80], "max"), ...
     server="http://localhost:9910");

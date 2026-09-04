@@ -112,13 +112,13 @@ catalog.scope(prodserver.mcp.metrics.Scope.Instance)  % MPS instance metrics
 
 ## Enabling Metrics on MPS
 
-Metrics must be enabled on the MATLAB Production Server instance. Add this to your `main_config`:
+Metrics must be enabled on the MATLAB Production Server instance. Uncomment this in your `main_config`:
 
 ```
 --enable-metrics
 ```
 
-Restart MPS after editing the configuration. Without this flag, `prodserver.mcp.metrics` throws an error.
+Restart MATLAB Production Server after editing the configuration. Without this flag, `prodserver.mcp.metrics` throws an error.
 
 ---
 
