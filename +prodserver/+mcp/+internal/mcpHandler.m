@@ -101,7 +101,7 @@ function response = mcpHandler(request)
                 data = [];
         end
     catch me
-        httpCode = 500;
+        httpCode = 200;
         httpMsg = 'MATLAB Exception';
         result = prodserver.mcp.handler.internal.handleError(jrpc,me);
         data = jsonencode(result);

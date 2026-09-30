@@ -1,0 +1,65 @@
+routes:
+  - path: /mcp
+    methods:
+      - POST
+      # DELETE is the terminate request. It is configured below to fail.
+      - DELETE
+    request:
+      - jrpc: initialize
+        response:
+          status: 201
+          headers:
+            Content-Type: application/json
+            Mcp-Session-Id: alpha
+          body:
+            result:
+              capabilities:
+                tools:
+                   listChanged: false
+      - jrpc: notifications/initialized
+        response:
+          status: 200
+          headers:
+            Mcp-Session-Id: alpha
+      - jrpc: tools/list
+        response:
+          status: 200
+          headers:
+            Content-Type: application/json
+            Mcp-Session-Id: alpha
+          body:
+            result:
+              tools: {"name":"primeSequence","description":"Return the first N primes of the given sequence type.","inputSchema":{"type":"object","properties":{"n":{"type":"number","description":"Length of the generated sequence"},"type":{"type":"string","description":"Name of the sequence to generate"}},"required":["n","type"],"additionalProperties":false},"outputSchema":{"type":"object","properties":{"seq":{"type":"array","description":"Generated sequence of prime numbers"}},"required":["seq"],"additionalProperties":false}}
+      - jrpc: tools/call
+        call:
+          name: "primeSequence"
+          input:
+            n: 11
+            type: "Gaussian"
+        response:
+          status: 200
+          headers:
+            Content-Type: application/json
+            Mcp-Session-Id: alpha
+          body:
+            result: { "structuredContent": { "seq": [3, 7, 11, 19, 23, 31, 43, 47, 59, 67, 71] } }
+      # Terminate (DELETE, empty body) fails with an HTTP 500 server error.
+      # prodserver.mcp.call must still deliver the tool result but emit the
+      # prodserver:mcp:TerminateFailed warning.
+      - body: ""
+        response:
+          status: 500
+          headers:
+            Mcp-Session-Id: alpha
+  - path: /signature
+    methods:
+      # /signature is a POST method because it has a body.
+      - POST
+    request:
+      - body: "primeSequence"
+        response:
+          status: 200
+          headers:
+            Content-Type: application/json
+            Mcp-Session-Id: alpha
+          body: {"primeSequence":{"function":"primeSequence","input":{"name":["n","type"],"type":["double","string"],"kind":["Required","Required"],"order":["n","type"]},"output":{"name":"seq","type":"double","kind":"Required","order":"seq"}}}

@@ -209,6 +209,12 @@ function [varargout] = call(endpoint, tool, varargin)
     %
 
     % No response expected.
-    prodserver.mcp.internal.terminate(endpoint,session);
-
+    try
+        % Terminate errors are "soft" -- they do not prevent delivery of
+        % results. 
+        prodserver.mcp.internal.terminate(endpoint,session);
+    catch me
+        warning("prodserver:mcp:TerminateFailed", "Failed to terminate " + ...
+            "session '%s': %s", session, me.message);
+    end
 end
