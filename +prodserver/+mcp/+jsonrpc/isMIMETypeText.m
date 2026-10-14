@@ -28,8 +28,7 @@ function tf = isMIMETypeText(mimeType)
 % Copyright 2025-2026 The MathWorks, Inc.
 
     % Strip parameters ("; charset=utf-8", etc.) and normalise case.
-    mimeType = lower(strtrim(string(mimeType)));
-    mimeType = extractBefore(mimeType + ";", ";");   % guaranteed to find ";"
+    mimeType = prodserver.mcp.internal.mediaType(mimeType);
 
     % Split into primary type and subtype.
     parts = split(mimeType, "/");

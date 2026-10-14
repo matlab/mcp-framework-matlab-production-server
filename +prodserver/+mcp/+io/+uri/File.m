@@ -355,12 +355,12 @@ function folder = sessionRootFolder(sid,config)
     if isKey(tokens, File.sessionRootToken)
         folder = tokens(File.sessionRootToken);
     else
-        sid = prodserver.mcp.orchestrator.parseSessionID(sid);
-        sid = sanitizeForPath(sid);
+        id = prodserver.mcp.internal.parseSessionID(sid);
+        id = sanitizeForPath(id);
         if isKey(tokens, File.persistRootToken)
-            folder = fullfile(tokens(File.persistRootToken),sid);
+            folder = fullfile(tokens(File.persistRootToken),id);
         else
-            folder = fullfile(config.defaults.persistroot,sid);
+            folder = fullfile(config.defaults.persistroot,id);
         end
     end
 end

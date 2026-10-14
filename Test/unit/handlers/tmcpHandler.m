@@ -206,9 +206,6 @@ classdef tmcpHandler < prodserver.mcp.test.base.MCPHandlerBase
             test.verifyEqual(response.HttpCode,405);
         end
 
-        function errorResult(test)
-        end
-
         function resourceContent(test)
             import prodserver.mcp.MCPConstants
             import prodserver.mcp.internal.hasField
@@ -231,7 +228,7 @@ classdef tmcpHandler < prodserver.mcp.test.base.MCPHandlerBase
                 '    "params": {'...
                 '        "name": "read_mcp_resource",'...
                 '        "arguments": {'...
-                '           "url": "' char(MCPConstants.WireEncodingResourceURI) '"'...
+                '           "uri": "' char(MCPConstants.WireEncodingResourceURI) '"'...
                 '        }'...
                 '    }'...
                 '}'
@@ -342,6 +339,87 @@ classdef tmcpHandler < prodserver.mcp.test.base.MCPHandlerBase
             enc = prodserver.mcp.jsonrpc.mcpEncode(toolEncoding,expected);
             txt = jsonencode(enc{1});
             test.verifyEqual(response.result.content.text, txt);
+        end
+
+        function deleteTerminatesSession(test)
+        % A real session-termination DELETE carries the Mcp-Session-Id
+        % header and no JSON-RPC body. It must be acknowledged with 204 No
+        % Content, echoing the session id exactly once.
+            import prodserver.mcp.MCPConstants
+
+            session = char(matlab.lang.internal.uuid);
+
+            reqT = test.request;
+            reqT.Method = "DELETE";
+            reqT.Path = "/prime/mcp";
+            reqT.Headers = [reqT.Headers; ...
+                {MCPConstants.SessionId session}; ...
+                {MCPConstants.ContentLength, '0'}];
+            response = prodserver.mcp.internal.mcpHandler(reqT);
+
+            test.verifyEqual(response.HttpCode, 204);
+
+            names = string(response.Headers(:,1));
+            sessionRows = strcmpi(names, string(MCPConstants.SessionId));
+            test.verifyEqual(nnz(sessionRows), 1, ...
+                "Response must echo Mcp-Session-Id exactly once");
+            test.verifyEqual(string(response.Headers{sessionRows,2}), ...
+                string(session));
+        end
+
+        function deleteWithoutSessionIsBadRequest(test)
+        % DELETE is a supported verb, so the refusal is about the request, not
+        % the method: a DELETE with no session header cannot be attributed to
+        % a session and is 400 Bad Request. 405 would be a lie -- it would
+        % tell the client DELETE is never allowed on this resource, which is
+        % the same signal GET uses to report there is no SSE transport.
+            import prodserver.mcp.MCPConstants
+
+            reqT = test.request;
+            reqT.Method = "DELETE";
+            reqT.Path = "/prime/mcp";
+            reqT.Headers = [reqT.Headers; {MCPConstants.ContentLength, '0'}];
+            response = prodserver.mcp.internal.mcpHandler(reqT);
+
+            test.verifyEqual(response.HttpCode, 400);
+
+            % A transport-level refusal carries no JSON-RPC body.
+            test.verifyEmpty(response.Body);
+        end
+
+        function unsupportedMethodIsProtocolError(test)
+        % An unsupported MCP method is a protocol-level JSON-RPC error: it
+        % is carried in the body as error.code == -32601 (method not found)
+        % over HTTP 200, not surfaced as an HTTP 500 transport failure.
+            import prodserver.mcp.MCPConstants
+            import prodserver.mcp.internal.hasField
+
+            req = test.request;
+            req.Headers = [req.Headers; {MCPConstants.ContentType, ...
+                'application/json'}];
+            id = matlab.lang.internal.uuid;
+            req.Headers = [req.Headers; {MCPConstants.SessionId id}];
+
+            body = ['{ "jsonrpc": "2.0", "id": 1, ' ...
+                '"method": "resources/subscribe", "params": {} }'];
+
+            reqT = req;
+            reqT.Method = "POST";
+            reqT.Path = "/prime/mcp";
+            reqT.Headers = [reqT.Headers; ...
+                {MCPConstants.ContentLength, numel(body)}];
+            reqT.Body = unicode2native(body,"UTF-8");
+            response = prodserver.mcp.internal.mcpHandler(reqT);
+
+            test.verifyEqual(response.HttpCode, 200);
+
+            response = prodserver.mcp.internal.decodeBody(response);
+            test.verifyTrue(hasField(response, "error.code"), ...
+                "Protocol error must carry a JSON-RPC error.code");
+            test.verifyEqual(response.error.code, ...
+                MCPConstants.ErrorMethodNotFound);
+            test.verifyFalse(hasField(response, "result"), ...
+                "Protocol error must not carry a tool-style result");
         end
     end
 

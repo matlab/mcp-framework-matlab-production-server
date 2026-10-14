@@ -42,20 +42,9 @@ classdef tClassifyExample < matlab.unittest.TestCase
             test.verifyTrue(isfile(tmpFile));
         end
 
-        function stringTestFile(test)
-            testFile = fullfile(test.mockFolder, "tMockTest.m");
-            prodserver.mcp.internal.classifyExample(testFile);
-            test.verifyTrue(true);
-        end
-
         function stringNonTestFile(test)
             funcFile = fullfile(test.mockFolder, "mockFunction.m");
             prodserver.mcp.internal.classifyExample(funcFile);
-            test.verifyTrue(true);
-        end
-
-        function stringFolder(test)
-            prodserver.mcp.internal.classifyExample(test.mockFolder);
             test.verifyTrue(true);
         end
 
@@ -74,22 +63,6 @@ classdef tClassifyExample < matlab.unittest.TestCase
             test.verifyError(...
                 @() prodserver.mcp.internal.classifyExample(42), ...
                 "prodserver:mcp:InvalidExampleType");
-        end
-
-        function testDetectionByName(test)
-            import prodserver.mcp.internal.classifyExample
-            testFile = fullfile(test.mockFolder, "tMockTest.m");
-            classifyExample(testFile);
-            test.verifyTrue(true);
-        end
-
-        % --- Package-path test ---
-
-        function packageClassPath(test)
-            pkgFile = fullfile(test.mockFolder, ...
-                "+mock", "+pkg", "tPackageTest.m");
-            prodserver.mcp.internal.classifyExample(pkgFile);
-            test.verifyTrue(true);
         end
 
         % --- Negative tests: non-existent paths ---
@@ -133,20 +106,72 @@ classdef tClassifyExample < matlab.unittest.TestCase
                 "prodserver:mcp:ExampleFileFailed");
         end
 
+    end
+
+    methods(Test, TestTags = {'RecursiveRunTests'})
+
+        function stringTestFile(test)
+            test.assumeFalse(skipRecursiveTestsInSandbox(), ...
+                "Recursive runtests only works in installed MATLAB");
+            testFile = fullfile(test.mockFolder, "tMockTest.m");
+            prodserver.mcp.internal.classifyExample(testFile);
+            test.verifyTrue(true);
+        end
+
+        function testDetectionByName(test)
+            test.assumeFalse(skipRecursiveTestsInSandbox(), ...
+                "Recursive runtests only works in installed MATLAB");
+            import prodserver.mcp.internal.classifyExample
+            testFile = fullfile(test.mockFolder, "tMockTest.m");
+            classifyExample(testFile);
+            test.verifyTrue(true);
+        end
+
+        function stringFolder(test)
+            test.assumeFalse(skipRecursiveTestsInSandbox(), ...
+                "Recursive runtests only works in installed MATLAB");
+            prodserver.mcp.internal.classifyExample(test.mockFolder);
+            test.verifyTrue(true);
+        end
+
+        % --- Package-path test ---
+
+        function packageClassPath(test)
+            test.assumeFalse(skipRecursiveTestsInSandbox(), ...
+                "Recursive runtests only works in installed MATLAB");
+            pkgFile = fullfile(test.mockFolder, ...
+                "+mock", "+pkg", "tPackageTest.m");
+            prodserver.mcp.internal.classifyExample(pkgFile);
+            test.verifyTrue(true);
+        end
+
         % --- Negative tests: failing test suites ---
 
         function failingTestFileErrors(test)
+            test.assumeFalse(skipRecursiveTestsInSandbox(), ...
+                "Recursive runtests only works in installed MATLAB");
             test.verifyError(...
                 @() prodserver.mcp.internal.classifyExample(...
-                    fullfile(test.suiteFolder, "tFailingTest.m")), ...
+                fullfile(test.suiteFolder, "tFailingTest.m")), ...
                 "prodserver:mcp:ExampleFileFailed");
         end
 
         function failingFolderErrors(test)
+            test.assumeFalse(skipRecursiveTestsInSandbox(), ...
+                "Recursive runtests only works in installed MATLAB");
             test.verifyError(...
                 @() prodserver.mcp.internal.classifyExample(test.suiteFolder), ...
                 "prodserver:mcp:ExampleSuiteFailed");
         end
 
     end
+
+end
+
+function tf = skipRecursiveTestsInSandbox()
+% Skip recursive tests if the lockdown plugin exists. This only
+% exists in internal sandboxes.
+    tf = ...
+        exist("mwtest.internal.plugins.TestReentrancyLockdownPlugin", ...
+              "class") == 8;
 end

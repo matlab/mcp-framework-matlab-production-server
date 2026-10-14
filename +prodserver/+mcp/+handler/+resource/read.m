@@ -13,15 +13,17 @@ function [result, httpCode, httpMsg, msgHeaders] = read(jrpc)
     if isfield(jrpc,"params") && isfield(jrpc.params,"uri")
         c = prodserver.mcp.handler.resource.contents(jrpc.params.uri);
         if isempty(c)
-            % No matching URI.
-            httpCode = 204;
-            httpMsg = 'No Content';
-        else
-            r.contents = {c};
+            % No matching URI. MCP defines a specific error code for this,
+            % and it is a protocol error with a body -- not a 204, which
+            % would promise no content while still carrying a result.
+            error("prodserver:mcp:ResourceNotFound", ...
+                "Resource '%s' not found on this MCP server.", ...
+                string(jrpc.params.uri));
         end
+        r.contents = {c};
     else
         error("prodserver:mcp:BadResourceRead", "Request to read " + ...
-            "resource lacks URL.");
+            "resource lacks the required params.uri.");
     end
     result.result = r;
 end

@@ -100,13 +100,22 @@ classdef tMetrics < MCPCaller
             toolMetric = MCPConstants.MCPMetricPrefix + ...
                 test.toolName + MCPConstants.MCPToolCallSuffix;
 
-            % Baseline
+            % Baseline -- must test against the most recent archive. Use
+            % archive suffix to determine which was deployed most recently
+            % -- highest number is most recent. If no suffix, there was
+            % only one ever deployed.
             catalog = prodserver.mcp.metrics(test.endpoint);
-            entry = catalog.name(toolMetric);
+            entry = catalog.filter(name=toolMetric,archive=test.archive);
+            latest = [];
             if isempty(entry)
                 before = 0;
             else
-                before = entry(1).value;
+                sfx = arrayfun(@(e)str2double(e.suffix),entry);
+                if any(~isnan(sfx))
+                    latest = max(sfx);
+                    entry = entry(sfx == latest);
+                end
+                before = entry.value;
             end
 
             % Make one tool call
@@ -116,7 +125,8 @@ classdef tMetrics < MCPCaller
             after = before;
             for attempt = 1:10
                 catalog = prodserver.mcp.metrics(test.endpoint);
-                entry = catalog.name(toolMetric);
+                entry = catalog.filter(name=toolMetric,archive=test.archive,...
+                    suffix=latest);
                 test.assertNotEmpty(entry, ...
                     "Tool call metric should exist after call");
                 after = entry(1).value;

@@ -16,15 +16,8 @@ import sys
 import argparse
 import logging
 
-# logging.basicConfig(
-#     filename="mock_server.log",
-#     level=logging.DEBUG,
-#     format="%(asctime)s %(levelname)s %(message)s"
-# )
-
 class StopMcpServer(BaseException):
     pass
-
 
 class MockHTTPHandler(BaseHTTPRequestHandler):
     """Handler for mock HTTP requests based on configuration."""
@@ -196,8 +189,31 @@ def run_server(config_file, host='localhost', port=8080):
     """Run the mock HTTP server."""
     # Load configuration
     config = load_config(config_file)
-    MockHTTPHandler.config = config
+    routes = config.setdefault("routes", [])  # default empty, if none
+
+    # Don't overwrite existing /ping, if any
+    if not any(r.get("path") == "/ping" for r in routes):
+        # Add a GET /ping to every config -- no body, returns 200
+        ping = {
+            "path": "/ping",
+            "methods": [ "GET" ],
+            "request": [{
+                "body": "",
+                "response": {
+                    "status": 200,
+                    "headers": {
+                        "Content-Type": "text/plain"
+                    },
+                    "body": "pong"
+                }
+            }]
+        }
+        routes.append(ping)
     
+    # Attach the loaded routes to the handler class -- the handler reads
+    # them from its own "config" class attribute.
+    MockHTTPHandler.config = config
+
     # Create and start server
     server_address = (host, port)
     httpd = HTTPServer(server_address, MockHTTPHandler)
@@ -225,9 +241,18 @@ if __name__ == '__main__':
     parser.add_argument('config', help='Path to configuration file (JSON or YAML)')
     parser.add_argument('--host', default='localhost', help='Host to bind to (default: localhost)')
     parser.add_argument('--port', type=int, default=8080, help='Port to bind to (default: 8080)')
-    
+    parser.add_argument('--log', nargs="?", const="mock_server.log", default=None, help='Logging on: defaults to mock_server.log')
+
     args = parser.parse_args()
-    
+
+
+    if args.log:
+        logging.basicConfig(
+            filename=args.log,
+            level=logging.DEBUG,
+            format="%(asctime)s %(levelname)s %(message)s"
+        )
+        
     try:
         run_server(args.config, args.host, args.port)
     except FileNotFoundError:

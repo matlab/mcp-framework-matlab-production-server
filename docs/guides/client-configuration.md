@@ -11,6 +11,7 @@ Connect your MCP client to tools deployed on MATLAB Production Server. MCP Frame
 - [Visual Studio Code](#visual-studio-code)
 - [Any HTTP client](#any-http-client)
 - [STDIO bridge](#stdio-bridge)
+- [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -164,5 +165,30 @@ Optional flags:
 The bridge requires the `requests` Python package.
 
 You do not call the bridge directly — configure your MCP client to launch it as a command (see the [Claude Desktop](#claude-desktop) example above).
+
+---
+
+## Troubleshooting
+
+For the full request and response rules, see [Protocol Conformance](../concepts/protocol-conformance.md).
+
+### The first request works, then everything gets HTTP 400
+
+The 400 has no body. It has one of two causes:
+
+- **The client sends an unsupported `MCP-Protocol-Version`.** The server accepts only `2025-06-18`, or no header at all. Update the client, or configure it to use revision `2025-06-18`.
+- **The client doesn't send back `Mcp-Session-Id`.** The server returns a session ID in a response header from `initialize`. Every later request must include it. Check that your client or proxy doesn't strip the header.
+
+### `GET` gets HTTP 405
+
+That's expected. The server doesn't open server-to-client streams. A client that supports plain HTTP takes the 405 as its cue to continue without one.
+
+### `tools/list` gets HTTP 500 with error `-32603`
+
+The server couldn't load the archive's tool definitions. Read `error.message`. If it says that another archive in the same worker may have loaded a different copy of a framework class, set the environment variable `MW_MULTIMCOS_MODE` to `true` on the server machine and restart the server. See [Several Archives on One Server](../reference/deploy.md#several-archives-on-one-server). The same failure can appear on `tools/call`, `resources/list` and `resources/read`.
+
+### A tool error arrives as HTTP 200
+
+That's expected. When a tool raises a MATLAB error, the response is HTTP 200 with `result.isError` set to `true` and the error text in `result.content`. Check `result.isError`, not the HTTP status. See [Tool Errors](../concepts/protocol-conformance.md#tool-errors).
 
 --- Copyright 2026 The MathWorks, Inc. ---

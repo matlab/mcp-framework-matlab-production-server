@@ -12,36 +12,45 @@ function response = sendRequest(request,uri,opts)
         opts.delay double {mustBePositive} = 2
     end
 
-    import prodserver.mcp.internal.Constants
+    % Statuses worth a second attempt: the same request may well succeed if
+    % we wait.
+    %
+    % 404 is the load-bearing one. MATLAB Production Server answers 404 for an
+    % archive it has accepted but not yet finished unpacking, which is why
+    % internal.initialize defaults to retry=30 and exist/list default to 10 --
+    % those budgets are a deployment wait, not error handling. Dropping 404
+    % here would silently shorten it.
+    %
+    % Every other client error is a property of the request itself -- a
+    % missing session id, an unsupported protocol version, a bad method -- and
+    % resending it unchanged only multiplies the failure and the delay before
+    % the caller sees it.
+    retryable = [404 408 429];  % Not Found (still loading), Timeout, Too Many
 
-    tries = 0; sc = Constants.HTTPClientError;
+    tries = 0;
+    retry = true;
 
-    % While retries not exhausted and HTTP protocol error occurred, try
-    % again.
-    while tries <= opts.retry && ...
-            sc >= Constants.HTTPClientError && ...
-            sc < Constants.HTTPServerError
+    while retry && tries <= opts.retry
 
-        % Send the request and retrieve returned status code. 
+        % Send the request and retrieve returned status code.
         httpOptions = matlab.net.http.HTTPOptions(...
             ConnectTimeout=opts.timeout, ResponseTimeout=opts.timeout);
         response = request.send(uri,httpOptions);
-        sc = response.StatusCode;
+        tries = tries + 1;
 
-        % Pause for a 400-series error, if delay is > 0.
-        if sc >= Constants.HTTPClientError && ...
-            sc < Constants.HTTPServerError && opts.delay > 0
+        retry = ismember(double(response.StatusCode), retryable);
+
+        % Pause only when another attempt is actually coming.
+        if retry && tries <= opts.retry && opts.delay > 0
             pause(opts.delay);
         end
-        
-        tries = tries + 1;
     end
 
     % If failure, throw as caller to make it easier to pinpoint where error
     % occurred.
     try
         prodserver.mcp.internal.requireSuccess(response,uri, ...
-            request=opts.label); 
+            request=opts.label);
     catch me
         throwAsCaller(me);
     end

@@ -1,0 +1,119 @@
+# Fixture for tToolError. Each tool answers tools/call the way this framework's
+# server answers for a tool that ran and raised: HTTP 200, result.isError true,
+# the MATLAB error text in content, and no structuredContent.
+#
+#   mockDeclared   -- declares a required output in its outputSchema. The
+#                     client used to raise NoStructuredContent here, which says
+#                     nothing about the error the tool raised.
+#   mockUndeclared -- declares no outputs. The client used to return the error
+#                     content as the tool's first output, with no error at all.
+#   mockMultiPart  -- an error whose content has two text items, which
+#                     jsondecode turns into a struct array rather than a scalar.
+#
+# The mock matches tools/call on arguments, not on the tool name, so each tool
+# is called with a different x.
+#
+# None needs to exist as a MATLAB function: prodserver.mcp.call learns
+# everything it knows about a tool from tools/list and /signature.
+routes:
+  - path: /mcp
+    methods:
+      - POST
+      - DELETE
+    request:
+      - jrpc: initialize
+        response:
+          status: 201
+          headers:
+            Content-Type: application/json
+            Mcp-Session-Id: alpha
+          body:
+            result:
+              capabilities:
+                tools:
+                   listChanged: false
+      - jrpc: notifications/initialized
+        response:
+          status: 200
+          headers:
+            Mcp-Session-Id: alpha
+      - jrpc: tools/list
+        response:
+          status: 200
+          headers:
+            Content-Type: application/json
+            Mcp-Session-Id: alpha
+          body:
+            result:
+              tools: [
+                {"name":"mockDeclared","description":"Declares one output.","inputSchema":{"type":"object","properties":{"x":{"type":"number","description":"Ignored"}},"required":["x"],"additionalProperties":false},"outputSchema":{"type":"object","properties":{"y":{"type":"number","description":"The only declared output"}},"required":["y"],"additionalProperties":false}},
+                {"name":"mockUndeclared","description":"Declares no outputs.","inputSchema":{"type":"object","properties":{"x":{"type":"number","description":"Ignored"}},"required":["x"],"additionalProperties":false}},
+                {"name":"mockMultiPart","description":"Declares no outputs.","inputSchema":{"type":"object","properties":{"x":{"type":"number","description":"Ignored"}},"required":["x"],"additionalProperties":false}}
+                ]
+      - jrpc: tools/call
+        call:
+          name: "mockDeclared"
+          input:
+            x: 1
+        response:
+          status: 200
+          headers:
+            Content-Type: application/json
+            Mcp-Session-Id: alpha
+          body:
+            result: { "isError": true, "content": [ { "type": "text", "text": "mockDeclared:12 : Index exceeds array bounds." } ] }
+      - jrpc: tools/call
+        call:
+          name: "mockUndeclared"
+          input:
+            x: 2
+        response:
+          status: 200
+          headers:
+            Content-Type: application/json
+            Mcp-Session-Id: alpha
+          body:
+            result: { "isError": true, "content": [ { "type": "text", "text": "mockUndeclared:7 : Undefined variable q." } ] }
+      - jrpc: tools/call
+        call:
+          name: "mockMultiPart"
+          input:
+            x: 3
+        response:
+          status: 200
+          headers:
+            Content-Type: application/json
+            Mcp-Session-Id: alpha
+          body:
+            result: { "isError": true, "content": [ { "type": "text", "text": "first part" }, { "type": "text", "text": "second part" } ] }
+      # Terminate (DELETE, empty body) succeeds.
+      - body: ""
+        response:
+          status: 204
+          headers:
+            Mcp-Session-Id: alpha
+  - path: /signature
+    methods:
+      - POST
+    request:
+      - body: "mockDeclared"
+        response:
+          status: 200
+          headers:
+            Content-Type: application/json
+            Mcp-Session-Id: alpha
+          body: {"mockDeclared":{"function":"mockDeclared","input":{"name":"x","type":"double","kind":"Required","order":"x"},"output":{"name":"y","type":"double","kind":"Required","order":"y"}}}
+      - body: "mockUndeclared"
+        response:
+          status: 200
+          headers:
+            Content-Type: application/json
+            Mcp-Session-Id: alpha
+          body: {"mockUndeclared":{"function":"mockUndeclared","input":{"name":"x","type":"double","kind":"Required","order":"x"},"output":{"name":[],"type":[],"kind":[],"order":[]}}}
+      - body: "mockMultiPart"
+        response:
+          status: 200
+          headers:
+            Content-Type: application/json
+            Mcp-Session-Id: alpha
+          body: {"mockMultiPart":{"function":"mockMultiPart","input":{"name":"x","type":"double","kind":"Required","order":"x"},"output":{"name":[],"type":[],"kind":[],"order":[]}}}

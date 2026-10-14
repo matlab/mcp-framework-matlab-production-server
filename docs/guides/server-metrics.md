@@ -19,6 +19,7 @@ Key points:
 - [Quick check: is my tool being called?](#quick-check-is-my-tool-being-called)
 - [Metric hierarchy](#metric-hierarchy)
 - [Filtering metrics](#filtering-metrics)
+  - [Several deployments of one archive](#several-deployments-of-one-archive)
 - [Scoping by level](#scoping-by-level)
 - [Enabling metrics on MPS](#enabling-metrics-on-mps)
 
@@ -85,6 +86,16 @@ catalog.filter(archive="principalStress", type=prodserver.mcp.metrics.Type.Count
 ```
 
 Each filter method returns a struct array with fields: `name`, `type`, `archive`, `suffix`, and `value`.
+
+### Several Deployments of One Archive
+
+Deploying an archive again under the same name can leave metrics from each deployment on the server, reported under numbered names such as `principalStress_2`. The Catalog reports them all with `archive` set to `principalStress` and the number in `suffix`. To see only the most recent deployment, select the largest suffix:
+
+```MATLAB
+catalog.archive("principalStress", suffix=@max)
+```
+
+`suffix` also accepts specific numbers, `NaN` for metrics with no suffix, and a function that returns a logical mask. See [`metrics`](../reference/metrics.md#the-suffix-argument).
 
 ---
 

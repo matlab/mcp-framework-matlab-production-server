@@ -92,8 +92,48 @@ function endpoint = deploy(archive,host,port,opts)
     end
 
     % Upload!
-    prodserver.mcp.internal.uploadCTF(archive,url,...
-        overwrite=opts.overwrite,retry=opts.retry,timeout=opts.timeout);
+    [status, detail] = prodserver.mcp.internal.uploadCTF(archive,url,...
+        overwrite=opts.overwrite,retry=opts.retry,timeout=opts.timeout, ...
+        delay=opts.delay);
+
+    % Check the upload before waiting on the archive. Uploading and
+    % initializing are separate phases: this status describes only the
+    % synchronous transfer, while unpacking and loading happen afterwards and
+    % show up as 404s that the verification loop below is right to wait out.
+    % So a non-OK status here will never improve on its own -- nothing re-sends
+    % the archive, and an archive the server never accepted will never appear.
+    %
+    % The status used to be discarded. The verification loop then spent its
+    % whole budget pinging for an archive that was never installed and blamed
+    % DeployedArchiveUnresponsive, telling the user to raise timeouts and retry
+    % counts -- pointing away from the upload the server had already refused.
+    [uploadFailed, permanent] = classifyUpload(status);
+    if uploadFailed
+        if isempty(status)
+            % No response at all: every attempt timed out, or there was no
+            % budget to attempt with. Nothing is known about the server's
+            % opinion, so do not invent one.
+            error("prodserver:mcp:ArchiveUploadNoResponse", ...
+                "Uploading %s to %s produced no response after %d " + ...
+                "attempt(s) with a %d second timeout. %s", ...
+                archive, url, opts.retry, opts.timeout, detail);
+        elseif permanent
+            % 4xx: a property of the request or of the server's configuration.
+            % Retrying verbatim cannot help.
+            error("prodserver:mcp:ArchiveUploadRejected", ...
+                "The server at %s rejected the upload of %s with HTTP %d. " + ...
+                "%s", url, archive, double(status), detail);
+        else
+            % 5xx: the server failed to install an archive it was willing to
+            % talk about. Observed to succeed unchanged on a later attempt, so
+            % say that rather than implying the archive is at fault.
+            error("prodserver:mcp:ArchiveUploadFailed", ...
+                "The server at %s failed to install %s: HTTP %d. %s " + ...
+                "This is a server-side failure and may be transient -- " + ...
+                "check the server log, then try again.", ...
+                url, archive, double(status), detail);
+        end
+    end
 
     if opts.verify
         % Verify that upload was successful. Send "ping" to the archive. 
@@ -140,6 +180,27 @@ function endpoint = deploy(archive,host,port,opts)
         end
     end
 
-    % Success! Network address of MCP endpoint. 
+    % Success! Network address of MCP endpoint.
     endpoint = sprintf("%s%s", prefix, prodserver.mcp.MCPConstants.MCP);
+end
+
+
+function [failed, permanent] = classifyUpload(status)
+%classifyUpload Did the upload fail, and is retrying it pointless?
+%   Only OK means the archive was accepted -- measured against R2026b, a
+%   successful upload answers 200 rather than 201, so there is no success
+%   status to admit beyond this one.
+%
+%   PERMANENT separates a refusal from a failure. A 4xx is a property of the
+%   request or of the server's configuration: the wrong archive name, archive
+%   management disabled, an overwrite the caller forbade. Those cannot change
+%   while the request does not. A 5xx is the server failing at something it
+%   agreed to attempt, which has been observed to succeed on a later identical
+%   attempt, so it is reported as possibly transient. An empty status means no
+%   response was obtained and is classified as not permanent, since nothing is
+%   known either way.
+
+    failed = isempty(status) || status ~= matlab.net.http.StatusCode.OK;
+    permanent = ~isempty(status) && ...
+        double(status) >= 400 && double(status) < 500;
 end

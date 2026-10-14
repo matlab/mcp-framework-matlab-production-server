@@ -35,6 +35,10 @@ classdef Constants
         HTTPClientError = 400;
         HTTPServerError = 500;
 
+        % Value of the Server response header, on every response this
+        % framework emits.
+        ServerHeader = "MATLAB Production Server/Model Context Protocol (v1.0)";
+
         MultiMCOSEnvVar = "MW_MULTIMCOS_MODE";
 
         % MIME types

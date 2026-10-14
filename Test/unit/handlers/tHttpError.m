@@ -78,6 +78,14 @@ classdef tHttpError < prodserver.mcp.test.base.MCPHandlerBase
             % code.
             test.verifyEqual(response.HttpCode, 200);
 
+            % Nor is it a JSON-RPC error. A tool-execution failure is reported
+            % only through result.isError; carrying a JSON-RPC error member as
+            % well would make a broken tool indistinguishable from a broken
+            % protocol, and no client could tell which it was looking at.
+            raw = jsondecode(native2unicode(response.Body,"UTF-8"));
+            test.verifyFalse(isfield(raw,'error'), ...
+                "A tool-execution failure must not report a JSON-RPC error");
+
             % Body should contain isError field set to true and a structure
             % describing the error.
             response = decodeResponse(test,reqT,response);

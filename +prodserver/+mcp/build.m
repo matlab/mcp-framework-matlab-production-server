@@ -327,7 +327,7 @@ function ctf = buildMCP(files, folder, archive, definition, routesType, stop, di
         id = 'MATLAB:depfun:req:UndeployableSymbol';
         status = warning('query',id);
         warning('off', id);
-        restoreWarning = onCleanup(@()warning(status.state,id));
+        restoreUndeployable = onCleanup(@()warning(status.state,id));
     end
 
     % I/O scheme management subclasses are invoked indirectly and thus
@@ -398,10 +398,12 @@ function ctf = buildMCP(files, folder, archive, definition, routesType, stop, di
 
     % This is a terrible, temporary, solution to a complex problem. It must
     % be removed when the schema management change is integrated with the
-    % main release branch.last
-    excludeState = warning('off','Compiler:compiler:COM_WARN_EXCLUDED_FILE');
-    restoreWarning = onCleanup(@()warning(excludeState));
-
+    % main release branch.
+    id = 'Compiler:compiler:COM_WARN_EXCLUDED_FILE';
+    status = warning('query',id);
+    warning('off', id);
+    restoreExcluded = onCleanup(@()warning(status.state,id));
+    
     % Can't suppress the text emitted by MATLAB Compiler, since
     % ProductionServerArchiveOptions has no way to suppress a warning.
     % This is the way to suppress it when calling MCC directly:

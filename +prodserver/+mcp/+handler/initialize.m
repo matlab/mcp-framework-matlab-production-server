@@ -23,9 +23,11 @@ function [result, httpCode, httpMsg, msgHeaders] = initialize(jrpc)
         end
     end
 
-    % If the method got this far, it uses a protocol we support, so
-    % just copy the request protocol into the response.
-    protocolVersion = jrpc.params.protocolVersion;
+    % protocolVersion is required by the initialize schema.
+    if ~prodserver.mcp.internal.hasField(jrpc,"params.protocolVersion")
+        error("prodserver:mcp:MissingParams", ...
+            "initialize request lacks the required params.protocolVersion.");
+    end
 
     % This server supports tools and nominally emits a notification
     % when the list of tools changes, which is never.
@@ -38,11 +40,12 @@ function [result, httpCode, httpMsg, msgHeaders] = initialize(jrpc)
     % Unique session ID for state management.
     session = matlab.lang.internal.uuid;
 
-    r.protocolVersion = protocolVersion;
+    % Report the version this server will actually speak, not the one the
+    % client asked for. Echoing the request would have the server claim to
+    % implement any revision a client named.
+    r.protocolVersion = MCPConstants.protocolVersion;
     r.serverInfo.name = "MATLAB Production Server";
-    if contains(protocolVersion,"2024") == false
-        r.serverInfo.title = "Prototype MCP Server";
-    end
+    r.serverInfo.title = "MATLAB Production Server";
     r.serverInfo.version = "1.0.0";
 
     % All header data must be char, not string.

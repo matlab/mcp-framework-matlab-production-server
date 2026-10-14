@@ -94,17 +94,36 @@ classdef Catalog
         end
 
         function metrics = filter(mc, opts)
+        %filter Apply one or more filters to the list of metrics.
+        % All filter inputs optional -- with none, returns all known
+        % metrics.
 
             arguments
                 mc prodserver.mcp.metrics.Catalog
+                % Metric archive must match this pattern
                 opts.archive pattern = pattern.empty
+
+                % Metric name must match this pattern
                 opts.name pattern = pattern.empty
+
+                % Metric must have this type
                 opts.type prodserver.mcp.metrics.Type = "Any"
+
+                % Exact or Contains pattern matching for name and archive
                 opts.match prodserver.mcp.metrics.Match = "Exact"
+
+                % Filter by suffix. Suffix may be a set of doubles or a
+                % function. If a set, result is filtered by intersection of
+                % suffix with set. If a function, result is filtered by
+                % intersection with results returned by function. NaN means
+                % archives with no suffix.
+                opts.suffix = []
+              
             end
 
             metrics = mc.metrics;
 
+            % All metrics matching name
             if ~isempty(opts.name) && ~isempty(metrics)
                 n = [metrics.name];
                 switch opts.match
@@ -116,6 +135,7 @@ classdef Catalog
                 metrics = metrics(i);
             end
 
+            % Of those, all matching archive
             if ~isempty(opts.archive) && ~isempty(metrics)
                 a = [metrics.archive];
                 switch opts.match
@@ -127,9 +147,80 @@ classdef Catalog
                 metrics = metrics(i);
             end
 
+            % Of those, all matching the type
             if opts.type ~= prodserver.mcp.metrics.Type.Any && ~isempty(metrics)
                 t = [metrics.type];
                 i = strcmpi(t,opts.type);
+                metrics = metrics(i);
+            end
+
+            % Of those, all with archive suffix in the given set
+            if ~isempty(opts.suffix) && ~isempty(metrics)
+
+                % Some metrics may have no suffix -- first deployment, for
+                % example. But s must be the same size as metrics in order
+                % for ismember to work properly. Can't use [metrics.suffix]
+                % to create s, because it drops empty [].
+                s = arrayfun(@(m)str2double(m.suffix),metrics);
+
+                % If opts.suffix is a function handle, filter the existing
+                % suffixes by opts.suffix first, then intersect that set
+                % with the complete set to yield the result. So, passing
+                % @max, for example, returns the metrics for the archive
+                % with the largest suffix. Which is mostly useful when
+                % there are multiple archives with the same name.
+                if isa(opts.suffix,'function_handle')
+                    ft = functions(opts.suffix);
+                    if contains(ft.type,'simple',IgnoreCase=true) && ...
+                            isempty(which(func2str(opts.suffix)))
+                        error("prodserver:mcp:NonExistentMetricsSuffixFunction", ...
+                            "Metrics suffix function cannot be found.");
+                    end
+
+                    if nargin(opts.suffix) == 0
+                        error("prodserver:mcp:InvalidMetricsSuffixFunction", ...
+      "Metrics suffix function must have at least one input parameter.");
+                    end
+                    try
+                        sfx = opts.suffix(s);
+                    catch ex
+                        error("prodserver:mcp:MetricsSuffixFunctionFailed", ...
+                            "Metrics suffix function error: %s", ex.message);
+                    end
+                    % Invalid function output cannot be used as suffix values.
+                    if ~isnumeric(sfx) && ~islogical(sfx) 
+                        error("prodserver:mcp:InvalidMetricsSuffix", ...
+                            "Suffix function must return numeric values.");
+                    end
+                elseif prodserver.mcp.validation.istext(opts.suffix)
+                    sfx = str2double(opts.suffix);
+                    if any(isnan(sfx))
+                        error("prodserver:mcp:InvalidTextMetricsSuffix", ...
+                            "Text suffixes must convert to numbers, not NaN");
+                    end
+                elseif isnumeric(opts.suffix)
+                    sfx = opts.suffix;
+                else
+                    error("prodserver:mcp:InvalidMetricsSuffix", ...
+                        "Suffix must be numeric, text, or a function handle.");
+                end
+
+                % Logical values are allowed as masks only -- they must be
+                % the same size as the metrics list.
+                if islogical(sfx) 
+                    if isequal(size(sfx),size(s))
+                        sfx = s(sfx); 
+                    else
+                        error("prodserver:mcp:InvalidMetricsMaskSize", ...
+                            "Logical index size (%d) must match metrics " + ...
+                            "list length (%d).", numel(sfx), numel(s));
+                    end
+                end
+ 
+                % If there are any NaNs in the list of target suffixes, match
+                % them against the NaNs in the returned metric suffix. At
+                % this point NaN means "no suffix".
+                i = ismember(s,sfx) | (isnan(s) & any(isnan(sfx)));
                 metrics = metrics(i);
             end
         end
@@ -159,10 +250,11 @@ classdef Catalog
             arguments
                 mc prodserver.mcp.metrics.Catalog
                 a pattern
+                opts.suffix = []
                 opts.match prodserver.mcp.metrics.Match = "Exact"
             end
 
-            metrics = filter(mc,archive=a,match=opts.match);
+            metrics = filter(mc,archive=a,match=opts.match,suffix=opts.suffix);
         end
 
         function metrics = type(mc, t)

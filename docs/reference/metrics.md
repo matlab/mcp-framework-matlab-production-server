@@ -32,13 +32,13 @@ The returned `Catalog` object provides filter methods for querying metrics. Each
 
 | Method | Signature | Description |
 | :---   | :---      | :---        |
-| archive | `m = catalog.archive(a, match=m)` | Metrics from archive `a`. `match` is optional.  |
-| filter | `m = catalog.filter(name=n, archive=a, type=t, match=m)` | Combined filter — all arguments are optional |
+| archive | `m = catalog.archive(a, match=m, suffix=s)` | Metrics from archive `a`. `match` and `suffix` are optional.  |
+| filter | `m = catalog.filter(name=n, archive=a, type=t, match=m, suffix=s)` | Combined filter — all arguments are optional |
 | name | `m = catalog.name(n, match=m)` | Metrics matching name `n`. `match` is optional. |
 | scope | `m = catalog.scope(s)` | Metrics matching scope `s` (`prodserver.mcp.metrics.Scope`) |
 | type | `m = catalog.type(t)` | Metrics of type `t` (`prodserver.mcp.metrics.Type`) |
 
-The `filter` method accepts any combination of `name`, `archive`, `type`, and `match` as name-value arguments. Omitted criteria are not applied. The `name` and `archive` methods are convenience wrappers that accept the same `match` argument.
+The `filter` method accepts any combination of `name`, `archive`, `type`, `match`, and `suffix` as name-value arguments. Omitted criteria are not applied. The `name` and `archive` methods are convenience wrappers that accept the same `match` argument. The `archive` method also accepts `suffix`.
 
 ### The `match` Argument
 
@@ -64,6 +64,30 @@ Pass a `prodserver.mcp.metrics.Type` enumeration to `catalog.type()` or `catalog
 | `Type.Counter` | Monotonically increasing counters. Reset on server restart. |
 | `Type.Gauge` | Point-in-time measurements that can increase or decrease. |
 
+### The `suffix` Argument
+
+When an archive is deployed more than once to the same server, MATLAB Production Server can report its metrics under a numbered name, such as `AlphaServer_3`. The Catalog reports the base name in `archive` and the number in `suffix`. Use the `suffix` argument of `filter` or `archive` to select metrics by deployment.
+
+| Value | Selects |
+| :--- | :--- |
+| Number or numeric array, such as `3` or `[3 5]` | Metrics whose suffix is one of the values |
+| Text that converts to a number, such as `"3"` | The same as the number |
+| `NaN` | Metrics with no suffix: instance-level metrics, and archives reported without a number |
+| Function handle | The function receives the suffixes of the metrics that match the other criteria, as a numeric array with `NaN` for no suffix. It returns either suffix values to select, as with `@max`, or a logical mask of the same size as its input, as with `@(s) s > 3`. |
+
+The suffix filter is applied after the other criteria, so `suffix=@max` selects the most recent deployment among the metrics that match `name`, `archive`, and `type`. If none of those metrics has a suffix, `@max` returns `NaN` and selects all of them.
+
+An invalid `suffix` raises an error:
+
+| Identifier | Raised when |
+| :--- | :--- |
+| `prodserver:mcp:InvalidMetricsSuffix` | `suffix` isn't numeric, text, or a function handle, or the function returns something other than numbers or a logical mask |
+| `prodserver:mcp:InvalidTextMetricsSuffix` | Text `suffix` doesn't convert to a number |
+| `prodserver:mcp:NonExistentMetricsSuffixFunction` | The function handle names a function that can't be found |
+| `prodserver:mcp:InvalidMetricsSuffixFunction` | The function takes no inputs |
+| `prodserver:mcp:MetricsSuffixFunctionFailed` | The function raised an error. The message includes its error text. |
+| `prodserver:mcp:InvalidMetricsMaskSize` | The function returned a logical mask whose size doesn't match its input |
+
 ### The `scope` Argument
 
 Pass a `prodserver.mcp.metrics.Scope` enumeration to `catalog.scope()`.
@@ -85,7 +109,7 @@ Each filter method returns a struct array with five fields per element.
 | name | string | The metric name (e.g., "MCP_Framework_Request"). |
 | type | string | The metric type ("counter" or "gauge"). |
 | archive | string | The archive (deployed CTF) that generated the metric. Empty for instance-level metrics. |
-| suffix | string or [] | The numeric deployment suffix (e.g., "3" from "AlphaServer_3"). Empty for instance-level metrics. |
+| suffix | string or [] | The numeric deployment suffix (e.g., "3" from "AlphaServer_3"). Empty for instance-level metrics and for archives reported without a suffix. |
 | value | double or string | Numeric value for counter and gauge types; string otherwise. |
 
 A metric name may appear multiple times when the same metric is reported by different archives.
@@ -152,6 +176,15 @@ catalog = prodserver.mcp.metrics("http://localhost:9910/primeSequence/mcp");
 m = catalog.filter(archive="primeSequence", type=prodserver.mcp.metrics.Type.Counter)
 ```
 The method returns only counter metrics from the `primeSequence` archive.
+
+***
+
+Get the metrics of the most recent deployment of an archive.
+```MATLAB
+catalog = prodserver.mcp.metrics("http://localhost:9910/primeSequence/mcp");
+m = catalog.archive("primeSequence", suffix=@max)
+```
+The method returns the metrics of the `primeSequence` deployment with the largest suffix. If `primeSequence` was deployed only once, and so has no suffix, it returns all of that archive's metrics.
 
 ***
 

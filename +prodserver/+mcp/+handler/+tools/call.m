@@ -26,6 +26,13 @@ function [result, httpCode, httpMsg, msgHeaders] = call(jrpc)
     % don't count as uniform output.
     tName = cellfun(@(t)string(t.name),tools);
 
+    % params.name identifies the tool and is required by the tools/call
+    % schema. Without it there is nothing to look up.
+    if ~hasField(jrpc,"params.name")
+        error("prodserver:mcp:MissingParams", ...
+            "tools/call request lacks the required params.name.");
+    end
+
     fcn = jrpc.params.name;
     k = strcmp(tName,fcn);
     if nnz(k) > 1
@@ -54,7 +61,15 @@ function [result, httpCode, httpMsg, msgHeaders] = call(jrpc)
     % Determine wire encoding for this tool.
     toolEncoding = prodserver.mcp.jsonrpc.toolEncoding(fcn,sig=sig);
 
-    actual = string(fieldnames(jrpc.params.arguments));
+    % arguments is optional in the tools/call schema: a tool that takes no
+    % inputs is called without it. Treat an absent or empty arguments object
+    % as no arguments supplied rather than failing to index it.
+    if hasField(jrpc,"params.arguments") && isstruct(jrpc.params.arguments)
+        actual = string(fieldnames(jrpc.params.arguments));
+    else
+        actual = string.empty(0,1);
+        jrpc.params.arguments = struct();
+    end
 
     % Wire-decode input arguments using the tool's encoding.
     allVals = cell(1,numel(actual));
@@ -69,99 +84,158 @@ function [result, httpCode, httpMsg, msgHeaders] = call(jrpc)
     % Separate optional from required arguments.
     %  1. Subtract required from all positional to yield max. optional.
     %  2. Keep optional that appear in the tools/call body.
-    in = string(t.inputSchema.required);
+    % A tool with no required inputs may advertise "required" either way: the
+    % key can be absent entirely, or present and empty. Both shapes are real --
+    % Test/tools/toyTools/toyZeroInputs.json omits it, while a live server
+    % serving that same tool returns "required":[] -- so neither the field nor
+    % its contents can be assumed. Hence the guard, and hence string() rather
+    % than split() just below: jsondecode turns "required":[] into a 0x0 double,
+    % which string() tolerates and split() rejects with
+    % MATLAB:string:MustBeCharCellArrayOrString. That exact mismatch crashed the
+    % client side in +jsonrpc/toolsCall.m.
+    if isfield(t.inputSchema,"required")
+        in = string(t.inputSchema.required);
+    else
+        in = string.empty(0,1);
+    end
     kind = ParameterKind(sig.(fcn).input.kind);
     optional = sig.(fcn).input.order(kind == ParameterKind.Optional);
     optional = intersect(optional, actual, "stable");
     nvp = setdiff(actual,[in(:); optional(:)]);
 
-    % All required arguments must be present.
-    if isempty(intersect(in,actual))
+    % EVERY required argument must be present. Testing that the intersection
+    % is non-empty would only catch the case where all of them are missing,
+    % and a partially-supplied call would then fail on an indexing error
+    % below -- reported as an internal fault rather than bad params.
+    missing = setdiff(in, actual, "stable");
+    if ~isempty(missing)
         error("prodserver:mcp:BadInputArguments", ...
-            "Tool '%s' requires inputs '%s', but received '%s'.", ...
-            fcn,strjoin(t.inputSchema.required,","), strjoin(in,","));
+            "Tool '%s' requires inputs '%s', but received '%s'. " + ...
+            "Missing: '%s'.", ...
+            fcn, strjoin(in,","), strjoin(actual,","), strjoin(missing,","));
     end
 
     % Make space for all arguments.
     N = numel(in) + numel(optional) + (numel(nvp) * 2);
     inArgs = cell(1,N);
 
-    % Required arguments.
-    for n = 1:numel(in)
-        inArgs{n} = jrpc.params.arguments.(in{n});
+    % Fill positionally: required first, then optional positional, then
+    % name-value pairs at the end. One cursor runs across all three loops.
+    %
+    % The cursor is deliberately independent of any loop variable. Reusing the
+    % required-argument loop variable, and guarding the optional and
+    % name-value loops behind it, breaks for a tool with no required inputs:
+    % MATLAB assigns the loop variable the empty range when a loop does not
+    % run, so the guard is never satisfied and every supplied argument is
+    % silently dropped.
+    n = 1;
+    for k = 1:numel(in)
+        inArgs{n} = jrpc.params.arguments.(in{k});
+        n = n + 1;
     end
 
-    % n is the index of the last required argument.
-    if n < numel(actual)
+    % Optional positional arguments. Already narrowed to those the call
+    % actually supplied.
+    for k = 1:numel(optional)
+        inArgs{n} = jrpc.params.arguments.(optional(k));
         n = n + 1;
+    end
 
-        % Optional positional arguments.
-        for k = 1:numel(optional)
-            inArgs{n} = jrpc.params.arguments.(optional(k));
-            n = n + 1;
-        end
+    % TODO: Repeated arguments.
 
-        % TODO: Repeated arguments.
-
-        % Add name-value pairs to the end of the argument list: use
-        % name of the argument as the name of the name-value pair.
-        for k = 1:numel(nvp)
-            inArgs{n} = nvp(k);
-            inArgs{n+1} = jrpc.params.arguments.(nvp(k));
-            n = n + 2;
-        end
+    % Add name-value pairs to the end of the argument list: use
+    % name of the argument as the name of the name-value pair.
+    for k = 1:numel(nvp)
+        inArgs{n} = nvp(k);
+        inArgs{n+1} = jrpc.params.arguments.(nvp(k));
+        n = n + 2;
     end
 
     % Create a cell array large enough for all the outputs. 
     out = sig.(fcn).output.name;
     outArgs = cell(1,numel(out));
 
-    % Call the tool.
-    [outArgs{:}] = feval(sig.(fcn).function, inArgs{:});
+    % Call the tool and encode its outputs. A failure anywhere below is a
+    % tool-EXECUTION error (the tool ran and failed). MCP represents that as
+    % an isError result carried over HTTP 200 -- NOT as a JSON-RPC protocol
+    % error. Protocol-level errors (unknown method, bad/missing params) are
+    % raised before this point and formatted by the top-level handler.
+    %
+    % Call through a function handle, not feval. An arguments block that
+    % rejects an input inside feval counts the function name as argument 1,
+    % so the error names the wrong position, and that text is what the
+    % client, often an LLM, reads to correct its call.
+    %
+    % str2func does not check that the function exists, so a definition
+    % naming a missing function fails when the handle is called, inside the
+    % try, and is reported as isError just as it was under feval.
+    tool = str2func(sig.(fcn).function);
+    try
+        [outArgs{:}] = tool(inArgs{:});
 
-    % Content must have a value to be wire-encoded.
-    content = [];
+        % Content must have a value to be wire-encoded.
+        content = []; %#ok<NASGU>
 
-    % Extract tool results from cell array and write them to structure
-    % (which will be JSON-encoded). outArgs and out define the order,
-    % which structuredContent does not care about.
-    encodedOut = mcpEncode(toolEncoding, outArgs{:});
-    for n = 1:numel(out)
-        r.structuredContent.(out{n}) = encodedOut{n};
-    end
+        % Extract tool results from cell array and write them to structure
+        % (which will be JSON-encoded). outArgs and out define the order,
+        % which structuredContent does not care about.
+        encodedOut = mcpEncode(toolEncoding, outArgs{:});
+        for n = 1:numel(out)
+            r.structuredContent.(out{n}) = encodedOut{n};
+        end
 
-    % Add by-reference outputs to content and structuredContent array so 
-    % LLMs don't mistakenly assume the call failed because r.content is 
-    % empty. (A function with all large outputs may have all of its 
-    % outputs passed by reference.) 
+        % Add by-reference outputs to content and structuredContent array so
+        % LLMs don't mistakenly assume the call failed because r.content is
+        % empty. (A function with all large outputs may have all of its
+        % outputs passed by reference.)
 
-    % Find external outputs: look for t.inputSchema.properties objects
-    % with writeOnly: true.
-    if hasField(t,"inputSchema.properties")
-        in = fieldnames(t.inputSchema.properties);
-        for n = 1:numel(in)
-            if hasField(t.inputSchema.properties.(in{n}),"writeOnly") && ...
-                t.inputSchema.properties.(in{n}).writeOnly == true
-                if isfield(jrpc.params.arguments,in{n})
-                    r.structuredContent.(in{n}) = jrpc.params.arguments.(in{n});
+        % Find external outputs: look for t.inputSchema.properties objects
+        % with writeOnly: true.
+        if hasField(t,"inputSchema.properties")
+            % Named props, not in: in holds the required-argument list, and
+            % overwriting it here left the two meanings of one variable only a
+            % few lines apart.
+            props = fieldnames(t.inputSchema.properties);
+            for p = 1:numel(props)
+                if hasField(t.inputSchema.properties.(props{p}),"writeOnly") && ...
+                    t.inputSchema.properties.(props{p}).writeOnly == true
+                    if isfield(jrpc.params.arguments,props{p})
+                        r.structuredContent.(props{p}) = ...
+                            jrpc.params.arguments.(props{p});
+                    end
                 end
             end
         end
-    end
 
-    % Return content as a string. Should not be required but some clients 
-    % require non-empty content, even when structuredContent has a value 
-    % (looking at you, Claude).
-    %
-    % Encode to JSON. Gets encoded again later, which allows it to
-    % be delivered to the client as a legitimate JSON string. Which
-    % is what Claude wants...
-    c.type = "text";
-    if isfield(r, 'structuredContent')
-        c.text = jsonencode(r.structuredContent);
-    else
-        c.text = "{}";
+        % Return content as a string. Should not be required but some clients
+        % require non-empty content, even when structuredContent has a value
+        % (looking at you, Claude).
+        %
+        % Encode to JSON. Gets encoded again later, which allows it to
+        % be delivered to the client as a legitimate JSON string. Which
+        % is what Claude wants...
+        c.type = "text";
+        if isfield(r, 'structuredContent')
+            c.text = jsonencode(r.structuredContent);
+        else
+            c.text = "{}";
+        end
+        r.content = {c} ;  % Must be array for Claude desktop.
+    catch me
+        % Tool-execution error. Report via the MCP isError convention
+        % (follow it or these errors will be ignored); HTTP status stays
+        % 200 because the transport and the protocol both succeeded.
+        r = struct();
+        r.isError = true;
+        tc.type = "text";
+        if ~isempty(me.stack)
+            location = me.stack(1);
+            [~, efile] = fileparts(location.file);
+            tc.text = sprintf("%s:%d : %s", efile, location.line, me.message);
+        else
+            tc.text = me.message;
+        end
+        r.content = {tc};
     end
-    r.content = {c} ;  % Must be array for Claude desktop.
     result.result = r;
 end

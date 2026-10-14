@@ -116,8 +116,10 @@ The LLM reads a resource by URI. MCP Framework includes a built-in `read_mcp_res
 
 ```
 Tool: read_mcp_resource
-Input: {"url": "mcp://materials/aluminum_6061"}
+Input: {"uri": "mcp://materials/aluminum_6061"}
 ```
+
+A URI that matches no resource is a failed read, not an empty one: the tool reports an error rather than returning blank content, so an LLM that mistypes a URI is told so instead of concluding the resource exists and is empty. `resources/read` answers the same case with JSON-RPC error `-32002`.
 
 From MATLAB, use `prodserver.mcp.read` to fetch a resource by URI:
 

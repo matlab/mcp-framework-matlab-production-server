@@ -31,6 +31,17 @@ classdef MCPConstants
         jrpcVersion = "2.0"
         protocolVersion = "2025-06-18";
 
+        % JSON-RPC 2.0 / MCP error codes
+        ErrorParseError     = -32700;
+        ErrorInvalidRequest = -32600;
+        ErrorMethodNotFound = -32601;
+        ErrorInvalidParams  = -32602;
+        ErrorInternalError  = -32603;
+
+        % MCP-specific error code, outside the JSON-RPC reserved range:
+        % resources/read for a URI this server does not host.
+        ErrorResourceNotFound = -32002;
+
         Array = "array";   % JSONRPC array type
         DefaultArgType = "double";  
 

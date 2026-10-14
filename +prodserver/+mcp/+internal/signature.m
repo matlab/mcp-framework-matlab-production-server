@@ -33,14 +33,16 @@ function sig = signature(tool,endpoint,session,opts)
     io = ["input", "output"];
     for t = tool
         for i = io
-            sig.(t).(i).name = string(sig.(t).(i).name);
-            sig.(t).(i).type = string(sig.(t).(i).type);
-            sig.(t).(i).order = string(sig.(t).(i).order);
-            k = sig.(t).(i).kind;
-            if isempty(k)
-                sig.(t).(i).kind = ParameterKind.empty;
-            else
-                sig.(t).(i).kind = ParameterKind(k);
+            if hasField(sig.(t),i)
+                sig.(t).(i).name = string(sig.(t).(i).name);
+                sig.(t).(i).type = string(sig.(t).(i).type);
+                sig.(t).(i).order = string(sig.(t).(i).order);
+                k = sig.(t).(i).kind;
+                if isempty(k)
+                    sig.(t).(i).kind = ParameterKind.empty;
+                else
+                    sig.(t).(i).kind = ParameterKind(k);
+                end
             end
         end
     end

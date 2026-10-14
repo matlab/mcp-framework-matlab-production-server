@@ -29,17 +29,16 @@ classdef tAdditionalFiles < matlab.unittest.TestCase
 
         function validateFileCapture(test,archive,files)
 
-            % If we can't open the archive, we can't do any validation.
-            if ispc
-                inspector = "tar -tf """ + archive + """";
-            else
-                inspector = "unzip -l """ + archive + """";
-            end
-            [ok,listOutput] = system(inspector);
-            test.assertEqual(ok,0,listOutput);
+            % Unpack the archive into a scratch folder; unzip returns the
+            % full path of every extracted file.
+            import matlab.unittest.fixtures.TemporaryFolderFixture
+            scratch = test.applyFixture(TemporaryFolderFixture);
+            extracted = string(unzip(archive, scratch.Folder));
 
-            % Extract file entries beginning with "fsroot"
-            fileList = regexp(listOutput, 'fsroot[\S ]*\n', 'match');
+            % Keep file entries under "fsroot", relative to the scratch
+            % folder so its own name can't produce a spurious match.
+            entries = extractAfter(extracted, scratch.Folder);
+            fileList = entries(startsWith(entries, filesep + "fsroot"));
 
             for n = 1:numel(files)
                 found = nnz(contains(fileList, files(n)));

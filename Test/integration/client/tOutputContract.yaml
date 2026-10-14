@@ -1,0 +1,169 @@
+# Fixture for tOutputContract. Two tools, chosen for their output declarations
+# rather than for doing anything useful:
+#
+#   mockOneOutput  -- declares exactly one output, "report". The year argument
+#                     selects which structuredContent shape comes back, so one
+#                     tool covers the well-formed, the surplus and the missing
+#                     cases.
+#   mockNoOutputs  -- declares no outputs at all: no outputSchema, and a
+#                     signature with no "output" member. There is then nothing
+#                     that says what the structured content it returns is
+#                     called.
+#   mockEmptyOutputs
+#                  -- the same, in the other shape: an "output" member that is
+#                     present but names nothing. Both shapes are real, so both
+#                     are covered -- this framework's own server emits the
+#                     empty-arrays form, while an omitted member is what any
+#                     other signature producer would plausibly send, and it
+#                     used to crash the client in internal/signature.m before
+#                     it ever reached the output handling.
+#
+# Neither needs to exist as a MATLAB function: prodserver.mcp.call learns
+# everything it knows about a tool from tools/list and /signature.
+routes:
+  - path: /mcp
+    methods:
+      - POST
+      # DELETE is the terminate request. Answered 204 so these test points are
+      # not noisy with TerminateFailed warnings; tTerminateFailed covers the
+      # failing case.
+      - DELETE
+    request:
+      - jrpc: initialize
+        response:
+          status: 201
+          headers:
+            Content-Type: application/json
+            Mcp-Session-Id: alpha
+          body:
+            result:
+              capabilities:
+                tools:
+                   listChanged: false
+      - jrpc: notifications/initialized
+        response:
+          status: 200
+          headers:
+            Mcp-Session-Id: alpha
+      - jrpc: tools/list
+        response:
+          status: 200
+          headers:
+            Content-Type: application/json
+            Mcp-Session-Id: alpha
+          body:
+            result:
+              tools: [
+                {"name":"mockOneOutput","description":"Declares one output.","inputSchema":{"type":"object","properties":{"year":{"type":"number","description":"Selects the response shape"},"make":{"type":"string","description":"Ignored"}},"required":["year","make"],"additionalProperties":false},"outputSchema":{"type":"object","properties":{"report":{"type":"string","description":"The only declared output"}},"required":["report"],"additionalProperties":false}},
+                {"name":"mockNoOutputs","description":"Declares no outputs.","inputSchema":{"type":"object","properties":{"n":{"type":"number","description":"Ignored"},"type":{"type":"string","description":"Ignored"}},"required":["n","type"],"additionalProperties":false}},
+                {"name":"mockEmptyOutputs","description":"Declares no outputs, the other way.","inputSchema":{"type":"object","properties":{"n":{"type":"number","description":"Ignored"},"type":{"type":"string","description":"Ignored"}},"required":["n","type"],"additionalProperties":false}}
+                ]
+      # Well formed: the one declared output, and nothing else.
+      - jrpc: tools/call
+        call:
+          name: "mockOneOutput"
+          input:
+            year: 2001
+            make: "Plain"
+        response:
+          status: 200
+          headers:
+            Content-Type: application/json
+            Mcp-Session-Id: alpha
+          body:
+            result: { "structuredContent": { "report": "one declared output" } }
+      # Declared output absent. The server returned structured content, so this
+      # is not the NoStructuredContent case -- it is content that does not
+      # contain what the tool said it would.
+      - jrpc: tools/call
+        call:
+          name: "mockOneOutput"
+          input:
+            year: 2002
+            make: "Missing"
+        response:
+          status: 200
+          headers:
+            Content-Type: application/json
+            Mcp-Session-Id: alpha
+          body:
+            result: { "structuredContent": { "mileage": "not the declared name" } }
+      # Surplus: the declared output plus two undeclared ones.
+      - jrpc: tools/call
+        call:
+          name: "mockOneOutput"
+          input:
+            year: 2003
+            make: "Surplus"
+        response:
+          status: 200
+          headers:
+            Content-Type: application/json
+            Mcp-Session-Id: alpha
+          body:
+            result: { "structuredContent": { "report": "one declared output", "extra": "undeclared", "another": 42 } }
+      # Structured content from a tool that declares no outputs, so nothing
+      # names or orders it. Once in each of the two shapes.
+      - jrpc: tools/call
+        call:
+          name: "mockNoOutputs"
+          input:
+            n: 7
+            type: "Whatever"
+        response:
+          status: 200
+          headers:
+            Content-Type: application/json
+            Mcp-Session-Id: alpha
+          body:
+            result: { "structuredContent": { "anything": 1 } }
+      - jrpc: tools/call
+        call:
+          name: "mockEmptyOutputs"
+          input:
+            n: 7
+            type: "Whatever"
+        response:
+          status: 200
+          headers:
+            Content-Type: application/json
+            Mcp-Session-Id: alpha
+          body:
+            result: { "structuredContent": { "anything": 1 } }
+      # Terminate (DELETE, empty body) succeeds.
+      - body: ""
+        response:
+          status: 204
+          headers:
+            Mcp-Session-Id: alpha
+  - path: /signature
+    methods:
+      # /signature is a POST method because it has a body.
+      - POST
+    request:
+      - body: "mockOneOutput"
+        response:
+          status: 200
+          headers:
+            Content-Type: application/json
+            Mcp-Session-Id: alpha
+          body: {"mockOneOutput":{"function":"mockOneOutput","input":{"name":["year","make"],"type":["double","string"],"kind":["Required","Required"],"order":["year","make"]},"output":{"name":"report","type":"string","kind":"Required","order":"report"}}}
+      # No "output" member at all. This used to crash the client in
+      # prodserver.mcp.internal.signature, which dereferenced both input and
+      # output unconditionally, before any of the output handling was reached.
+      - body: "mockNoOutputs"
+        response:
+          status: 200
+          headers:
+            Content-Type: application/json
+            Mcp-Session-Id: alpha
+          body: {"mockNoOutputs":{"function":"mockNoOutputs","input":{"name":["n","type"],"type":["double","string"],"kind":["Required","Required"],"order":["n","type"]}}}
+      # An "output" member that is present but names nothing. This is the shape
+      # this framework's own server emits for a tool that returns nothing.
+      - body: "mockEmptyOutputs"
+        response:
+          status: 200
+          headers:
+            Content-Type: application/json
+            Mcp-Session-Id: alpha
+          body: {"mockEmptyOutputs":{"function":"mockEmptyOutputs","input":{"name":["n","type"],"type":["double","string"],"kind":["Required","Required"],"order":["n","type"]},"output":{"name":[],"type":[],"kind":[],"order":[]}}}

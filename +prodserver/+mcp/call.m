@@ -10,6 +10,13 @@ function [varargout] = call(endpoint, tool, varargin)
 %   (order matters) while optional arguments are order-independent
 %   name/value pairs.
 %
+%   Outputs are positional and ordered by the tool's output schema, followed
+%   by any further outputs its signature declares. Ask for as many as you
+%   want, up to the number the tool returns; asking for more is an error. A
+%   tool that returns more than you asked for is not an error -- the surplus
+%   is simply not returned, which is also the only option MATLAB allows,
+%   since varargout entries beyond nargout are discarded.
+%
 % Examples:
 %
 %  Invoke "cleanSignal" tool with three required inputs:
@@ -38,12 +45,14 @@ function [varargout] = call(endpoint, tool, varargin)
     import prodserver.mcp.jsonrpc.mcpDecode
 
     %
-    % Initialize connection via JSON-RPC "initialize" message.
+    % Initialize connection via JSON-RPC "initialize" message. And make
+    % session terminate exception-proof.
     %
 
     % Require that the server publish tools.
     [session,id] = prodserver.mcp.internal.initialize(endpoint, ...
         require="Tool");
+    terminate = onCleanup(@()terminateSession(endpoint,session));
 
     %
     % Check tools, to verify that TOOL exists at ENDPOINT
@@ -158,9 +167,11 @@ function [varargout] = call(endpoint, tool, varargin)
     end
 
     % Prefer structured content, if available.
-    if hasField(response,"Body.Data.result.structuredContent")  
-        % Result is "structuredContent". Return the outputs as a cell
-        % array. Order by output schema if available.
+    if hasField(response,"Body.Data.result.structuredContent")
+        % Result is "structuredContent". Outputs are positional: ordered by
+        % the output schema first, then by any further names the signature
+        % declares. REQ is that order, and it is the only order either side
+        % agrees on -- the field order jsondecode produces is the wire's.
         result = response.Body.Data.result.structuredContent;
         req = string.empty;
         if hasField(t,"outputSchema.required")
@@ -169,49 +180,71 @@ function [varargout] = call(endpoint, tool, varargin)
         if hasField(sig,tool+".output")
             req = union(req,string(sig.(tool).output.name),"stable");
         end
-        if ~isempty(req)
-            req = string(req);
-            varargout = cell(1,nargout);
-            outVals = cell(1,nargout);
-            for n=1:nargout
+
+        if isempty(req)
+            % Nothing says what the outputs are called, so there is no
+            % defensible order to return them in. Refuse only if the caller
+            % actually asked for something.
+            if nargout > 0
+                error("prodserver:mcp:TooFewOutputs", "Tool %s at %s " + ...
+                    "declares no outputs, so the %d requested cannot be " + ...
+                    "ordered. Inform tool creator.", tool, endpoint, nargout);
+            end
+            varargout = {};
+        else
+            % A call made as a statement has nargout 0 and still wants one
+            % output, in ans. Filling 1:nargout left that call returning
+            % nothing at all -- no display, no ans -- which looks exactly
+            % like a tool that produced no result.
+            wanted = max(nargout,1);
+
+            if wanted > numel(req)
+                error("prodserver:mcp:TooFewOutputs", "Tool %s at %s " + ...
+                    "declares %d output(s) (%s) but %d requested.", ...
+                    tool, endpoint, numel(req), strjoin(req,", "), wanted);
+            end
+
+            % REQ unions two sources, either of which may name something the
+            % server did not actually send. Say which, rather than letting the
+            % field index below raise MATLAB:nonExistentField, which names the
+            % field but not the tool, the endpoint or the reason.
+            absent = setdiff(req(1:wanted), ...
+                string(fieldnames(result)),"stable");
+            if ~isempty(absent)
+                error("prodserver:mcp:MissingOutputs", "Tool %s at %s did " + ...
+                    "not return declared output(s) %s.", tool, endpoint, ...
+                    strjoin(absent,", "));
+            end
+
+            outVals = cell(1,wanted);
+            for n=1:wanted
                 outVals{n} = result.(req(n));
             end
             decoded = mcpDecode(encoding, outVals{:});
-            for n=1:nargout
+            varargout = cell(1,wanted);
+            for n=1:wanted
                 varargout{n} = decoded{n};
             end
-        elseif nargout > 0
-            error("prodserver:mcp:TooFewOutputs",...
-                "Too few outputs. %d requested. %d received from %s.", ...
-                nargout, numel(req), endpoint);
         end
-    
-        if N < numel(result)
-            % Create name/value pairs from the remaining (non-required)
-            % outputs and add them to the end of varargout.
-            if exist("req","var")
-                result = rmfield(result,req);
-            end
-            names = fieldnames(result);
-            values = cellfun(@(n)result.(n),names);
-            optOut = [names;values]; optOut = optOut{:};
-    
-            varargout = [ varargout, optOut ];
-        end
-    elseif hasField(response,"Body.Data.result.content")  
+    elseif hasField(response,"Body.Data.result.content")
         varargout{1} = response.Body.Data.result.content;
     else 
         varargout = {};
     end
 
     %
-    % Terminate session
+    % Terminate session via onCleanup
     %
 
-    % No response expected.
+   
+end
+
+function terminateSession(endpoint, session)
+% Terminate errors are "soft" -- they do not prevent delivery of
+% results. 
+
     try
-        % Terminate errors are "soft" -- they do not prevent delivery of
-        % results. 
+        % No response expected.
         prodserver.mcp.internal.terminate(endpoint,session);
     catch me
         warning("prodserver:mcp:TerminateFailed", "Failed to terminate " + ...

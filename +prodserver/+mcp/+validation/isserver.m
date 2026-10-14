@@ -34,8 +34,18 @@ function [tf, isActive] = isserver(x,opts)
                 url = x + "/" + ping;
             end
             webOpts = weboptions(Timeout=opts.timeout);
+
+            % Seed the result so the test below always has something to read.
+            % It used to be assigned only by a successful webread, so every
+            % attempt 404ing -- or a RETRY below 1, which runs no attempts at
+            % all -- left it undefined and the test raised "Unrecognized
+            % function or variable 'result'" instead of reporting a server that
+            % is not answering. Callers translate a false ISACTIVE into a clear
+            % diagnosis (prodserver:mcp:InactiveServer); they could do nothing
+            % with an unassigned-variable error from in here.
+            result = [];
             n = 1;
-            while n <= opts.retry
+            while n <= opts.retry && isempty(result)
                 try
                     result = webread(url,webOpts);
                 catch ex

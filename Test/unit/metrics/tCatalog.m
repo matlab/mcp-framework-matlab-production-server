@@ -190,6 +190,48 @@ classdef tCatalog < matlab.unittest.TestCase
 
         % --- suffix tests ---
 
+        function nanReturnsUnsuffixedMetrics(test)
+            m = test.catalog.filter(suffix=NaN);
+            test.verifyNumElements(m, 10);
+            test.verifyTrue(all(arrayfun(@(metric) isempty(metric.suffix), m)));
+        end
+
+        function badSuffixType(test)
+            test.verifyError(@()test.catalog.filter(suffix={1,3,4}), ...
+                "prodserver:mcp:InvalidMetricsSuffix");
+
+            s.x = 1; s.y = 2; s.z = 3;
+            test.verifyError(@()test.catalog.filter(suffix=s), ...
+                "prodserver:mcp:InvalidMetricsSuffix");
+
+            test.verifyError(@()test.catalog.filter(suffix=@(x)"BadSuffix"), ...
+                "prodserver:mcp:InvalidMetricsSuffix");
+
+            test.verifyError(@()test.catalog.filter(suffix=@(x)error("BadSuffix")), ...
+                "prodserver:mcp:MetricsSuffixFunctionFailed");
+
+            test.verifyError(@()test.catalog.filter(suffix="x"), ...
+                "prodserver:mcp:InvalidTextMetricsSuffix");
+        end
+
+        function invalidMetricsMask(test)
+            test.verifyError(@()test.catalog.filter(suffix=@(s) true), ...
+                "prodserver:mcp:InvalidMetricsMaskSize");
+        end
+
+        function filterBySuffixRejectsInvalidFunctionHandle(test)
+            test.verifyError(@()test.catalog.filter(suffix=@()1), ...
+                "prodserver:mcp:InvalidMetricsSuffixFunction");
+            test.verifyError(@()test.catalog.filter(suffix=@not_a_function), ...
+                "prodserver:mcp:NonExistentMetricsSuffixFunction");
+        end
+
+        function predicateSuffix(test)
+            % Metrics from Delta and Epsilon servers
+            m = test.catalog.filter(suffix=@(s)s > 3);
+            test.verifyEqual(unique([m.archive]), ["DeltaServer","EpsilonServer"]);
+        end
+
         function suffixParsedFromArchiveName(test)
             m = test.catalog.archive("AlphaServer");
             test.verifyNumElements(m, 3);
@@ -213,6 +255,34 @@ classdef tCatalog < matlab.unittest.TestCase
         function suffixEmptyForInstanceMetrics(test)
             m = test.catalog.name("matlabprodserver_up_time_seconds");
             test.verifyEmpty(m.suffix);
+        end
+
+        function filterBySuffixReturnsAllMetricsWithThatSuffix(test)
+            % AlphaServer has 3 metrics, all suffix "3". 
+            m = test.catalog.filter(suffix="3");
+            test.verifyNumElements(m, 3);
+            test.verifyEqual(unique([m.archive]), "AlphaServer");
+        end
+
+        function filterBySuffixAcceptsDouble(test)
+            % str2double(3) is NaN, so this currently returns nothing.
+            m = test.catalog.filter(suffix=3);
+            test.verifyNumElements(m, 3);
+        end
+
+        function filterBySuffixFunctionHandle(test)
+            % @max selects DeltaServer (suffix 5), every one of its metrics.
+            m = test.catalog.filter(suffix=@max);
+            test.verifyNotEmpty(m);
+            test.verifyEqual(unique([m.archive]), "DeltaServer");
+            test.verifyNumElements(m, numel(test.catalog.archive("DeltaServer")));
+        end
+
+        function filterBySuffixIgnoresUnsuffixedMetrics(test)
+            % 10 instance metrics have [] suffixes
+            m = test.catalog.filter(suffix="1");
+            test.verifyEqual(unique([m.archive]), "BetaServer");
+            test.verifyNumElements(m, 4);
         end
 
         % --- filter() tests ---
