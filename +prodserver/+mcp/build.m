@@ -300,7 +300,12 @@ function ctf = buildMCP(files, folder, archive, definition, routesType, stop, di
     % Copy boiler-plate routes files into customer-provided deployment
     % artifact folder (which must exist).
     root = fileparts(mfilename("fullpath"));
-    copyfile(fullfile(root,"+internal","*_routes.json"),folder);
+    [status, msg] = copyfile(fullfile(root,"+internal","*_routes.json"), ...
+        folder,"f");
+    if status == 0
+        error("prodserver:mcp:CopyRoutesFailed", "Failed to copy " + ...
+            "web routing files into '%s': %s", folder, msg);
+    end
 
     % Edit the instance routes file to replace <ArchiveName> with the 
     % name of the archive.
