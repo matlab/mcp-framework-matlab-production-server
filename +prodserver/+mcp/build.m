@@ -337,6 +337,14 @@ function ctf = buildMCP(files, folder, archive, definition, routesType, stop, di
         restoreUndeployable = onCleanup(@()warning(status.state,id));
     end
 
+    % MATLAB Compiler briefly puts the folder of each function it inspects
+    % at the front of the path. For the handlers below, that folder is the
+    % package root, which an installed add-on requires to come after its
+    % member folders, so every inspection warns.
+    reorderID = 'MATLAB:mpath:PackagesBrokenAsAtomicUnitDueToReorderedEntries';
+    reorderState = warning('off', reorderID);
+    restoreReorder = onCleanup(@()warning(reorderState));
+
     % I/O scheme management subclasses are invoked indirectly and thus
     % impossible for MATLAB Compiler to find by inspection. Assemble a list
     % of them and build them into the archive via "AdditionalFiles". Each
