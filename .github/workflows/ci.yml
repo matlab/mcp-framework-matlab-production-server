@@ -276,7 +276,7 @@ jobs:
       - name: Set up MATLAB
         uses: matlab-actions/setup-matlab@v3
         with:
-          release: R2025b
+          release: R2026b
       - name: Build toolbox
         uses: matlab-actions/run-command@v3
         with:
