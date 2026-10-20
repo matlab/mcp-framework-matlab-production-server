@@ -74,9 +74,6 @@ function tf = isTestFile(filePath)
     filePath = strrep(filePath, '\', '/');
     [folder, className] = fileparts(filePath);
 
-    p = path;
-    restorePath = onCleanup(@() path(p));
-
     parts = split(folder, '/');
     pkgIdx = find(startsWith(parts, "+"), 1, 'first');
     if ~isempty(pkgIdx)
@@ -85,7 +82,10 @@ function tf = isTestFile(filePath)
         className = strjoin([pkgParts; string(className)], ".");
     end
 
-    addpath(folder);
+    if prodserver.mcp.internal.isOnPath(folder) == false
+        addpath(folder);
+        restorePath = onCleanup(@()rmpath(folder));
+    end
     s = superclasses(className);
 
     tf = any(strcmp(s, 'matlab.unittest.TestCase'));

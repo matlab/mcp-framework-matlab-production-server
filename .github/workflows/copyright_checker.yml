@@ -3,6 +3,7 @@ on:
   pull_request:
 jobs:
   copyright-checker:
+    if: github.server_url != 'https://github.com'
     runs-on: [self-hosted, runner-source=AWS]
     steps:
       - name: Checkout repository

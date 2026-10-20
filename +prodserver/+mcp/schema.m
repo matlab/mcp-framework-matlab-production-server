@@ -52,11 +52,14 @@ function definitions = schema(fcns, example, opts)
     % shadows are in pwd (which always wins for function resolution).
     % Add the original pwd to the path so data files remain accessible.
     shadowDir = generateShadow(fcns);
-    pth = path;
     originalDir = pwd;
-    shadows = onCleanup(@()cleanup(shadowDir, pth, originalDir, fcns));
-    addpath(originalDir);
     cd(shadowDir);
+    cleanupPath = "";  % Remove from path if we added it to path.
+    if prodserver.mcp.internal.isOnPath(originalDir) == false
+        addpath(originalDir);
+        cleanupPath = originalDir;
+    end
+    shadows = onCleanup(@()cleanup(shadowDir, cleanupPath, originalDir, fcns));
 
     % Rebind function handle examples so they resolve to the shadow.
     example = rebindExample(example, fcns, shadowDir);
@@ -141,9 +144,11 @@ function example = rebindExample(example, fcns, shadowDir)
     example = eval(expr);
 end
 
-function cleanup(shadowDir, pth, originalDir, fcns)
+function cleanup(shadowDir, cleanupPath, originalDir, fcns)
     cd(originalDir);
-    path(pth);
+    if ~isempty(cleanupPath) && strlength(cleanupPath) > 0
+        rmpath(cleanupPath);
+    end
     for i = 1:numel(fcns)
         key = "mcp__realHandle__" + fcns(i);
         if isappdata(0, key)

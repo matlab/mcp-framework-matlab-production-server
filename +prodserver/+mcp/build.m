@@ -198,8 +198,10 @@ function [ctf,endpoint] = build(fcn, opts)
     wireEncoding = [enc, "JSON"];
     builtin_tools_folder = fullfile(...
         prodserver.mcp.internal.packageFolder(),"server","tools");
-    addpath(builtin_tools_folder);
-    cleanUpBuiltinFolderPath = onCleanup(@()rmpath(builtin_tools_folder));
+    if prodserver.mcp.internal.isOnPath(builtin_tools_folder) == false
+        addpath(builtin_tools_folder);
+        cleanUpBuiltinFolderPath = onCleanup(@()rmpath(builtin_tools_folder));
+    end
     % Empty defs for resource reader, since no wrapper.
     if ~isempty(defs)
         defs = [defs {[]}];

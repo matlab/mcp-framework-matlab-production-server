@@ -16,6 +16,7 @@ permissions:
 
 jobs:
   review-gate:
+    if: github.server_url != 'https://github.com'
     runs-on: [self-hosted, runner-source=AWS]
     steps:
       - name: Checkout reviews branch

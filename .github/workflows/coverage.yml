@@ -20,7 +20,9 @@ jobs:
   combined-coverage:
     name: Combined Coverage
     runs-on: [self-hosted, hasSFSAccess, glnxa64]
-    if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || github.event_name == 'workflow_dispatch'
+    if: >-
+      github.server_url != 'https://github.com' &&
+      ((github.ref == 'refs/heads/main' && github.event_name == 'push') || github.event_name == 'workflow_dispatch')
     timeout-minutes: 45
     steps:
       - name: Checkout repository
