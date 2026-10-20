@@ -272,7 +272,7 @@ jobs:
       MLTBX_VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Set up MATLAB
         uses: matlab-actions/setup-matlab@v3
         with:
@@ -301,7 +301,7 @@ jobs:
             opts.OutputFile = fullfile(root, "mcp_production_server.mltbx");
             matlab.addons.toolbox.packageToolbox(opts);
       - name: Keep toolbox as an artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: mcp_production_server-mltbx
           path: mcp_production_server.mltbx
