@@ -45,14 +45,12 @@ classdef tHttpError < prodserver.mcp.test.base.MCPHandlerBase
             toolEncoding = prodserver.mcp.jsonrpc.toolEncoding("primeSequence", ...
                 defFile=test.definitionFile);
 
-            % Make up a session ID
-            id = matlab.lang.internal.uuid;
-            req.Headers = [req.Headers; { MCPConstants.SessionId id} ];
-
-            % Call primeSequence with a string as the first input. This
-            % should raise an error about scalar input, since converting 
-            % "thirteen" to a double (via HTTP, which first turns it into
-            % a char array) turns it into an array of ASCII values.
+            % Call primeSequence with a string as the first input, which
+            % its schema says is a number. Once, this reached the tool as a
+            % char array, which MATLAB treated as an array of character
+            % codes. Now the server rejects it before the tool runs, as the
+            % serving revision says: -32602 under 2025-06-18, a tool
+            % execution error the model can correct under 2026-07-28.
             body = [...
                 '{' ...
                 '    "jsonrpc": "2.0",' ...
@@ -67,6 +65,12 @@ classdef tHttpError < prodserver.mcp.test.base.MCPHandlerBase
                 '    }'...
                 '}'
                 ];
+
+            % Add the protocol-specific envelope (a 2025-06-18 session header
+            % or 2026-07-28 _meta + version header) so the request is
+            % detected as the protocol under test.
+            [req, body] = test.applyProtocol(req, body);
+
             reqT = req;
             reqT.Method = "POST";  % Because there's a body
             reqT.Path = "/prime/mcp";
@@ -74,37 +78,31 @@ classdef tHttpError < prodserver.mcp.test.base.MCPHandlerBase
             reqT.Body = unicode2native(body,"UTF-8");
             response = prodserver.mcp.internal.mcpHandler(reqT);
 
-            % MATLAB error IS NOT an HTTP error. Expect 200-level return
-            % code.
+            % Neither answer is an HTTP error.
             test.verifyEqual(response.HttpCode, 200);
-
-            % Nor is it a JSON-RPC error. A tool-execution failure is reported
-            % only through result.isError; carrying a JSON-RPC error member as
-            % well would make a broken tool indistinguishable from a broken
-            % protocol, and no client could tell which it was looking at.
-            raw = jsondecode(native2unicode(response.Body,"UTF-8"));
-            test.verifyFalse(isfield(raw,'error'), ...
-                "A tool-execution failure must not report a JSON-RPC error");
-
-            % Body should contain isError field set to true and a structure
-            % describing the error.
             response = decodeResponse(test,reqT,response);
-
             test.verifyEqual(response.id, 1);
-            test.verifyTrue(hasField(response, 'result'));
-            test.verifyTrue(hasField(response, 'result.isError'));
-            test.verifyEqual(response.result.isError,true,"isError not true");
-            test.verifyTrue(hasField(response, 'result.content'));
-            test.verifyTrue(isstruct(response.result.content), ...
-                "result.content not struct");
-            test.verifyTrue(hasField(response.result.content,'text'), ...
-                "text field missing");
-            test.verifyTrue(contains(response.result.content.text,"Size") && ...
-                contains(response.result.content.text,"scalar"), ...
-                "Unexpected error message text");
 
-            % Expecting 
-
+            if prodserver.mcp.protocol.inputErrorsAreToolErrors(test.protocol)
+                test.verifyTrue(hasField(response, 'result.isError'));
+                test.verifyEqual(response.result.isError,true,"isError not true");
+                test.verifyTrue(hasField(response.result.content,'text'), ...
+                    "text field missing");
+                text = string(response.result.content.text);
+            else
+                test.verifyFalse(hasField(response, 'result'));
+                test.assertTrue(hasField(response, 'error.code'));
+                test.verifyEqual(response.error.code, ...
+                    double(MCPConstants.ErrorInvalidParams));
+                text = string(response.error.message);
+            end
+            % The schema is an array of numbers under JSON encoding, a
+            % wrapper or bare number under Invertible; either way the
+            % message names the argument and what was wrong with it.
+            test.verifySubstring(text, "Argument 'n': ", ...
+                "The message must name the argument");
+            test.verifySubstring(text, "expected number, got string", ...
+                "The message must say what was wrong");
         end
     end
 

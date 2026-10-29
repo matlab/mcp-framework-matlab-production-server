@@ -27,7 +27,7 @@ function mustBeWrapper(x)
             % zero-length string.
             if strlength(w) == 0 || strcmpi(w,MCPConstants.NoWrapper) ...
                     || strcmpi(w,MCPConstants.AutoWrapper)
-                return;
+                continue;
             end
             mustBeFile(w);
         else

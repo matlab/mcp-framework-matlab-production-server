@@ -61,7 +61,8 @@ classdef ExternalData < handle
             end
 
             pth = fullfile(prefix,name+"."+opts.ext);
-            pth = replace(pth,filesep,"/");
+            % FileURI2Path refuses .. in a URI, so resolve them here.
+            pth = prodserver.mcp.io.removeDotSegments(replace(pth,filesep,"/"));
             url = opts.scheme+":"+opts.authority+pth;
             url = replace(url,filesep,"/");
             if opts.remove

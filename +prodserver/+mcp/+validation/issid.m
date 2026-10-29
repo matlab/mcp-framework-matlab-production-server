@@ -3,7 +3,7 @@ function tf = issid(x)
 
 % Copyright 2025-2026 The MathWorks, Inc.
 
-    import prodserver.mcp.internal.Constants
+    import prodserver.mcp.protocol.v20250618.Constants
 
     tf = isempty(x) == false && ...
         prodserver.mcp.validation.istext(x);

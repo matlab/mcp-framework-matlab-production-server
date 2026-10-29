@@ -1,4 +1,4 @@
-classdef tCallBy < MCPCaller & ...
+classdef tCallBy < prodserver.mcp.test.base.MCPCaller & ...
         prodserver.mcp.test.mixin.ExternalData
 % Test explicit call-by-reference and call-by-value schema flags.
 
@@ -41,11 +41,16 @@ classdef tCallBy < MCPCaller & ...
             ctf = prodserver.mcp.build(fcn,folder=test.tempFolder);
             endpoint = prodserver.mcp.deploy(ctf,test.host,test.port);
 
-            % Call it.
-            actual = prodserver.mcp.call(endpoint,fcn,data.circlesA,...
-                data.circlesB);
+            for p = test.Protocols
+                prodserver.mcp.client.Adapter.create(endpoint, action="clear");
+                prodserver.mcp.client.Adapter.create(endpoint, protocol=p);
 
-            test.verifyEqual(actual,expected,"Circle intersections");
+                % Call it.
+                actual = prodserver.mcp.call(endpoint,fcn,data.circlesA,...
+                    data.circlesB);
+                test.verifyEqual(actual,expected, ...
+                    "Circle intersections [" + p + "]");
+            end
         end
 
         function byReference(test)
@@ -72,20 +77,26 @@ classdef tCallBy < MCPCaller & ...
             ctf = prodserver.mcp.build(fcn,folder=test.tempFolder);
             endpoint = prodserver.mcp.deploy(ctf,test.host,test.port);
 
-            % Externalized data for the first argument.
-            urlFolder = string(test.tempFolder);
-            caURL = stow(test,urlFolder,"circlesA",data.circlesA);
+            for p = test.Protocols
+                prodserver.mcp.client.Adapter.create(endpoint, action="clear");
+                prodserver.mcp.client.Adapter.create(endpoint, protocol=p);
 
-            % Externalized data for the output
-            tfURL = sink(test,"intersect",test.tempFolder);
-            
-            % Call it.
-            prodserver.mcp.call(endpoint,fcn,caURL,...
-                data.circlesB,tfURL=tfURL);
+                % Externalized data for the first argument.
+                urlFolder = string(test.tempFolder);
+                caURL = stow(test,urlFolder,"circlesA",data.circlesA);
 
-            actual = fetch(test, tfURL);
+                % Externalized data for the output
+                tfURL = sink(test,"intersect",test.tempFolder);
 
-            test.verifyEqual(actual,expected,"Circle intersections");
+                % Call it.
+                prodserver.mcp.call(endpoint,fcn,caURL,...
+                    data.circlesB,tfURL=tfURL);
+
+                actual = fetch(test, tfURL);
+
+                test.verifyEqual(actual,expected, ...
+                    "Circle intersections [" + p + "]");
+            end
         end
     end
 end

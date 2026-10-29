@@ -15,12 +15,15 @@ classdef tReadResourceTool < prodserver.mcp.test.base.MCPHandlerBase
 %      resource, so an LLM had no way to tell "absent" from "present and blank",
 %      and the tool fabricated exactly the content its own description tells the
 %      model never to fabricate. Meanwhile resources/read reported the same URI
-%      as -32002 Resource not found, so the two paths contradicted each other.
+%      as a JSON-RPC error, so the two paths contradicted each other.
 %
 %   2. That synthesized struct named the field url, while the hit path names it
 %      uri. One tool returned two different shapes, discriminated by nothing the
 %      caller could see. uri is the correct name: MCP's ResourceContents
 %      requires it, and the tool's input argument is now uri to match.
+%
+% Every test runs under each protocol revision (MCPHandlerBase's protocolParam).
+% Only the resources/read error code differs between them.
 
 % Copyright 2026 The MathWorks, Inc.
 
@@ -53,6 +56,22 @@ classdef tReadResourceTool < prodserver.mcp.test.base.MCPHandlerBase
 
     methods
 
+        function [response, reqT] = post(test, body)
+        %post Send a JSON-RPC BODY under the current protocol revision.
+            import prodserver.mcp.MCPConstants
+
+            req = test.request;
+            req.Headers = [req.Headers; {MCPConstants.ContentType, ...
+                'application/json'}];
+            [req, body] = test.applyProtocol(req, body);
+            reqT = req;
+            reqT.Method = "POST";
+            reqT.Path = "/prime/mcp";
+            reqT.Headers = [reqT.Headers; {MCPConstants.ContentLength, numel(body)}];
+            reqT.Body = unicode2native(body,"UTF-8");
+            response = test.handle(reqT);
+        end
+
         function [response, reqT] = callTool(test, uri)
         % The request is returned alongside the response because
         % structuredContent is wire-encoded, and decoding it needs to know
@@ -61,8 +80,13 @@ classdef tReadResourceTool < prodserver.mcp.test.base.MCPHandlerBase
                 '"method": "tools/call", "params": { ' ...
                 '"name": "read_mcp_resource", ' ...
                 '"arguments": { "uri": "%s" } } }'], uri);
-            reqT = test.rawRequest("POST", body);
-            response = prodserver.mcp.internal.mcpHandler(reqT);
+            [response, reqT] = test.post(body);
+        end
+
+        function response = readResource(test, uri)
+            body = sprintf(['{ "jsonrpc": "2.0", "id": 1, ' ...
+                '"method": "resources/read", "params": { "uri": "%s" } }'], uri);
+            response = test.post(body);
         end
 
         function contents = toolContents(test, response, reqT)
@@ -74,11 +98,16 @@ classdef tReadResourceTool < prodserver.mcp.test.base.MCPHandlerBase
             contents = decoded.result.structuredContent.contents;
         end
 
-        function response = readResource(test, uri)
-            body = sprintf(['{ "jsonrpc": "2.0", "id": 1, ' ...
-                '"method": "resources/read", "params": { "uri": "%s" } }'], uri);
-            response = prodserver.mcp.internal.mcpHandler( ...
-                test.rawRequest("POST", body));
+        function code = notFoundCode(test)
+        %notFoundCode The resources/read error code for an unknown URI.
+        %   2025-06-18 has a dedicated code; 2026-07-28 treats a URI that
+        %   names nothing as an invalid parameter. Literals, not the
+        %   constants, so the test does not agree with a wrong constant.
+            if test.protocol == prodserver.mcp.protocol.v20250618.Constants.Version
+                code = -32002;
+            else
+                code = -32602;
+            end
         end
     end
 
@@ -124,10 +153,10 @@ classdef tReadResourceTool < prodserver.mcp.test.base.MCPHandlerBase
                 prodserver.mcp.MCPConstants.WireEncodingResourceURI);
 
             test.verifyEqual(response.HttpCode, 200);
-            test.verifyConformantResponse(response);
-            jrpc = test.responseBody(response);
+            jrpc = prodserver.mcp.internal.decodeBody(response);
             test.assertTrue(isfield(jrpc,"result"));
-            test.verifyFalse(isfield(jrpc.result,"isError"), ...
+            test.verifyFalse(isfield(jrpc.result,"isError") && ...
+                jrpc.result.isError, ...
                 sprintf("A resource that exists must read cleanly: %s", ...
                     jsonencode(jrpc.result)));
 
@@ -151,8 +180,7 @@ classdef tReadResourceTool < prodserver.mcp.test.base.MCPHandlerBase
             response = test.callTool(test.missingURI);
 
             test.verifyEqual(response.HttpCode, 200);
-            test.verifyConformantResponse(response);
-            jrpc = test.responseBody(response);
+            jrpc = prodserver.mcp.internal.decodeBody(response);
             test.verifyFalse(isfield(jrpc,"error"), ...
                 "A failed resource read is not a JSON-RPC protocol error");
             test.assertTrue(isfield(jrpc,"result"));
@@ -166,7 +194,8 @@ classdef tReadResourceTool < prodserver.mcp.test.base.MCPHandlerBase
         % not distinguish from a real read of an empty resource, so the model
         % was told the resource existed and was blank.
             response = test.callTool(test.missingURI);
-            jrpc = test.responseBody(response);
+            jrpc = prodserver.mcp.internal.decodeBody(response);
+            test.assertTrue(isfield(jrpc,"result"));
 
             test.verifyFalse(isfield(jrpc.result,"structuredContent"), ...
                 "A failed read must not return resource contents");
@@ -184,32 +213,35 @@ classdef tReadResourceTool < prodserver.mcp.test.base.MCPHandlerBase
         % The invariant the two defects broke. resources/read and the tool must
         % not disagree about whether a resource exists: they share
         % +handler/+resource/contents.m, and a client may use either.
-            viaMethod = test.readResource(test.missingURI);
-            viaTool = test.callTool(test.missingURI);
+            viaMethod = prodserver.mcp.internal.decodeBody( ...
+                test.readResource(test.missingURI));
+            viaTool = prodserver.mcp.internal.decodeBody( ...
+                test.callTool(test.missingURI));
 
-            % resources/read: a protocol-level -32002, because the client named
+            % resources/read: a protocol-level error, because the client named
             % a resource in the request itself.
-            test.verifyErrorCode(viaMethod, ...
-                prodserver.mcp.MCPConstants.ErrorResourceNotFound);
+            test.assertTrue(isfield(viaMethod,"error"), ...
+                "resources/read of an unknown URI must be a JSON-RPC error");
+            test.verifyEqual(viaMethod.error.code, test.notFoundCode());
 
             % tools/call: isError, because the tool is what was named and the
             % tool ran. Different channels, same verdict -- and neither of them
             % reports success.
-            jrpc = test.responseBody(viaTool);
-            test.verifyTrue(jrpc.result.isError);
+            test.assertTrue(isfield(viaTool,"result"));
+            test.verifyTrue(isfield(viaTool.result,"isError") && ...
+                viaTool.result.isError);
         end
 
         function tBothReadPathsAgreeOnPresence(test)
             uri = prodserver.mcp.MCPConstants.WireEncodingResourceURI;
-            viaMethod = test.readResource(uri);
+            m = prodserver.mcp.internal.decodeBody(test.readResource(uri));
             [viaTool, reqT] = test.callTool(uri);
-
-            m = test.responseBody(viaMethod);
-            t = test.responseBody(viaTool);
+            t = prodserver.mcp.internal.decodeBody(viaTool);
 
             test.assertTrue(isfield(m,"result"));
             test.verifyFalse(isfield(m,"error"));
-            test.verifyFalse(isfield(t.result,"isError"));
+            test.assertTrue(isfield(t,"result"));
+            test.verifyFalse(isfield(t.result,"isError") && t.result.isError);
 
             % Same resource, same uri, whichever way it was asked for.
             toolSide = test.toolContents(viaTool, reqT);

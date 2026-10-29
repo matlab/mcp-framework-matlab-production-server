@@ -8,7 +8,6 @@ function decoded = mcpDecode(encoding, varargin)
 %   ENCODING is a prodserver.mcp.WireEncoding value:
 %     Invertible — decode typed wrappers back to native MATLAB types
 %     JSON       — pass through as-is (values are bare JSON)
-%     Hybrid     — decode typed wrappers back to native MATLAB types
 %
 %   See also: mcpEncode, mcpWireDecodeValue, WireEncoding
 

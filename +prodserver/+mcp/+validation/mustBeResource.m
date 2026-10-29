@@ -46,8 +46,10 @@ function validateResource(x)
         requiredFields = { 'uri' };
         contentFields = {'contents', 'reference'};
 
-        % Valid types for these fields
-        fieldType.content = ["text", "function_handle"];
+        % Valid types for these fields: text (or a path to a file of it),
+        % raw bytes for binary contents, or a function that returns the
+        % resource.
+        fieldType.contents = ["text", "uint8", "function_handle"];
         fieldType.import = ["matlab.io.ImportOptions", "function_handle"];
 
         % These are the only permitted optional fields.
@@ -89,17 +91,15 @@ function validateResource(x)
                         % detected. for/while? Both are annoying. while
                         % requires manual index increment, for requires
                         % manual exit. 
+                        % Every valid type is tried before giving up: text
+                        % used to raise at once, so a field that may be
+                        % text or something else could only be text.
                         validType = false;
                         for t = 1:numel(type)
                             if type(t) == "text"
-                                if prodserver.mcp.validation.istext(x.(fields{i})) == false
-                                    error(badTypeId, badTypeMsg, fields{i}, type(t), class(x.(fields{i})));
-                                end
-                                validType = true;
+                                validType = prodserver.mcp.validation.istext(x.(fields{i}));
                             else
-                                if isa(x.(fields{i}),type(t))
-                                    validType = true;
-                                end
+                                validType = isa(x.(fields{i}),type(t));
                             end
                             if validType, break; end
                         end

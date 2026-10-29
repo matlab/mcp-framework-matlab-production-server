@@ -1,29 +1,26 @@
 function mt = mediaType(value)
-%mediaType The bare media type of a Content-Type or Accept value.
+%mediaType The bare, case-folded media type of a Content-Type or media range.
+%   "Application/JSON ; charset=utf-8" -> "application/json"
 %
-%   MT = mediaType(VALUE) returns the type/subtype part of VALUE, lower case,
-%   with surrounding whitespace and any parameters removed:
+%   RFC 9110 §8.3.1: parameters follow the first ';' and are not part of the
+%   type, and type and subtype are case-insensitive. Whitespace is trimmed
+%   AFTER the parameters are removed: optional whitespace may sit before the
+%   ';' as well as after it, and trimming first leaves "text/plain " behind,
+%   which matches nothing. isMIMETypeText used to do exactly that.
 %
-%     mediaType("Application/JSON; charset=utf-8")   % "application/json"
-%     mediaType("text/event-stream;q=0.9")           % "text/event-stream"
-%
-%   Media types are case-insensitive and may carry parameters (RFC 9110
-%   8.3.1), so any comparison against a literal type must go through this
-%   first. Comparing the raw header value is how a client sending
-%   "application/json; charset=utf-8" came to have its JSON refused as
-%   not-JSON.
-%
-%   VALUE may be a string array, in which case MT is the same size. An absent
-%   value -- the [] that getHeaderValue returns for a missing header -- gives
-%   "", which matches no media type.
+%   VALUE may be a char vector, a string array (each element is normalized,
+%   which is how acceptsJson passes a split media-range list), or empty.
+%   Empty input -- [], '', string.empty -- gives string.empty, so callers can
+%   keep using isempty to mean "no Content-Type". Every caller that compares
+%   media types normalizes through here, so none can disagree with another
+%   about what the same header says.
 
 % Copyright 2026 The MathWorks, Inc.
 
     if isempty(value)
-        mt = "";
+        mt = string.empty;
         return
     end
-
-    % Appending ';' makes extractBefore work for values with no parameters.
-    mt = lower(strtrim(extractBefore(string(value) + ";", ";")));
+    mt = string(value);
+    mt = lower(strip(extractBefore(mt + ";", ";")));
 end

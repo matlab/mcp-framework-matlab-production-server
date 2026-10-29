@@ -129,7 +129,8 @@ function varargout = dragonGeometry(tdragon,properties)
                 varargout{n} = dimension;
 
             otherwise
-                error("Unrecognized geometrical property '%s'.", ...
+                error("dragonGeometry:UnknownProperty", ...
+                    "Unrecognized geometrical property '%s'.", ...
                     properties(n));
 
         end

@@ -235,17 +235,13 @@ classdef tWrapper < matlab.unittest.TestCase
 
             % Definition must contain schema
             def = load(fullfile(test.tempFolder,MCPConstants.DefinitionFile));
-            test.verifyTrue(isfield(def.mcpToolDefinition.tools{1}, ...
-                MCPConstants.DefsField), "$defs missing");
-            test.verifyTrue(isfield(def.mcpToolDefinition.tools{1}.(MCPConstants.DefsField),"inputSchema"), ...
-                "inputSchema field missing");
-            test.verifyTrue(isfield(def.mcpToolDefinition.tools{1}.(MCPConstants.DefsField),"outputSchema"), ...
-                "outputSchema field missing");
+            test.verifyTrue(isfield(def.mcpToolDefinition.tools{1}.inputSchema, ...
+                MCPConstants.DefsField), "$defs missing from inputSchema");
 
             % Input r and output z have been externalized. Their schemas
-            % must be in the MCPConstants.DefsField of the definition 
+            % must be in the MCPConstants.DefsField of the definition
             % structure.
-            d = def.mcpToolDefinition.tools{1}.(MCPConstants.DefsField);
+            d = def.mcpToolDefinition.tools{1}.inputSchema.(MCPConstants.DefsField);
             test.verifyTrue(isfield(d.inputSchema,"rURL"),"rURL missing");
             test.verifyTrue(isfield(d.outputSchema,"zURL"),"zURL missing");
 
@@ -253,8 +249,8 @@ classdef tWrapper < matlab.unittest.TestCase
             triangle = jsondecode(triangle);
             rURL = rmfield(d.inputSchema.rURL,"description");
             zURL = rmfield(d.outputSchema.zURL,"description");
-            test.verifyEqual(rURL.oneOf{2}.properties.data,triangle);
-            test.verifyEqual(zURL.oneOf{2}.properties.data,triangle);
+            test.verifyEqual(rURL.anyOf{2}.properties.data,triangle);
+            test.verifyEqual(zURL.anyOf{2}.properties.data,triangle);
 
         end
 
@@ -337,6 +333,86 @@ classdef tWrapper < matlab.unittest.TestCase
             end
             test.verifyFalse(any(contains(uris, "wire-format")), ...
                 "JSON-encoded build should not include wire-encoding resource");
+        end
+
+        function maxLiteralSizeExternalizes(test)
+        % toyToolOne's input a is (1,1). It is passed by value under the
+        % default maxLiteralSize, and by reference when maxLiteralSize is 0.
+
+            fcn = "toyToolOne";
+            wrap = fullfile(test.tempFolder, fcn + "MCP.m");
+
+            prodserver.mcp.build(fcn, folder=test.tempFolder, stop="Wrapper");
+            test.verifyFalse(contains(fileread(wrap), "aURL"), ...
+                "Default maxLiteralSize: a passed by value");
+
+            delete(wrap);
+            prodserver.mcp.build(fcn, folder=test.tempFolder, stop="Wrapper", ...
+                maxLiteralSize=0);
+            test.verifyTrue(contains(fileread(wrap), "aURL"), ...
+                "maxLiteralSize=0: a passed by reference");
+        end
+
+        function scalarKeywordAppliesToAll(test)
+        % A single "None" or "" stands for every function. Before the
+        % expansion, the second function indexed past the end of wrapper.
+            fcn = ["toyToolOne", "toyToolThree"];
+            wrap = fullfile(test.tempFolder, fcn + "MCP.m");
+
+            prodserver.mcp.build(fcn, folder=test.tempFolder, ...
+                stop="Wrapper", wrapper="None");
+            test.verifyFalse(any(isfile(wrap)), "None: no wrappers");
+
+            prodserver.mcp.build(fcn, folder=test.tempFolder, ...
+                stop="Wrapper", wrapper="");
+            test.verifyTrue(all(isfile(wrap)), """"": a wrapper for each");
+        end
+
+        function scalarFileWithSeveralErrors(test)
+        % One wrapper file cannot serve two functions.
+            w = fullfile(test.toolFolder, "toyToolOne.m");
+            test.verifyError(@() prodserver.mcp.build( ...
+                ["toyToolOne", "toyToolThree"], folder=test.tempFolder, ...
+                stop="Wrapper", wrapper=w), "prodserver:mcp:SizeMismatch");
+        end
+
+        function columnOfFunctionsBuilds(test)
+        % The default wrapper is a row; a column of functions must still
+        % pass wrapForMCP's size check.
+            fcn = ["toyToolOne"; "toyToolThree"];
+            prodserver.mcp.build(fcn, folder=test.tempFolder, stop="Wrapper");
+            test.verifyTrue(isfile(fullfile(test.tempFolder, "toyToolOneMCP.m")));
+        end
+
+        function wrapForMCPSizeMismatchErrors(test)
+            test.verifyError(@() prodserver.mcp.internal.wrapForMCP( ...
+                ["toyToolOne", "toyToolThree"], "Auto", test.tempFolder), ...
+                "prodserver:mcp:SizeMismatch");
+        end
+
+        function wrapperListValidatesEveryEntry(test)
+        % mustBeWrapper used to stop at the first keyword, so a bad file
+        % after it went unchecked until copyfile failed.
+            test.verifyError(@() prodserver.mcp.validation.mustBeWrapper( ...
+                ["Auto", "noSuchWrapperFile.m"]), ...
+                "MATLAB:validators:mustBeFile");
+        end
+
+        function typemapReachesDefinition(test)
+        % toyToolTwo's inputs are of class geom, which has no JSON type
+        % unless typemap supplies one.
+
+            import prodserver.mcp.MCPConstants
+
+            fcn = "toyToolTwo";
+            types.geom = "double";
+            prodserver.mcp.build(fcn, folder=test.tempFolder, ...
+                stop="Definition", typemap=types);
+
+            def = load(fullfile(test.tempFolder, MCPConstants.DefinitionFile));
+            def = def.(MCPConstants.DefinitionVariable);
+            obj = def.tools{1}.inputSchema.dollarDefs.inputSchema.objectURL;
+            test.verifyEqual(string(obj.items.type), "double");
         end
 
     end

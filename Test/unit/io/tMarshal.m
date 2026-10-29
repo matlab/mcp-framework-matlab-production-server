@@ -179,6 +179,37 @@ classdef tMarshal < matlab.unittest.TestCase
 
         end
 
+        function tSerializeParsedURI(test)
+            % serialize returns the location for a parsed (struct)
+            % location, as it does for text.
+            import prodserver.mcp.io.parseURI
+
+            matFile = fullfile(test.tempDir.Folder,"parsed.mat");
+            url = replace("file:" + matFile,filesep,"/");
+
+            update = serialize(test.marshaller,parseURI(url),{5});
+            test.verifyEqual(update,url,"file: location");
+            test.verifyEqual(exist(matFile,"file"),2,"file written");
+            test.verifyEqual(deserialize(test.marshaller,url),{5}, ...
+                "file contents");
+
+            % json: carries the value in the query, so serialize returns
+            % what the writer returns -- the same for either form.
+            json = "json:x?0";
+            test.verifyEqual(serialize(test.marshaller,parseURI(json),{42}), ...
+                serialize(test.marshaller,json,{42}),"json: location");
+        end
+
+        function tDefaultSchemeFromFile(test)
+            % A configuration file keeps the default scheme.
+            cfgFile = fullfile(test.tempDir.Folder,"marshall.yaml");
+            prodserver.mcp.io.MarshallURI.ExportConfiguration( ...
+                test.marshaller.config,cfgFile,"json");
+
+            mu = prodserver.mcp.io.MarshallURI(Config=cfgFile);
+            % The file's value is char (from jsondecode).
+            test.verifyEqual(string(mu.defaultScheme),"json");
+        end
 
     end
 

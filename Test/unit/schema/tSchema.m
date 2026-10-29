@@ -182,14 +182,47 @@ classdef tSchema < matlab.unittest.TestCase
         end
 
         function structuredTypeOutputs(test)
+            % Plain JSON sends a datetime as ISO 8601 text, and says so.
             defs = prodserver.mcp.schema("schemaDatetimeNoBlock", ...
                 @() callWithOutputs(@schemaDatetimeNoBlock, 3, ...
                     {2026, 3, 15}), encoding="JSON");
-            test.verifyTrue(isfield(defs.tools.outputSchema.properties, 'dt'));
-            test.verifyTrue(isfield(defs.tools.outputSchema.properties, 'dow'));
-            test.verifyTrue(isfield(defs.tools.outputSchema.properties, 'serial'));
-            test.verifyEqual(defs.tools.outputSchema.properties.dt.type, "object");
-            test.verifyEqual(defs.tools.outputSchema.properties.serial.type, "number");
+            out = defs.tools.outputSchema.properties;
+            test.verifyTrue(all(isfield(out, {'dt', 'dow', 'serial'})));
+            test.verifyEqual(out.dt.format, "date-time");
+            test.verifyEqual(out.serial.type, "number");
+        end
+
+        function unobservedOutputsOwnSchema(test)
+            % An example that asks for one output observes only that one.
+            % The others don't inherit its schema, and with no declared
+            % class claim no type at all.
+            defs = test.verifyWarning(@() prodserver.mcp.schema( ...
+                "schemaDatetimeNoBlock", ...
+                @() schemaDatetimeNoBlock(2026, 3, 15), encoding="JSON"), ...
+                "prodserver:mcp:UnobservedParameters");
+            out = defs.tools.outputSchema.properties;
+            test.verifyEqual(out.dt.format, "date-time");
+            test.verifyEqual(fieldnames(out.dow), {'description'}, "dow");
+            test.verifyEqual(fieldnames(out.serial), {'description'}, "serial");
+            test.verifyEqual(out.dow.description, "Output dow.");
+        end
+
+        function unobservedParametersUseDeclaredClass(test)
+            % An optional input no example passed, and an output none
+            % asked for, have the declared class's type.
+            for enc = ["JSON" "Invertible"]
+                defs = test.verifyWarningFree(@() prodserver.mcp.schema( ...
+                    "schemaUnobserved", @() schemaUnobserved(2), ...
+                    encoding=enc), enc);
+                in = defs.tools.inputSchema.properties;
+                out = defs.tools.outputSchema.properties;
+                if enc == "Invertible"
+                    [~, in.y] = prodserver.mcp.test.wrapperOf(in.y);
+                    [~, out.b] = prodserver.mcp.test.wrapperOf(out.b);
+                end
+                test.verifyEqual(in.y.type, "number", enc);
+                test.verifyEqual(out.b.type, "string", enc);
+            end
         end
 
         function survivesPreCall(test)
@@ -208,6 +241,28 @@ classdef tSchema < matlab.unittest.TestCase
                 encoding="JSON");
             test.verifyFalse(isappdata(0, 'mcp__realHandle__toyToolOne'));
             test.verifyFalse(isappdata(0, 'mcp__inCall__toyToolOne'));
+        end
+
+        function restoresPath(test)
+        % schema puts the current folder first on the path while the
+        % examples run, then restores the path and the current folder.
+            p = path;
+            here = pwd;
+            prodserver.mcp.schema("toyToolOne", ...
+                @() callWithOutputs(@toyToolOne, 3, {1.0, uint64(5)}), ...
+                encoding="JSON");
+            test.verifyEqual(path, p);
+            test.verifyEqual(pwd, here);
+        end
+
+        function restoresPathOnError(test)
+            p = path;
+            here = pwd;
+            test.verifyError(@() prodserver.mcp.schema("toyToolOne", ...
+                @() error("tSchema:exampleFailed", "Example failed."), ...
+                encoding="JSON"), ?MException);
+            test.verifyEqual(path, p);
+            test.verifyEqual(pwd, here);
         end
 
         function dataFileAccessible(test)

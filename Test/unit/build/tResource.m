@@ -175,5 +175,92 @@ classdef tResource < matlab.unittest.TestCase
 
         end
 
+        function contentsTypes(test)
+            % Contents may be text, raw bytes or a function that returns
+            % the resource. The first of these used to be the only one:
+            % a value that wasn't text was rejected before the others
+            % were tried.
+            v = @prodserver.mcp.validation.mustBeResource;
+            u = 'mcp://test/r';
+            test.verifyWarningFree(@() v(struct('uri', u, 'contents', "text")));
+            test.verifyWarningFree(@() v(struct('uri', u, 'contents', ...
+                uint8([137 80 78 71]), 'mimeType', 'image/png')));
+            test.verifyWarningFree(@() v(struct('uri', u, ...
+                'contents', @generatedResource)));
+            test.verifyError(@() v(struct('uri', u, 'contents', [1 2 3])), ...
+                "prodserver:mcp:InvalidResourceFieldType");
+        end
+
+        function binaryFunctionAndEmptyMIMEType(test)
+            import prodserver.mcp.MCPConstants
+            import prodserver.mcp.internal.Constants
+
+            rtt = test.applyFixture(prodserver.mcp.test.mixin.RequireToyTools());
+            test.applyFixture(matlab.unittest.fixtures.PathFixture(rtt.toolFolder));
+
+            % A struct array, so every element has every field.
+            bytes = uint8([137 80 78 71 13 10 26 10]);
+            r = struct('uri', 'mcp://test/binary', 'contents', bytes, ...
+                'mimeType', 'image/png');
+            r(2).uri = 'mcp://test/generated';
+            r(2).contents = @generatedResource;
+            r(2).mimeType = '';
+            r(3).uri = 'mcp://test/literal';
+            r(3).contents = 'Plain words';
+            r(3).mimeType = '';
+            prodserver.mcp.build("toyToolOne", stop="Definition", ...
+                folder=test.tempFolder, resource=r);
+            def = load(fullfile(test.tempFolder, MCPConstants.DefinitionFile));
+            resource = def.(MCPConstants.ResourceVariable);
+            uris = cellfun(@(x) string(x.uri), resource);
+
+            binary = resource{uris == "mcp://test/binary"};
+            test.verifyEqual(binary.contents, bytes, "Raw bytes kept");
+            test.verifyEqual(string(binary.mimeType), "image/png");
+
+            generated = resource{uris == "mcp://test/generated"};
+            test.verifyEqual(string(generated.contents), "Generated words");
+            test.verifyEqual(string(generated.name), "generatedResource", ...
+                "Named after the function");
+
+            % An empty mimeType is no mimeType: plain text, not binary.
+            literal = resource{uris == "mcp://test/literal"};
+            test.verifyEqual(string(literal.mimeType), ...
+                string(Constants.MIMETypePlainText));
+        end
+
+        function binaryWithoutMIMEType(test)
+            % Raw bytes with no mimeType default to
+            % application/octet-stream, and are read as a blob. Without a
+            % mimeType, resources/read raised.
+            import matlab.unittest.fixtures.PathFixture
+            import prodserver.mcp.MCPConstants
+
+            rtt = test.applyFixture(prodserver.mcp.test.mixin.RequireToyTools());
+            test.applyFixture(PathFixture(rtt.toolFolder));
+
+            bytes = uint8([0 1 2 254 255]);
+            prodserver.mcp.build("toyToolOne", stop="Definition", ...
+                folder=test.tempFolder, ...
+                resource=struct('uri', 'mcp://test/bytes', 'contents', bytes));
+            def = load(fullfile(test.tempFolder, MCPConstants.DefinitionFile));
+            resource = def.(MCPConstants.ResourceVariable);
+            uris = cellfun(@(x) string(x.uri), resource);
+            test.verifyEqual(string(resource{uris == "mcp://test/bytes"}.mimeType), ...
+                "application/octet-stream");
+
+            test.applyFixture(PathFixture(test.tempFolder));
+            data = prodserver.mcp.handler.resource.contents("mcp://test/bytes");
+            test.verifyEqual(string(data.mimeType), "application/octet-stream");
+            test.verifyFalse(isfield(data, "text"), "Bytes are not text");
+            test.verifyEqual(string(data.blob), ...
+                string(prodserver.mcp.internal.base64encode(bytes)));
+        end
+
     end
+end
+
+function r = generatedResource()
+% A resource made by a function, as a resource's contents may be.
+    r = struct('uri', 'mcp://test/generated', 'contents', 'Generated words');
 end

@@ -38,8 +38,12 @@ def linePlot(csv_file,jpg_file) -> Tuple[bool,str]:
     y_list = [float(item) for item in y_list.split(',')]
     y = np.array(y_list)
     x = np.array(range(0,len(y_list)))
-    plt.plot(x,y)
-    plt.savefig(jpg_file,dpi=300)
+    # A fresh figure per call: the server is long-running, and drawing on
+    # the global current figure would add each call's line to the last.
+    fig, ax = plt.subplots()
+    ax.plot(x,y)
+    fig.savefig(jpg_file,dpi=300)
+    plt.close(fig)
     status = True
     msg = 'OK'
     return status,msg
@@ -48,7 +52,6 @@ def linePlot(csv_file,jpg_file) -> Tuple[bool,str]:
 def main():
     parser = argparse.ArgumentParser(description="MCP server of many talents.")
     parser.add_argument("--port", type=int, help="Server will listen on localhost:<port>.")
-    parser.add_argument("--timeout", type=int, default=30, help="HTTP request timeout in seconds.")
     parser.add_argument("--log-level", type=str, default=logging.INFO, help="Detail of messages in log file.")
     parser.add_argument("--log-file", type=str, default=os.path.basename(__file__)+".log", help="Name of log file.")
     parser.add_argument("--log-dir", type=str, default=os.getcwd(), help="Directory for storing log files.")  

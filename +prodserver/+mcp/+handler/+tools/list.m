@@ -1,12 +1,13 @@
-function [result, httpCode, httpMsg, msgHeaders] = list(jrpc)
+function [result, httpCode, httpMsg, msgHeaders] = list(jrpc, ~)
 %list Handle MCP tools/list request. Returns all tool definitions from the
 %   definition file as a JSON array.
+%
+%   Takes, and ignores, the serving protocol revision -- see
+%   ProtocolDispatcher.dispatch for why every handler receives it.
 
 % Copyright 2025-2026 The MathWorks, Inc.
 
     import prodserver.mcp.MCPConstants
-    import prodserver.mcp.internal.Constants
-
 
     [result, httpCode, httpMsg, msgHeaders, r] = ...
         prodserver.mcp.handler.internal.initResult(jrpc);
@@ -23,14 +24,5 @@ function [result, httpCode, httpMsg, msgHeaders] = list(jrpc)
     end
 
     result.result = r;
-
-    % Replace dollarDefs key with $defs -- the tool description is stored
-    % as a MATLAB structure, but $defs is NOT a valid MATLAB field name, so
-    % the structure uses an alias, dollarDefs.
-    result = strrep(jsonencode(result),MCPConstants.DefsField, ...
-        MCPConstants.DefsJSON);
-
-    msgHeaders = vertcat(msgHeaders, ...
-        {MCPConstants.ContentType, char(Constants.MIMETypeJSON)});
 
 end

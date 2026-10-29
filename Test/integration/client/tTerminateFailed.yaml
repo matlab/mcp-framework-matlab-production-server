@@ -43,10 +43,26 @@ routes:
             Mcp-Session-Id: alpha
           body:
             result: { "structuredContent": { "seq": [3, 7, 11, 19, 23, 31, 43, 47, 59, 67, 71] } }
+      # The tool ran and raised: the call fails, and must still terminate.
+      - jrpc: tools/call
+        call:
+          name: "primeSequence"
+          input:
+            n: 13
+            type: "Gaussian"
+        response:
+          status: 200
+          headers:
+            Content-Type: application/json
+            Mcp-Session-Id: alpha
+          body:
+            result: { "isError": true, "content": [ { "type": "text", "text": "Sequence too long" } ] }
       # Terminate (DELETE, empty body) fails with an HTTP 500 server error.
       # prodserver.mcp.call must still deliver the tool result but emit the
-      # prodserver:mcp:TerminateFailed warning.
-      - body: ""
+      # prodserver:mcp:TerminateFailed warning. Only a DELETE gets the 500:
+      # any other empty request to /mcp is unexpected, and gets a 404.
+      - method: DELETE
+        body: ""
         response:
           status: 500
           headers:

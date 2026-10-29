@@ -151,14 +151,28 @@ classdef tSchemaNoBlockGolden < matlab.unittest.TestCase
         end
 
         function verifyPropertyType(test, observed, expected, label)
+            if isfield(expected, 'anyOf')
+                % Alternatives, such as a scalar datetime's two forms.
+                test.assertTrue(isfield(observed, 'anyOf'), label + ".anyOf");
+                obs = observed.anyOf; exp = expected.anyOf;
+                if isstruct(obs), obs = num2cell(obs); end
+                if isstruct(exp), exp = num2cell(exp); end
+                test.assertNumElements(obs, numel(exp), label + ".anyOf");
+                for k = 1:numel(exp)
+                    verifyPropertyType(test, obs{k}, exp{k}, ...
+                        label + ".anyOf(" + k + ")");
+                end
+                return
+            end
             obsType = string(observed.type);
             expType = string(expected.type);
             test.verifyEqual(obsType, expType, label + ".type");
 
             if obsType == "object" && isfield(observed, 'properties') ...
                     && isfield(observed.properties, 'data')
-                obsData = observed.properties.data;
-                expData = expected.properties.data;
+                % Without the NaN/Inf/-Inf alternative numeric data has.
+                [~, obsData] = prodserver.mcp.test.wrapperOf(observed);
+                [~, expData] = prodserver.mcp.test.wrapperOf(expected);
                 test.verifyEqual(string(obsData.type), ...
                     string(expData.type), label + ".data.type");
                 if isfield(obsData, 'items') && isfield(expData, 'items')

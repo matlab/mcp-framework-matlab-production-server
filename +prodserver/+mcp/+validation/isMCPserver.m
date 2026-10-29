@@ -10,9 +10,12 @@ function [tf, isActive] = isMCPserver(x)
         % authoritative).
         tf = prodserver.mcp.validation.isuri(x);
         if tf
-            % Must be an HTTP endpoint that ends with /mcp
+            % Must be an HTTP endpoint that ends with /mcp. HTTP requires
+            % a host (RFC 9110), so the authority may not be empty, though
+            % isuri allows that.
             address = ("http" | "https") + "://" + ...
-                wildcardPattern() + "/mcp" + ...
+                wildcardPattern(1,Inf,Except="/") + ...
+                optionalPattern("/" + wildcardPattern()) + "/mcp" + ...
                 textBoundary("end");
             tf = matches(x,address);
         end
@@ -22,9 +25,10 @@ function [tf, isActive] = isMCPserver(x)
     % which have a /ping endpoint. (Replace /mcp with /ping.)
     if nargout == 2 
         if tf
-            url = replace(address,"/mcp"+textBoundary("end"),"/ping");
-            result = webread(url);
-            isActive = isstring(result) && strcmpi(result,"pong");
+            % ping, not webread here: webread returns char, so testing
+            % for a string made every server inactive.
+            % One quick try: a question, not a wait for the server.
+            isActive = prodserver.mcp.ping(x, timeout=10, retry=1, delay=1);
         else
             isActive = false;
         end

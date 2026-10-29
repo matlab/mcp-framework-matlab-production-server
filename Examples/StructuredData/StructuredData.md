@@ -122,7 +122,8 @@ result =
 Without `%#schema`, the LLM sees this tool definition for `analyzeBeam`:
 
 ```json
-{ "beam_spec": { "type": "object" }, "load_case": { "type": "object" } }
+{ "beam_spec": { "type": "array", "items": { "type": "object" } },
+  "load_case": { "type": "array", "items": { "type": "object" } } }
 ```
 
 It has no way to know what fields to provide. With `%#schema`, the definition includes:
@@ -130,16 +131,20 @@ It has no way to know what fields to provide. With `%#schema`, the definition in
 ```json
 {
     "beam_spec": {
-        "type": "object",
-        "properties": {
-            "material": {
-                "type": "object",
-                "properties": {
-                    "youngs_modulus": { "type": "number", "description": "Young's modulus in Pascals" },
-                    "density": { "type": "number", "description": "Density in kg/m^3" }
-                }
-            },
-            ...
+        "type": "array",
+        "items": {
+            "type": "object",
+            "properties": {
+                "material": {
+                    "type": "object",
+                    "description": "Material properties of the beam",
+                    "properties": {
+                        "youngs_modulus": { "type": "number", "description": "Young's modulus (elastic modulus) in Pascals" },
+                        "density": { "type": "number", "description": "Material density in kg/m^3" }
+                    }
+                },
+                ...
+            }
         }
     }
 }

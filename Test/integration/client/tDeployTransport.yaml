@@ -1,0 +1,254 @@
+# A mock MATLAB Production Server for tDeployTransport: the health check, the
+# archive-management API, the framework's /ping, and a few MCP endpoints that
+# misbehave in specific ways.
+#
+# The mock matches a request by path and body, never by query string, so the
+# upload outcome is chosen by the (fake) archive's contents: "accept",
+# "reject" or "fail".
+routes:
+  - path: /api/health
+    methods:
+      - GET
+    request:
+      - body: ""
+        response:
+          status: 200
+          body: {"status": "ok"}
+  - path: /api/archives
+    methods:
+      - GET
+      - POST
+      - PUT
+    request:
+      # List: no archive of that name is installed, so upload uses POST.
+      - body: ""
+        response:
+          status: 200
+          body: {"action": "list", "result": false, "archive": "none"}
+      - body: "accept"
+        response:
+          status: 200
+          body: {"action": "upload", "result": true}
+      # A 4xx is the server's settled answer: sent once, never retried.
+      - body: "reject"
+        response:
+          status: 403
+          body: {"message": "Archive name not allowed"}
+      # A 5xx may be transient: retried, then reported with the body's text.
+      - body: "fail"
+        response:
+          status: 500
+          body: {"message": "Archive Create Error"}
+      # A real archive (a zip file with a manifest): accepted.
+      - anybody: true
+        response:
+          status: 200
+          body: {"action": "upload", "result": true}
+  # An update: the archive replaced goes on answering ping for two requests,
+  # then the one uploaded does. Each names its build (see pingHandler).
+  - path: /fresh/ping
+    methods:
+      - GET
+    request:
+      - body: ""
+        from: 3
+        response:
+          status: 200
+          headers:
+            Content-Type: text/plain
+            MATLAB-MCP-Archive-UUID: fresh_new
+          body: "pong"
+      - body: ""
+        response:
+          status: 200
+          headers:
+            Content-Type: text/plain
+            MATLAB-MCP-Archive-UUID: fresh_old
+          body: "pong"
+  # An update that never takes effect.
+  - path: /stale/ping
+    methods:
+      - GET
+    request:
+      - body: ""
+        response:
+          status: 200
+          headers:
+            Content-Type: text/plain
+            MATLAB-MCP-Archive-UUID: stale_old
+          body: "pong"
+  # Archives built before ping named its build. With no discovery (this
+  # mock answers /api/discovery only for nohdr, below), legacy's pong is the
+  # answer, as it always was. nohdr's build is told by discovery.
+  - path: /legacy/ping
+    methods:
+      - GET
+    request:
+      - body: ""
+        response:
+          status: 200
+          headers:
+            Content-Type: text/plain
+          body: "pong"
+  - path: /nohdr/ping
+    methods:
+      - GET
+    request:
+      - body: ""
+        response:
+          status: 200
+          headers:
+            Content-Type: text/plain
+          body: "pong"
+  - path: /api/discovery
+    methods:
+      - GET
+    request:
+      - body: ""
+        from: 2
+        response:
+          status: 200
+          body: {"archives": {"nohdr": {"archiveUuid": "nohdr_new"}}}
+      - body: ""
+        response:
+          status: 200
+          body: {"archives": {"nohdr": {"archiveUuid": "nohdr_old"}}}
+  - path: /accept/ping
+    methods:
+      - GET
+    request:
+      - body: ""
+        response:
+          status: 200
+          headers:
+            Content-Type: text/plain
+          body: "pong"
+  # A 500 that says why in its reason phrase, as MATLAB Production Server
+  # does. "End of file": the archive is still being loaded, twice; then it
+  # answers.
+  - path: /eof/ping
+    methods:
+      - GET
+    request:
+      - body: ""
+        from: 3
+        response:
+          status: 200
+          headers:
+            Content-Type: text/plain
+          body: "pong"
+      - body: ""
+        response:
+          status: 500
+          reason: "End of file"
+          headers:
+            Content-Type: text/plain
+          body: ""
+  # The same, said in the body instead.
+  - path: /eofbody/ping
+    methods:
+      - GET
+    request:
+      - body: ""
+        from: 2
+        response:
+          status: 200
+          headers:
+            Content-Type: text/plain
+          body: "pong"
+      - body: ""
+        response:
+          status: 500
+          headers:
+            Content-Type: text/plain
+          body: "End of file"
+  # A class clash between archives: only multi-MCOS mode cures it.
+  - path: /pipe/ping
+    methods:
+      - GET
+    request:
+      - body: ""
+        response:
+          status: 500
+          reason: "The pipe has been ended"
+          headers:
+            Content-Type: text/plain
+          body: ""
+  # Not 404, timeout or refused, so ping must give up at once.
+  - path: /broken/ping
+    methods:
+      - GET
+    request:
+      - body: ""
+        response:
+          status: 500
+          headers:
+            Content-Type: text/plain
+          body: "broken"
+  # The signature handler accepts the connection and never answers in time.
+  - path: /slow/signature
+    methods:
+      - POST
+    request:
+      - body: "toy"
+        response:
+          delay: 5
+          status: 200
+          body: {"toy": {"function": "toy"}}
+  # terminate (DELETE, no body) never answers in time.
+  - path: /slow/mcp
+    methods:
+      - DELETE
+    request:
+      - body: ""
+        response:
+          delay: 5
+          status: 204
+  # initialize mints a session, but offers no tools.
+  - path: /notools/mcp
+    methods:
+      - POST
+      - DELETE
+    request:
+      - jrpc: initialize
+        response:
+          status: 200
+          headers:
+            Mcp-Session-Id: beta
+          body:
+            jsonrpc: "2.0"
+            id: 1
+            result:
+              protocolVersion: "2025-06-18"
+              capabilities:
+                resources:
+                  listChanged: false
+      - body: ""
+        response:
+          status: 204
+  # initialize succeeds, but notifications/initialized never answers in time.
+  - path: /slowack/mcp
+    methods:
+      - POST
+      - DELETE
+    request:
+      - jrpc: initialize
+        response:
+          status: 200
+          headers:
+            Mcp-Session-Id: gamma
+          body:
+            jsonrpc: "2.0"
+            id: 1
+            result:
+              protocolVersion: "2025-06-18"
+              capabilities:
+                tools:
+                  listChanged: false
+      - jrpc: notifications/initialized
+        response:
+          delay: 5
+          status: 202
+      - body: ""
+        response:
+          status: 204

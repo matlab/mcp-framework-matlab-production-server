@@ -9,6 +9,11 @@ classdef tSchemaBI < matlab.unittest.TestCase & ...
         tempFolder
         server
         fcns
+        protocol
+    end
+
+    properties (MethodSetupParameter)
+        protocolParam = {"2025-06-18", "2026-07-28"}
     end
 
     methods(TestClassSetup)
@@ -50,6 +55,10 @@ classdef tSchemaBI < matlab.unittest.TestCase & ...
         function switchContext(~)
             % Clear tool definition cache.
             prodserver.mcp.handler.toolServices(action="clear");
+        end
+
+        function setupProtocol(test, protocolParam)
+            test.protocol = protocolParam;
         end
     end
 
@@ -95,7 +104,7 @@ classdef tSchemaBI < matlab.unittest.TestCase & ...
 
             body = ['{ "jsonrpc": "2.0", "id": 1, "method": "tools/list",' ...
                 '"params": { "cursor": "optional-cursor-value"}}'];
-            req = mcpRequest(test, test.server, body=body);
+            req = mcpRequest(test, test.server, body=body, protocol=test.protocol);
             resp = handleRequest(test, req);
 
             test.verifyFalse(isfield(resp, 'error'), "Error field present");
@@ -127,7 +136,7 @@ classdef tSchemaBI < matlab.unittest.TestCase & ...
             s = def.signatures;
 
             body = jsonToolCall(test, fcn, 2, t, s, x, y, z);
-            req = mcpRequest(test, test.server, body=body);
+            req = mcpRequest(test, test.server, body=body, protocol=test.protocol);
             resp = handleRequest(test, req);
 
             test.verifyFalse(isfield(resp, 'error'), "Error field present");
@@ -153,7 +162,7 @@ classdef tSchemaBI < matlab.unittest.TestCase & ...
             s = def.signatures;
 
             body = jsonToolCall(test, fcn, 3, t, s, values, scale);
-            req = mcpRequest(test, test.server, body=body);
+            req = mcpRequest(test, test.server, body=body, protocol=test.protocol);
             resp = handleRequest(test, req);
 
             test.verifyFalse(isfield(resp, 'error'), "Error field present");

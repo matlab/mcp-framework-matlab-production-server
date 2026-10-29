@@ -1,0 +1,75 @@
+name: Package Toolbox
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Toolbox version (major.minor.patch) for a test build
+        default: 0.0.0
+
+# Public repository (github.com) only. A v* tag builds the toolbox and attaches
+# it to a draft release, which File Exchange then offers instead of the zip
+# once the release is published. A manual run (workflow_dispatch) builds the
+# toolbox and keeps it as a workflow artifact, without making a release.
+#
+# This job is in its own file because the internal repository only allows
+# actions from actions/*, github/* and mw-actions/*, and GitHub rejects a
+# whole workflow that names any other action, even in a job that's skipped.
+# Internally, this workflow starts only for a v* tag or a manual run, and then
+# fails without affecting pull requests.
+
+jobs:
+  package-toolbox:
+    name: Package Toolbox
+    if: >-
+      github.server_url == 'https://github.com' &&
+      (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    env:
+      MLTBX_VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+      - name: Set up MATLAB
+        uses: matlab-actions/setup-matlab@v3
+        with:
+          release: R2026b
+      - name: Build toolbox
+        uses: matlab-actions/run-command@v3
+        with:
+          command: |
+            disp(version)
+            which matlab.addons.toolbox.packageToolbox
+            root = string(pwd);
+            opts = matlab.addons.toolbox.ToolboxOptions(root, "0529396a-2937-4614-935f-6e6effe8a461");
+            opts.ToolboxName = "MCP Framework for MATLAB Production Server";
+            opts.PackageName = "mcp_production_server";
+            opts.ToolboxVersion = erase(string(getenv("MLTBX_VERSION")), textBoundary("start") + "v");
+            opts.Summary = "Publish MATLAB functions as MCP tools for AI agents using MATLAB Production Server";
+            opts.AuthorName = "MathWorks MATLAB Production Server Team";
+            opts.AuthorCompany = "MathWorks";
+            opts.Readme = fullfile(root, "README.md");
+            opts.MinimumMatlabRelease = "R2025b";
+            dropFolders = fullfile(root, [".git", ".github", ".claude", ".claude-plugin", "Test"]) + filesep;
+            dropFiles = fullfile(root, [".copyright-ignore", ".gitattributes", ".gitignore"]);
+            files = string(opts.ToolboxFiles);
+            opts.ToolboxFiles = files(~startsWith(files, dropFolders) & ~ismember(files, dropFiles));
+            opts.ToolboxMatlabPath = [root, fullfile(root, "server", "tools")];
+            opts.OutputFile = fullfile(root, "mcp_production_server.mltbx");
+            matlab.addons.toolbox.packageToolbox(opts);
+      - name: Keep toolbox as an artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: mcp_production_server-mltbx
+          path: mcp_production_server.mltbx
+      - name: Attach toolbox to a draft release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" mcp_production_server.mltbx \
+            --draft --verify-tag --title "$GITHUB_REF_NAME" --generate-notes

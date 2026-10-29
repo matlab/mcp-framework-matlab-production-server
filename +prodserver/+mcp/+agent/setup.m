@@ -78,7 +78,7 @@ function manualClaudeInstall(repoRoot)
 
     knownFile = fullfile(claudeDir, "known_marketplaces.json");
     if isfile(knownFile)
-        txt = fileread(knownFile);
+        txt = prodserver.mcp.internal.readUTF8(knownFile);
         known = jsondecode(txt);
     else
         known = struct("marketplaces", {{}});
@@ -106,13 +106,13 @@ function manualClaudeInstall(repoRoot)
             known.marketplaces = {entry};
         end
         txt = jsonencode(known, PrettyPrint=true);
-        fid = fopen(knownFile, "w");
-        if fid == -1
+        try
+            prodserver.mcp.internal.writeUTF8(knownFile, txt, ...
+                TrailingLineEnding=false);
+        catch
             error("prodserver:mcp:CannotWriteMarketplace", ...
                 "Cannot write to %s.", knownFile);
         end
-        fwrite(fid, txt);
-        fclose(fid);
         fprintf("  Registered marketplace in %s\n", knownFile);
     else
         fprintf("  MCP Framework already registered in Claude Code.\n");

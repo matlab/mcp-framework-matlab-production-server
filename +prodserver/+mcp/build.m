@@ -8,9 +8,6 @@ function [ctf,endpoint] = build(fcn, opts)
         % Name of the function to be built into a tool.
         fcn string {prodserver.mcp.validation.mustBeFunction}
 
-        % GenAI framework to use for auto-generation of code, if necessary
-        opts.genai (1,1) prodserver.mcp.GenerativeAI = "None"
-
         % Deploy tool to this server, if given.
         opts.server string { mustBeServerOrEmpty } = string.empty 
 
@@ -87,16 +84,62 @@ function [ctf,endpoint] = build(fcn, opts)
             "or 'definition' to provide pre-built definitions, but not both.");
     end
 
+    % wrapper takes one entry per function, or a single keyword ("Auto",
+    % "None", or "" to always generate) that applies to all of them. One
+    % wrapper file cannot serve several functions, so that case is left
+    % for wrapForMCP's size check. Match fcn's shape, so a column of
+    % functions works with the row default.
+    if isscalar(opts.wrapper) && ~isscalar(fcn) && ...
+            any(strcmpi(opts.wrapper, ...
+                [MCPConstants.AutoWrapper, MCPConstants.NoWrapper, ""]))
+        opts.wrapper = repmat(opts.wrapper, size(fcn));
+    elseif numel(opts.wrapper) == numel(fcn)
+        opts.wrapper = reshape(opts.wrapper, size(fcn));
+    end
+
+    % encoding takes one entry for all the functions, or one per function.
+    % A row, as the tool lists built from it are.
+    if isscalar(opts.encoding)
+        opts.encoding = repmat(opts.encoding, 1, numel(fcn));
+    elseif numel(opts.encoding) == numel(fcn)
+        opts.encoding = reshape(opts.encoding, 1, []);
+    else
+        error("prodserver:mcp:SizeMismatch", "Specify one encoding for " + ...
+            "all the functions or one per function, not %d encodings " + ...
+            "for %d functions.", numel(opts.encoding), numel(fcn));
+    end
+
+    % A definition observed from examples names the original function as
+    % the tool's entry point and describes its arguments, not a wrapper's.
+    % A wrapper would be built into the archive and never called, so
+    % refuse an explicit one and, by default, build no wrapper at all.
+    if ~isempty(opts.example)
+        explicit = ~strcmpi(opts.wrapper, MCPConstants.AutoWrapper) & ...
+            ~strcmpi(opts.wrapper, MCPConstants.NoWrapper);
+        if any(explicit)
+            error("prodserver:mcp:ExampleWrapperConflict", ...
+                "Cannot combine 'example' with a wrapper function. " + ...
+                "Definitions generated from examples call the original " + ...
+                "function directly. Omit 'wrapper' or set it to ""%s"".", ...
+                MCPConstants.NoWrapper);
+        end
+        opts.wrapper = repmat(MCPConstants.NoWrapper, size(fcn));
+    end
+
     % Might be zero-length strings, depending on final stage executed.
     ctf = "";
     endpoint = "";
 
-    % Both wrapper and definition generation might use generative AI.
-    if opts.genai == prodserver.mcp.GenerativeAI.None
-        availableAI = prodserver.mcp.internal.findGenAI();
-    else
-        availableAI = opts.genai;
-    end
+    % build puts folders at the front of the path as it needs them, and
+    % restores the path when it's done.
+    pth = path;
+    restorePath = onCleanup(@()path(pth));
+
+    % The built-in tools must be on the path, and framework functions that
+    % build finds by name must belong to this copy of the framework.
+    root = prodserver.mcp.internal.packageFolder();
+    prodserver.mcp.internal.prependPath(fullfile(root,"server","tools"));
+    checkShadowing(root);
 
     % Determine path to user-supplied function(s)
     files = arrayfun(@(f)string(which(f)),fcn);
@@ -134,7 +177,8 @@ function [ctf,endpoint] = build(fcn, opts)
         end
     end
 
-    % Generate definitions by observing example calls.
+    % Generate definitions by observing example calls: once, whatever the
+    % encodings, each function's schema then built with its own.
     if ~isempty(opts.example)
         opts.definition = prodserver.mcp.schema(fcn, opts.example, ...
             typemap=opts.typemap, encoding=opts.encoding);
@@ -148,7 +192,7 @@ function [ctf,endpoint] = build(fcn, opts)
     % path, because wrapForMCP requires MATLAB-callable identifiers -- just
     % the function name in this case.
     [wrapper,defs] = prodserver.mcp.internal.wrapForMCP(fcn, ...
-        opts.wrapper, opts.folder, AI=availableAI, timeout=opts.timeout, ...
+        opts.wrapper, opts.folder, timeout=opts.timeout, ...
         maxLiteralSize=opts.maxLiteralSize, retry=opts.retry,...
         import=fieldnames(opts.import),typemap=opts.typemap, ...
         encoding=opts.encoding);
@@ -168,10 +212,7 @@ function [ctf,endpoint] = build(fcn, opts)
 
     % Put the output folder on the path so that defineForMCP can find the
     % wrapper function.
-    if prodserver.mcp.internal.isOnPath(opts.folder) == false
-        addpath(opts.folder);
-        cleanUpUserFolderPath = onCleanup(@()rmpath(opts.folder));
-    end
+    prodserver.mcp.internal.prependPath(opts.folder);
 
     % If no wrapper, tool calls fcn
     if isempty(wrapper)
@@ -196,12 +237,6 @@ function [ctf,endpoint] = build(fcn, opts)
         enc = repmat(enc,size(opts.tool));
     end
     wireEncoding = [enc, "JSON"];
-    builtin_tools_folder = fullfile(...
-        prodserver.mcp.internal.packageFolder(),"server","tools");
-    if prodserver.mcp.internal.isOnPath(builtin_tools_folder) == false
-        addpath(builtin_tools_folder);
-        cleanUpBuiltinFolderPath = onCleanup(@()rmpath(builtin_tools_folder));
-    end
     % Empty defs for resource reader, since no wrapper.
     if ~isempty(defs)
         defs = [defs {[]}];
@@ -222,7 +257,7 @@ function [ctf,endpoint] = build(fcn, opts)
         defArgs = {"defs", defs};
     end
     definition = prodserver.mcp.internal.defineForMCP(toolList, ...
-        wrapperFcn,defArgs{:},AI=availableAI,encoding=wireEncoding, ...
+        wrapperFcn,defArgs{:},encoding=wireEncoding, typemap=opts.typemap, ...
         stage=prodserver.mcp.BuildStage.Definition);
 
     % Include the wire-encoding resource only when at least one tool uses
@@ -268,6 +303,46 @@ function tf = mustBeServerOrEmpty(x)
     end
 end
 
+function handlers = routeHandlers()
+%routeHandlers The functions bound directly to the web routes.
+    handlers = [ ...
+        "prodserver.mcp.internal.mcpHandler", ...   % MCP protocol
+        "prodserver.mcp.internal.pingHandler", ...  % Ping request
+        "prodserver.mcp.internal.signatureHandler" ... % Function signatures
+        ];
+end
+
+function checkShadowing(root)
+%checkShadowing Make sure that the framework functions build finds by name
+%belong to the framework in root. Another copy of the framework earlier on
+%the path, or a user function with the same name, would otherwise be built
+%into the archive in their place.
+    import prodserver.mcp.internal.canonicalFolder
+    fcns = [routeHandlers(), prodserver.mcp.MCPConstants.ReadResourceTool];
+    croot = canonicalFolder(root);
+    root = strip(root, "right", filesep);
+    for n = 1:numel(fcns)
+        file = string(which(fcns(n)));
+        if strlength(file) == 0
+            error("prodserver:mcp:FrameworkShadowed", ...
+                "Framework function %s isn't on the MATLAB path, so the " + ...
+                "framework in use at %s is incomplete.", fcns(n), root);
+        end
+        folder = canonicalFolder(fileparts(file));
+        if ~startsWith(folder + filesep, croot + filesep)
+            % The path entry is the folder above any namespace folders.
+            entry = string(fileparts(file));
+            if contains(entry, filesep + "+")
+                entry = extractBefore(entry, filesep + "+");
+            end
+            error("prodserver:mcp:FrameworkShadowed", ...
+                "Framework function %s resolves to %s, outside the " + ...
+                "framework in use at %s. Remove %s from the MATLAB " + ...
+                "path, or rename the file.", fcns(n), file, root, entry);
+        end
+    end
+end
+
 function name = basename(fcn)
 %basename The base name (function name) of fcn. fcn may be the name of a
 %function on the path or the full or relative path to a file. fcn may be a 
@@ -300,7 +375,8 @@ function ctf = buildMCP(files, folder, archive, definition, routesType, stop, di
     if stop < prodserver.mcp.BuildStage.Routes, return; end
 
     % Copy boiler-plate routes files into customer-provided deployment
-    % artifact folder (which must exist).
+    % artifact folder (which must exist). Copy even if targets are
+    % read-only.
     root = fileparts(mfilename("fullpath"));
     [status, msg] = copyfile(fullfile(root,"+internal","*_routes.json"), ...
         folder,"f");
@@ -362,13 +438,41 @@ function ctf = buildMCP(files, folder, archive, definition, routesType, stop, di
     dlg = dlg(strlength(dlg) > 0 & ~startsWith(dlg, ["built-in", matlabroot]));
     schemes = [schemes, dlg];
 
+    % Protocol adapter subclasses are discovered via meta.package
+    % introspection at runtime, invisible to MATLAB Compiler. Resolve
+    % all classes and functions in each adapter's package so the CTF
+    % includes the entire drop-in package for each protocol version.
+    adapterNames = prodserver.mcp.protocol.ProtocolRegistry.adapterClasses();
+    adapterPkgFiles = string.empty;
+    for ai = 1:numel(adapterNames)
+        parts = split(adapterNames(ai), ".");
+        pkgName = join(parts(1:end-1), ".");
+        subpkg = meta.package.fromName(pkgName);
+        for ci = 1:numel(subpkg.ClassList)
+            adapterPkgFiles(end+1) = string(which(subpkg.ClassList(ci).Name)); %#ok<AGROW>
+        end
+        for fi = 1:numel(subpkg.FunctionList)
+            adapterPkgFiles(end+1) = string(which(subpkg.FunctionList(fi).Name)); %#ok<AGROW>
+        end
+    end
+    adapterPkgFiles = unique(adapterPkgFiles);
+    adapterPkgFiles = adapterPkgFiles( ...
+        strlength(adapterPkgFiles) > 0 & ...
+        ~startsWith(adapterPkgFiles, ["built-in", matlabroot]));
+    if isempty(adapterPkgFiles)
+        error('prodserver:mcp:NoAdapterFiles', ...
+            'No deployable files found for protocol adapters.');
+    end
+
+    % Shared handlers are dispatched via feval with function names from
+    % a dictionary, invisible to MATLAB Compiler. Resolve them from the
+    % dispatcher's single source of truth.
+    dispatcherFiles = ...
+        prodserver.mcp.handler.ProtocolDispatcher.instance().handlerFiles();
+
     % Add the custom route handling functions. These are bound directly
     % to the web routes.
-    handlers = [ ...
-        "prodserver.mcp.internal.mcpHandler", ...   % MCP protocol
-        "prodserver.mcp.internal.pingHandler", ...  % Ping request
-        "prodserver.mcp.internal.signatureHandler" ... % Function signatures
-        ];
+    handlers = routeHandlers();
 
     % Package platform-specific binaries. Package all platforms, to reduce
     % the chance of creating a platform-specific archive. This allows an
@@ -413,12 +517,10 @@ function ctf = buildMCP(files, folder, archive, definition, routesType, stop, di
 
     % This is a terrible, temporary, solution to a complex problem. It must
     % be removed when the schema management change is integrated with the
-    % main release branch.
-    id = 'Compiler:compiler:COM_WARN_EXCLUDED_FILE';
-    status = warning('query',id);
-    warning('off', id);
-    restoreExcluded = onCleanup(@()warning(status.state,id));
-    
+    % main release branch.last
+    excludeState = warning('off','Compiler:compiler:COM_WARN_EXCLUDED_FILE');
+    restoreExcluded = onCleanup(@()warning(excludeState));
+
     % Can't suppress the text emitted by MATLAB Compiler, since
     % ProductionServerArchiveOptions has no way to suppress a warning.
     % This is the way to suppress it when calling MCC directly:
@@ -428,7 +530,7 @@ function ctf = buildMCP(files, folder, archive, definition, routesType, stop, di
 
     opts = compiler.build.ProductionServerArchiveOptions(hFiles, ...
         args{:}, discoveryArgs{:}, ArchiveName=archive, ...
-        AdditionalFiles=[definition, files, schemes, binFiles], ...
+        AdditionalFiles=[definition, files, schemes, adapterPkgFiles, dispatcherFiles, binFiles], ...
         OutputDir=folder);
     results = compiler.build.productionServerArchive(opts);
     ctf = string(results.Files{1});

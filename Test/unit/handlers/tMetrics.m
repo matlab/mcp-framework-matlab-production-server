@@ -65,14 +65,13 @@ classdef tMetrics < prodserver.mcp.test.base.MCPHandlerBase
             req = test.request;
             req.Headers = [req.Headers; ...
                 {MCPConstants.ContentType, 'application/json'}];
-            req.Headers = [req.Headers; ...
-                {MCPConstants.SessionId, matlab.lang.internal.uuid}];
 
             body = jsonencode(struct( ...
                 'jsonrpc', "2.0", ...
                 'id', 1, ...
                 'method', method, ...
                 'params', params));
+            [req, body] = test.applyProtocol(req, body);
 
             reqT = req;
             reqT.Method = "POST";
@@ -110,7 +109,7 @@ classdef tMetrics < prodserver.mcp.test.base.MCPHandlerBase
                 "Missing server request metric");
         end
 
-        function toolsCallEmitsFourMetrics(test)
+        function toolsCallEmitsFiveMetrics(test)
         % tools/call should emit three counters: framework request,
         % server request, per-tool call metric and the elapsed time.
             import prodserver.mcp.MCPConstants
@@ -123,20 +122,120 @@ classdef tMetrics < prodserver.mcp.test.base.MCPHandlerBase
                 "response = prodserver.mcp.internal.mcpHandler(reqT);");
             metrics = parseMetricOutput(test, output);
 
-            test.verifyEqual(numel(metrics), 4, ...
-                "tools/call should emit exactly 4 metrics");
+            test.verifyEqual(numel(metrics), 5, ...
+                "tools/call should emit exactly 5 metrics");
 
             names = [metrics.name];
             test.verifyTrue(ismember(MCPConstants.MCPRequestMetric, names), ...
                 "Missing framework request metric");
+
             test.verifyTrue(ismember( ...
                 MCPConstants.MCPMetricPrefix + "prime" + ...
                 MCPConstants.MCPMetricSuffix, names), ...
                 "Missing server request metric");
+
             test.verifyTrue(ismember( ...
                 MCPConstants.MCPMetricPrefix + "primeSequence" + ...
                 MCPConstants.MCPToolCallSuffix, names), ...
                 "Missing tool call metric");
+
+            test.verifyTrue(ismember( ...
+                MCPConstants.MCPMetricPrefix + "primeSequence" + ...
+                MCPConstants.MCPToolCallSuffix + "_" + ...
+                replace(test.protocol,"-","_"), names), ...
+                "Missing protocol version of tool call metric");
+
+            % "Mersenne" isn't a sequence primeSequence knows, so the tool
+            % ran and failed: a call, not a rejection.
+            test.verifyFalse(any(contains(names, ...
+                MCPConstants.MCPToolRejectedSuffix)), ...
+                "A tool that ran is not a rejected call");
+        end
+
+        function rejectedCallIsCountedAsRejection(test)
+        % A call the server refuses before invoking the tool -- a missing,
+        % unknown or invalid argument -- is counted in MCP_<tool>_Rejected,
+        % not MCP_<tool>_Call, under either revision's way of reporting it.
+            import prodserver.mcp.MCPConstants
+
+            stem = MCPConstants.MCPMetricPrefix + "primeSequence";
+            rev = "_" + replace(test.protocol, "-", "_");
+            cases = {
+                struct('type', "Eisenstein"),                   "missing n"
+                struct('n', 5, 'type', "Eisenstein", 'zzz', 1), "unknown zzz"
+                struct('n', "3", 'type', "Eisenstein"),          "string for n"
+                };
+            for k = 1:size(cases, 1)
+                reqT = buildJsonRpcRequest(test, "tools/call", ...
+                    struct('name', "primeSequence", 'arguments', cases{k,1}));
+                output = evalc( ...
+                    "response = prodserver.mcp.internal.mcpHandler(reqT);");
+                metrics = parseMetricOutput(test, output);
+                names = [metrics.name];
+
+                test.verifyEqual(numel(metrics), 5, cases{k,2} + ...
+                    ": three request metrics and two rejection counters");
+                test.verifyTrue(ismember(stem + ...
+                    MCPConstants.MCPToolRejectedSuffix, names), cases{k,2});
+                test.verifyTrue(ismember(stem + ...
+                    MCPConstants.MCPToolRejectedSuffix + rev, names), ...
+                    cases{k,2});
+                test.verifyFalse(any(contains(names, ...
+                    MCPConstants.MCPToolCallSuffix)), cases{k,2} + ...
+                    ": the tool was not invoked, so this is not a call");
+            end
+        end
+
+        function protocolMetricFollowsServingRevision(test)
+        % The per-revision tool-call metric must name the revision that
+        % SERVED the call, which is not always the one the request declared.
+        % An alias is exactly where the two part company: a request declaring
+        % 2024-11-05 is routed to the 2025-06-18 adapter, so that is the
+        % bucket the call belongs in. Deriving the bucket from the body
+        % instead files it under a version supportedVersions() excludes, and
+        % no amount of staring at the metric store reveals why.
+        %
+        % This case cannot be reached through applyProtocol, which always
+        % declares one of the registered versions, so the request is built
+        % here by hand.
+            import prodserver.mcp.MCPConstants
+            C = prodserver.mcp.protocol.v20260728.Constants;
+
+            alias = "2024-11-05";
+            registry = prodserver.mcp.protocol.ProtocolRegistry.instance();
+            serving = registry.lookup(alias).Version;
+            test.assumeNotEqual(serving, alias, ...
+                "This test needs an alias, i.e. a routable version that is " + ...
+                "not itself registered as an adapter.");
+
+            body = struct('jsonrpc', "2.0", 'id', 1, 'method', "tools/call");
+            body.params.name = "primeSequence";
+            body.params.arguments = struct('n', 5, 'type', "Mersenne");
+            body.params.(MCPConstants.MetaField).( ...
+                C.MetaProtocolVersion_Field) = alias;
+            body = jsonencode(body);
+
+            reqT = test.request;
+            reqT.Method = "POST";
+            reqT.Path = "/prime/mcp";
+            reqT.Headers = [reqT.Headers; ...
+                {MCPConstants.ContentType, 'application/json'}; ...
+                {MCPConstants.ContentLength, numel(body)}];
+            reqT.Body = unicode2native(body, "UTF-8");
+
+            output = evalc( ...
+                "response = prodserver.mcp.internal.mcpHandler(reqT);");
+            test.assertEqual(response.HttpCode, 200, ...
+                "The aliased request must be served, not rejected");
+            names = [parseMetricOutput(test, output).name];
+
+            stem = MCPConstants.MCPMetricPrefix + "primeSequence" + ...
+                MCPConstants.MCPToolCallSuffix + "_";
+            test.verifyTrue(ismember(stem + replace(serving, "-", "_"), names), ...
+                "Tool call should be filed under the serving revision " + serving);
+            test.verifyFalse(ismember(stem + replace(alias, "-", "_"), names), ...
+                "Tool call must not be filed under the alias " + alias + ...
+                ", which is not a supported version");
         end
 
         function serverMetricMatchesPathSegment(test)
@@ -147,10 +246,9 @@ classdef tMetrics < prodserver.mcp.test.base.MCPHandlerBase
             req = test.request;
             req.Headers = [req.Headers; ...
                 {MCPConstants.ContentType, 'application/json'}];
-            req.Headers = [req.Headers; ...
-                {MCPConstants.SessionId, matlab.lang.internal.uuid}];
 
             body = '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}';
+            [req, body] = test.applyProtocol(req, body);
             reqT = req;
             reqT.Method = "POST";
             reqT.Path = "/MyCustomArchive/mcp";

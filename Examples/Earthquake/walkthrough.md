@@ -27,13 +27,22 @@ imshow(imread("qt.jpg"));
 
 ## Why a Custom Wrapper?
 
-The earthquake data is a large table best read with `readtable` (not the default `readmatrix`). The wrapper function `plotTrajectoriesMCP` accepts file URLs for the input data and output plot, and manages the marshalling.
+The earthquake data is a large table best read with `readtable` (not the default `readmatrix`). The wrapper function `plotTrajectoriesMCP` accepts file URLs for the input data and output plot, and manages the marshalling (arguments blocks omitted here):
 
 ```MATLAB
-function [status,msg] = plotTrajectoriesMCP(quakeURL, sampleRate, correction, start, stop, plotURL)
-    marshaller = prodserver.mcp.io.MarshallURI();
-    noisy = deserialize(marshaller, quakeURL);
-    plotTrajectories(noisy{1}, sampleRate, correction, start, stop, plotURL);
+function [status,msg] = plotTrajectoriesMCP(quakeURL,sampleRate, ...
+   correction,start,stop,plotURL)
+    status = true;
+    msg = 'OK';
+    try
+        quakeFile = prodserver.mcp.io.uri.File.FileURI2Path(quakeURL);
+        qd = readtable(quakeFile);
+        plotFile = prodserver.mcp.io.uri.File.FileURI2Path(plotURL);
+        plotTrajectories(qd,sampleRate,correction,start,stop,plotFile);
+    catch ex
+        status = false;
+        msg = ex.message;
+    end
 end
 ```
 
@@ -42,6 +51,8 @@ end
 ```MATLAB
 ctf = prodserver.mcp.build("plotTrajectories", wrapper="plotTrajectoriesMCP.m");
 ```
+
+On a shared server, give the archive a name of your own with `build`'s `archive` option, for example by adding your user name: `deploy` replaces an archive with the same name, even one someone else deployed.
 
 ## Deploy
 
@@ -65,12 +76,16 @@ ans =
 
 ```MATLAB
 quakeData = "file:" + fullfile(pwd, "quakeData.csv");
-plotFile = fullfile(pwd, "qTrajectories.jpg");
+out = fullfile(pwd, "output");
+if ~isfolder(out), mkdir(out); end
+plotFile = fullfile(out, "qTrajectories.jpg");
 plotURL = "file:" + plotFile;
 
 [status, msg] = prodserver.mcp.call(endpoint, "plotTrajectories", ...
     quakeData, 200, 0.098, 8, 15, plotURL)
 ```
+
+These `file:` URLs name files on the server's machine: MATLAB Production Server reads and writes them itself. Building them from your own folder works when the server runs on your machine, or can reach that folder at the same path. For a remote server, see [URL Scheme](../../docs/concepts/wrapper-functions.md#url-scheme).
 
 ## Connect an MCP Client
 

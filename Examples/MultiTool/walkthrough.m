@@ -47,12 +47,15 @@ cellfun(@(t) t.name, tools, 'UniformOutput', false)
 %% Generate a Twin Dragon Fractal
 % Use the |twinDragon| tool to generate 200,000 fractal points.
 
-thisFolder = fileparts(mfilename("fullpath"));
 % Allow override on machines without graphics hardware acceleration
 if exist("N","var") == false || isempty(N)
     N = 200000;
 end
-dragonXY = fullfile(thisFolder, "TwinDragonXY.mat");
+% Results go to an output folder in the current folder, replaced on
+% each run: the example's own folder may be read-only.
+out = fullfile(pwd, "output");
+if ~isfolder(out), mkdir(out); end
+dragonXY = fullfile(out, "TwinDragonXY.mat");
 dragonURL = "file:" + replace(dragonXY, filesep, "/");
 fprintf(1,"Start Generate %s %d %f.2\n",endpoint,N,round(toc(t),2));
 prodserver.mcp.call(endpoint, "twinDragon", N, "dragonURL", dragonURL);
@@ -61,10 +64,10 @@ fprintf(1,"End Generate %s %f.2\n",endpoint,round(toc(t),2));
 %% Render the Fractal as an Image
 % Chain the |dragonDraw| tool to render the points into a JPEG.
 
-jpg = fullfile(thisFolder, "TwinDragonImage.jpg");
+jpg = fullfile(out, "TwinDragonImage.jpg");
 color1 = "#FF0000";
 color2 = "#0000FF";
-dragonSizeURL = "file:" + replace(fullfile(thisFolder, "TwinDragonSize.mat"), filesep, "/");
+dragonSizeURL = "file:" + replace(fullfile(out, "TwinDragonSize.mat"), filesep, "/");
 fprintf(1,"Start Render %s %d %f.2\n",jpg,N,round(toc(t),2));
 prodserver.mcp.call(endpoint, "dragonDraw", dragonURL, color1, color2, jpg, "szURL", dragonSizeURL);
 fprintf(1,"End Render %s %f.2\n",jpg,round(toc(t),2));

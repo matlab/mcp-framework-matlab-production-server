@@ -28,7 +28,9 @@ function filePath = discoverySignatures(folder, archive)
     entry = jsondecode(extractBetweenBraces(json, objStart));
 
     % Set the function-level purpose.
-    entry.purpose = "Model Context Protocol entry point enabling AI agents to invoke MCP tools.";
+    versions = prodserver.mcp.protocol.ProtocolRegistry.instance().supportedVersions();
+    entry.purpose = "Model Context Protocol entry point enabling AI agents to invoke MCP tools. " + ...
+        "MCP-Versions: " + strjoin(sort(versions), ", ");
 
     % Set per-parameter purpose and type.
     paramPurpose = struct("request","MCP JSON-RPC request", ...
@@ -55,13 +57,15 @@ function filePath = discoverySignatures(folder, archive)
     json = sprintf('{\n%s,\n%s\n}', schemaLine, fcnLine);
 
     filePath = fullfile(folder, archive + "_functionSignatures.json");
-    fid = fopen(filePath, "w");
-    if fid == -1
+    % As UTF-8: fwrite of a char writes each character as one byte, which
+    % mangles any outside Latin-1 in a purpose or description.
+    try
+        prodserver.mcp.internal.writeUTF8(filePath, json, ...
+            TrailingLineEnding=false);
+    catch
         error("prodserver:mcp:CannotWriteDiscovery", ...
             "Cannot write discovery signatures to '%s'.", filePath);
     end
-    closeFile = onCleanup(@()fclose(fid));
-    fwrite(fid, json);
 end
 
 function params = fixParams(params, purposeMap)

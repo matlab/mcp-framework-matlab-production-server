@@ -1,4 +1,4 @@
-classdef tOptionalCI < MCPCaller
+classdef tOptionalCI < prodserver.mcp.test.base.MCPCaller
 
 % Copyright 2026 The MathWorks, Inc.
 
@@ -32,10 +32,6 @@ classdef tOptionalCI < MCPCaller
             % Deploy using the full server URL (includes dynamic port)
             endpoint = prodserver.mcp.deploy(ctf,test.server);
 
-            % Validate
-            tf = prodserver.mcp.exist(endpoint,fcn,"Tool",delay=10,retry=5);
-            test.verifyTrue(tf,fcn + " is not a tool at " + endpoint)
-
             % year, mpg, range, make, model
             year = 1999;
             values = { 1001,100000,"Polaris","Zeta" };
@@ -43,16 +39,23 @@ classdef tOptionalCI < MCPCaller
             args = [ names ; values ];
             args = { year, args{:} };
 
-            % Start by calling with all arguments, then drop them,
-            % one-by-one.
-            for n = numel(args):-2:1
-                % Call original for expected value
-                expected = feval(fcn,args{1:n});
+            for p = test.Protocols
+                prodserver.mcp.client.Adapter.create(endpoint, action="clear");
+                prodserver.mcp.client.Adapter.create(endpoint, protocol=p);
 
-                % Call the function on the server.
-                actual = prodserver.mcp.call(endpoint,fcn,args{1:n});
+                % Validate
+                tf = prodserver.mcp.exist(endpoint,fcn,"Tool", ...
+                    delay=10,retry=5,protocol=p);
+                test.verifyTrue(tf,fcn + " not a tool [" + p + "]")
 
-                test.verifyEqual(actual,char(expected),sprintf("Max arg #%d",n));
+                % Start by calling with all arguments, then drop them,
+                % one-by-one.
+                for n = numel(args):-2:1
+                    expected = feval(fcn,args{1:n});
+                    actual = prodserver.mcp.call(endpoint,fcn,args{1:n});
+                    test.verifyEqual(actual,char(expected), ...
+                        sprintf("Max arg #%d [%s]",n,p));
+                end
             end
         end
 
@@ -65,7 +68,7 @@ classdef tOptionalCI < MCPCaller
             archive = "optionalCIOptions";
             test.applyFixture(prodserver.mcp.test.mixin.RemoveArchive(...
                 test.server,archive));
-            
+
             % Build
             ctf = prodserver.mcp.build(fcn, folder=test.tempFolder, ...
                 archive=archive);
@@ -74,23 +77,26 @@ classdef tOptionalCI < MCPCaller
             % Deploy using the full server URL (includes dynamic port)
             endpoint = prodserver.mcp.deploy(ctf,test.server);
 
-            % Validate
-            tf = prodserver.mcp.exist(endpoint,fcn,"Tool",delay=10,retry=5);
-            test.verifyTrue(tf,fcn + " is not a tool at " + endpoint)
-
             % year, mpg, range, make, model
             args = { 1999,1001,100000,"Polaris","Zeta" };
 
-            % Start by calling with all arguments, then drop them,
-            % one-by-one.
-            for n = numel(args):-1:1
-                % Call original for expected value
-                expected = feval(fcn,args{1:n});
-    
-                % Call the function on the server.
-                actual = prodserver.mcp.call(endpoint,fcn,args{1:n});
-    
-                test.verifyEqual(actual,char(expected),sprintf("Max arg #%d",n));
+            for p = test.Protocols
+                prodserver.mcp.client.Adapter.create(endpoint, action="clear");
+                prodserver.mcp.client.Adapter.create(endpoint, protocol=p);
+
+                % Validate
+                tf = prodserver.mcp.exist(endpoint,fcn,"Tool", ...
+                    delay=10,retry=5,protocol=p);
+                test.verifyTrue(tf,fcn + " not a tool [" + p + "]")
+
+                % Start by calling with all arguments, then drop them,
+                % one-by-one.
+                for n = numel(args):-1:1
+                    expected = feval(fcn,args{1:n});
+                    actual = prodserver.mcp.call(endpoint,fcn,args{1:n});
+                    test.verifyEqual(actual,char(expected), ...
+                        sprintf("Max arg #%d [%s]",n,p));
+                end
             end
         end
     end

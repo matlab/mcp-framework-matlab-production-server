@@ -28,6 +28,8 @@ fcn = ["chaosdragon", "chaosfractal", "snowflake", ...
 ctf = prodserver.mcp.build(fcn, tool=tool, archive="Fractalizer", folder="./deploy");
 ```
 
+On a shared server, give the archive a name of your own with `build`'s `archive` option, for example by adding your user name: `deploy` replaces an archive with the same name, even one someone else deployed.
+
 ## Deploy
 
 ```MATLAB
@@ -51,17 +53,21 @@ Generate a twin-dragon fractal and render it as an image. The tools chain togeth
 
 ```MATLAB
 N = 200000;
-dragonXY = fullfile(pwd, "TwinDragonXY.mat");
+out = fullfile(pwd, "output");
+if ~isfolder(out), mkdir(out); end
+dragonXY = fullfile(out, "TwinDragonXY.mat");
 dragonURL = "file:" + replace(dragonXY, filesep, "/");
 
-prodserver.mcp.call(endpoint, "twinDragon", N, dragonURL);
+prodserver.mcp.call(endpoint, "twinDragon", N, "dragonURL", dragonURL);
 
-jpg = fullfile(pwd, "TwinDragonImage.jpg");
-dragonSizeURL = "file:" + replace(fullfile(pwd, "TwinDragonSize.mat"), filesep, "/");
+jpg = fullfile(out, "TwinDragonImage.jpg");
+dragonSizeURL = "file:" + replace(fullfile(out, "TwinDragonSize.mat"), filesep, "/");
 
-prodserver.mcp.call(endpoint, "dragonDraw", dragonURL, "#FF0000", "#0000FF", jpg, dragonSizeURL);
+prodserver.mcp.call(endpoint, "dragonDraw", dragonURL, "#FF0000", "#0000FF", jpg, "szURL", dragonSizeURL);
 imshow(imread(jpg));
 ```
+
+These `file:` URLs name files on the server's machine: MATLAB Production Server reads and writes them itself. Building them from your own folder works when the server runs on your machine, or can reach that folder at the same path. For a remote server, see [URL Scheme](../../docs/concepts/wrapper-functions.md#url-scheme).
 
 ## Connect an MCP Client
 

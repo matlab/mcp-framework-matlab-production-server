@@ -37,10 +37,10 @@ function shadowDir = generateShadow(fcns)
             inputNames, nPositional, outputNames, numel(outputNames));
 
         % Write to file
+        % writeUTF8: MATLAB code is UTF-8, and a file that can't be opened
+        % is an error rather than a silent fprintf to fid -1.
         filePath = fullfile(shadowDir, fcnName + ".m");
-        fid = fopen(filePath, 'w');
-        fprintf(fid, '%s', code);
-        fclose(fid);
+        prodserver.mcp.internal.writeUTF8(filePath, code, TrailingLineEnding=false);
     end
 end
 

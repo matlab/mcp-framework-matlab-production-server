@@ -10,7 +10,7 @@ classdef tIssid < matlab.unittest.TestCase
 
     methods (TestClassSetup)
         function buildSID(test)
-            import prodserver.mcp.internal.Constants
+            import prodserver.mcp.protocol.v20250618.Constants
             sep = Constants.SessionIDSep;
             prefix = Constants.SessionIDPrefix + sep + Constants.SessionIDType;
             test.validSID = prefix + sep + "myrealm" + sep + "1234";
@@ -46,7 +46,7 @@ classdef tIssid < matlab.unittest.TestCase
         end
 
         function tTooFewSeparators(test)
-            import prodserver.mcp.internal.Constants
+            import prodserver.mcp.protocol.v20250618.Constants
             import prodserver.mcp.validation.issid
             sep = Constants.SessionIDSep;
             missingID = Constants.SessionIDPrefix + sep + Constants.SessionIDType + ...

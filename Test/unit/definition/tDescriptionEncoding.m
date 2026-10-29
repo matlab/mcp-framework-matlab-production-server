@@ -105,7 +105,7 @@ classdef tDescriptionEncoding < matlab.unittest.TestCase
             import prodserver.mcp.MCPConstants
 
             td = wrapAndDefine(test, "oneIndirectOutput");
-            defs = td.tools{1}.(MCPConstants.DefsField);
+            defs = td.tools{1}.inputSchema.(MCPConstants.DefsField);
 
             % Check inputSchema defs (none expected for oneIndirectOutput)
             if isfield(defs, "inputSchema")

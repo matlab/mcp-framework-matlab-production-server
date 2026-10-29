@@ -33,6 +33,8 @@ The framework inspects argument blocks and auto-generates the wrapper. Since arg
 [ctf, endpoint] = prodserver.mcp.build("cleanSignal", server="http://localhost:9910");
 ```
 
+On a shared server, give the archive a name of your own with `build`'s `archive` option, for example by adding your user name: `deploy` replaces an archive with the same name, even one someone else deployed.
+
 The default `wrapper="Auto"` triggers generation because `noisy` has no size constraint (assumed large, exceeds the 64-element threshold).
 
 ## The Generated Wrapper
@@ -81,6 +83,8 @@ cleanURL = "file:" + fullfile(pwd, "cleanOpenLoop.csv");
 
 prodserver.mcp.call(endpoint, "cleanSignal", noisyURL, 60, cleanURL=cleanURL)
 ```
+
+These `file:` URLs name files on the server's machine: MATLAB Production Server reads and writes them itself. Building them from your own folder works when the server runs on your machine, or can reach that folder at the same path. For a remote server, see [URL Scheme](../../docs/concepts/wrapper-functions.md#url-scheme).
 
 ## Connect an MCP Client
 

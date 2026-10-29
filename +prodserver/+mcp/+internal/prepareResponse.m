@@ -13,16 +13,22 @@ function response = prepareResponse(code, msg, opts)
     end
 
 
+    import prodserver.mcp.MCPConstants
+
     % All non-body text of any kind returned in this structure MUST be
     % char, not string. Header names and values, the HTTP message,
-    % everything. 
+    % everything.
+    %
+    % The Content-Length row is only a placeholder for encodeBody, whose
+    % setHeaderValue fills an existing row and errors on a missing one. It
+    % is removed again below.
     response = struct(...
         'ApiVersion',[1 0 0], ...
         'HttpCode',code, ...
         'HttpMessage',msg, ...
-        'Headers', {{'Server' char(prodserver.mcp.internal.Constants.ServerHeader); ...
-        'Content-Length' '0'; ...
-        'Content-Type' opts.ct;}});
+        'Headers', {{'Server' MCPConstants.ServerHeader; ...
+        MCPConstants.ContentLength '0'; ...
+        MCPConstants.ContentType opts.ct;}});
 
     if ~isempty(opts.headers)
         response.Headers = [response.Headers; opts.headers];
@@ -33,25 +39,20 @@ function response = prepareResponse(code, msg, opts)
 
     if ~isempty(opts.sid)
         response.Headers = [ response.Headers; ...
-            {prodserver.mcp.MCPConstants.SessionId, char(opts.sid)} ];
+            {prodserver.mcp.protocol.v20250618.Constants.SessionId, char(opts.sid)} ];
     end
 
-    % encodeBody sets Content-Length from the bytes it just encoded, and it is
-    % right about the number -- but the number was never the problem. MPS frames
-    % the response itself, so the header reaches the client twice. Measured on
-    % R2026b: GET /<archive>/ping returns "Content-Length: 4" twice and
-    % GET /<archive>/signature returns "Content-Length: 1760" twice, MPS's copy
-    % ahead of Content-Type and this one after it. MathWorks' own custom-web-
-    % handler examples never set it and still show it in their cURL output,
-    % which is the documented confirmation that framing is the server's job.
-    %
-    % The seeded 'Content-Length' '0' row above has to stay: setHeaderValue
-    % raises AmbiguousHeaderName unless the name it is asked to set already
-    % exists, so removing the seed would make encodeBody throw. The length is
-    % dropped after encoding instead, once the body is settled.
     response = prodserver.mcp.internal.encodeBody(response);
-    keep = ~strcmpi(string(response.Headers(:,1)), ...
-        string(prodserver.mcp.MCPConstants.ContentLength));
-    response.Headers = response.Headers(keep,:);
+
+    % Production Server frames the body and sends its own Content-Length, so
+    % the one encodeBody sets went out as a second, duplicate header (XD17).
+    % encodeBody is left alone: the client shares it, and a client request
+    % does need it. A Content-Type with no body describes nothing (XD27).
+    names = response.Headers(:,1);
+    drop = strcmpi(names, MCPConstants.ContentLength);
+    if ~isfield(response, "Body") || isempty(response.Body)
+        drop = drop | strcmpi(names, MCPConstants.ContentType);
+    end
+    response.Headers(drop,:) = [];
 
 end

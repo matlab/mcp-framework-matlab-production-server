@@ -96,7 +96,7 @@ classdef tSchemaBuildCompat < matlab.unittest.TestCase
         function wireEncodingWrapped(test)
             defs = prodserver.mcp.schema("toyScalarOne", ...
                 @() exerciseToyScalarOne(), encoding="Invertible");
-            param = defs.tools.inputSchema.properties.x;
+            param = prodserver.mcp.test.wrapperOf(defs.tools.inputSchema.properties.x);
             test.verifyEqual(string(param.type), "object");
             test.verifyTrue(isfield(param, 'required'));
             test.verifyTrue(isfield(param, 'properties'));

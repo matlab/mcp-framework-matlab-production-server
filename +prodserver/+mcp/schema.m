@@ -6,11 +6,14 @@ function definitions = schema(fcns, example, opts)
 %
 %   definitions = prodserver.mcp.schema(fcns, example)
 %   definitions = prodserver.mcp.schema(fcns, example, typemap=tm)
+%   definitions = prodserver.mcp.schema(fcns, example, encoding=enc)
 %
 %   fcns    - String vector of function names to observe (must be on path).
 %   example - What to run. Accepts function handles, file paths (.m),
 %             folder paths, or function/script names. All examples run
 %             sequentially; no pairing with fcns required.
+%   enc     - Wire encoding: one for all of fcns, or one per function.
+%             The examples run once either way.
 %
 %   The returned definitions struct is directly usable as:
 %       prodserver.mcp.build(fcns, definition=definitions)
@@ -21,12 +24,18 @@ function definitions = schema(fcns, example, opts)
         fcns string {mustBeNonempty}
         example {prodserver.mcp.validation.mustBeExampleSpecification, mustBeNonempty}
         opts.typemap struct {mustBeScalarOrEmpty} = []
-        opts.encoding (1,1) prodserver.mcp.WireEncoding = "JSON"
+        opts.encoding prodserver.mcp.WireEncoding {mustBeVector} = "JSON"
     end
 
     import prodserver.mcp.internal.SchemaObserver
     import prodserver.mcp.internal.generateShadow
     import prodserver.mcp.internal.classifyExample
+
+    if ~isscalar(opts.encoding) && numel(opts.encoding) ~= numel(fcns)
+        error("prodserver:mcp:SizeMismatch", "Specify one encoding for " + ...
+            "all the functions or one per function, not %d encodings " + ...
+            "for %d functions.", numel(opts.encoding), numel(fcns));
+    end
 
     % Verify all functions exist on the path
     for i = 1:numel(fcns)
@@ -52,14 +61,11 @@ function definitions = schema(fcns, example, opts)
     % shadows are in pwd (which always wins for function resolution).
     % Add the original pwd to the path so data files remain accessible.
     shadowDir = generateShadow(fcns);
+    pth = path;
     originalDir = pwd;
+    shadows = onCleanup(@()cleanup(shadowDir, pth, originalDir, fcns));
+    prodserver.mcp.internal.prependPath(originalDir);
     cd(shadowDir);
-    cleanupPath = "";  % Remove from path if we added it to path.
-    if prodserver.mcp.internal.isOnPath(originalDir) == false
-        addpath(originalDir);
-        cleanupPath = originalDir;
-    end
-    shadows = onCleanup(@()cleanup(shadowDir, cleanupPath, originalDir, fcns));
 
     % Rebind function handle examples so they resolve to the shadow.
     example = rebindExample(example, fcns, shadowDir);
@@ -144,11 +150,9 @@ function example = rebindExample(example, fcns, shadowDir)
     example = eval(expr);
 end
 
-function cleanup(shadowDir, cleanupPath, originalDir, fcns)
+function cleanup(shadowDir, pth, originalDir, fcns)
     cd(originalDir);
-    if ~isempty(cleanupPath) && strlength(cleanupPath) > 0
-        rmpath(cleanupPath);
-    end
+    path(pth);
     for i = 1:numel(fcns)
         key = "mcp__realHandle__" + fcns(i);
         if isappdata(0, key)

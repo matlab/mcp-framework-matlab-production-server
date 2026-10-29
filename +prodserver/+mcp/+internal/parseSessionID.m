@@ -10,7 +10,7 @@ function [id,realm,type,sid] = parseSessionID(id)
         id string { prodserver.mcp.validation.mustBeSessionID }
     end
 
-    import prodserver.mcp.internal.Constants
+    import prodserver.mcp.protocol.v20250618.Constants
 
     parts = split(id,Constants.SessionIDSep);
 

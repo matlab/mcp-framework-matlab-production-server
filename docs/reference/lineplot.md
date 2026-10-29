@@ -1,17 +1,23 @@
 # Simple Line Graphs with linePlot
-`linePlot` is a FastMCP server that creates simple line graphs from CSV files. It uses the [STDIO server protocol](https://modelcontextprotocol.io/specification/2025-06-18/basic/transports), which means it must run on the same machine as the MCP host. 
+`linePlot` is a FastMCP server that creates simple line graphs from CSV files. By default it uses the [STDIO transport](https://modelcontextprotocol.io/specification/2025-06-18/basic/transports), which means it must run on the same machine as the MCP host. With `--port`, it serves HTTP on `localhost:<port>` instead.
 
-To start the server:
+The script is `Utilities/linePlot.py` in the MCP Framework installation. To start the server:
 ```sh
-  python linePlot.py"
-      --log-level DEBUG | INFO | WARNING | ERROR | CRITICAL
-	  --log-dir <folder>
-	  --port <port number>
-	  --timeout <seconds>
+python linePlot.py [--port <port number>]
+    [--log-level DEBUG | INFO | WARNING | ERROR | CRITICAL]
+    [--log-dir <folder>] [--log-file <filename>]
 ```
-Logging is optional but highly recommended. The MCP host must have write access to the log directory; granting that access is typically a host-specific process.
 
-`linePlot` primarily exists to demonstrate how to integrate multiple MCP tools into a single solution. The [cleanSignal](../../Examples/Periodic%20Noise/walkthrough.md) example combines file system access with the `linePlot` and `cleanSignal` MCP tools to show that LLMs can manage intermediate results automatically.
+| Option | Default | Description |
+| :--- | :--- | :--- |
+| `--port` | None (STDIO) | Serve HTTP on `localhost:<port>` instead of STDIO |
+| `--log-level` | `INFO` | Detail of messages in the log file |
+| `--log-dir` | The current folder | Folder for the log file |
+| `--log-file` | `linePlot.py.log` | Name of the log file |
+
+`linePlot` always writes a log file. The MCP host must have write access to the log folder; granting that access is typically a host-specific process.
+
+`linePlot` primarily exists to demonstrate how to integrate multiple MCP tools into a single solution. For example, an LLM can call the `cleanSignal` tool from the [Periodic Noise](../../Examples/Periodic%20Noise/walkthrough.md) example to filter a signal into a CSV file, then call `linePlot` to graph the result.
 
 `linePlot` requires the `FastMCP` and `matplotlib` Python packages.
 

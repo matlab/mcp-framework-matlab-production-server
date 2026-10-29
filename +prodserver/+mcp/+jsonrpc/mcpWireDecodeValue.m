@@ -79,17 +79,19 @@ function value = decodeString(j)
     % J is char or string at this point.
     s = j;
     
-    % Special float sentinels.
-    switch string(s)
-        case "NaN",  value = NaN;  return
-        case "Inf",  value = Inf;  return
-        case "-Inf", value = -Inf; return
-        case "NaT",  value = NaT;  return
+    % Special float and NaT sentinels.
+    [value, ok] = specialFloat(s);
+    if ok
+        return
+    end
+    if string(s) == prodserver.mcp.MCPConstants.NaTText
+        value = NaT;
+        return
     end
     
     % Attempt ISO 8601 datetime parse.
-    dt = tryParseDatetime(s);
-    if ~isnat(dt)
+    [dt, ok] = prodserver.mcp.jsonrpc.parseISODateTime(s);
+    if ok
         value = dt;
         return
     end
@@ -129,9 +131,7 @@ function value = decodeTyped(j)
     t = j.type;
     
     switch t
-        case {'double','single', ...
-              'int8','int16','int32','int64', ...
-              'uint8','uint16','uint32','uint64'}
+        case cellstr(prodserver.mcp.internal.Constants.NumericClasses)
             value = decodeNumericArray(j);
     
         case 'logical'
@@ -167,9 +167,8 @@ function value = decodeTyped(j)
         otherwise
             error('prodserver:mcp:unknownType', ...
                 "Unknown MCP type discriminator '%s'. " +  ...
-                "Supported types are: double, single, int8/16/32/64, " + ...
-                "uint8/16/32/64, logical, char, string, struct, cell, " + ...
-                "datetime, duration, categorical, table, timetable.", t);
+                "Supported types are: %s.", t, strjoin( ...
+                prodserver.mcp.jsonrpc.WireSupport.classNames(), ", "));
     end
 end
 
@@ -195,7 +194,7 @@ function value = decodeNumericArray(j)
     end
     
     % Reshape row-major flat vector into MATLAB array (column-major memory).
-    value = reshapeRowMajor(flat, sz);
+    value = prodserver.mcp.jsonrpc.fromRowMajor(flat, sz);
     
     % Cast to target type (complex integers are not supported in MATLAB, so
     % only cast real arrays; complex arrays stay as double).
@@ -224,23 +223,37 @@ end
 function v = decodeScalarFloat(x)
 %DECODESCALARFLOAT  Decode one numeric element, handling sentinel strings.
 if ischar(x) || isstring(x)
-    switch char(x)
-        case 'NaN',  v = NaN;
-        case 'Inf',  v = Inf;
-        case '-Inf', v = -Inf;
-        otherwise
-            error('prodserver:mcp:invalidNumericSentinel', ...
-                "Invalid numeric sentinel string ""%s"". " + ...
-                "Only ""NaN"", ""Inf"", and ""-Inf"" are permitted.", char(x));
+    [v, ok] = specialFloat(x);
+    if ~ok
+        error('prodserver:mcp:invalidNumericSentinel', ...
+            "Invalid numeric sentinel string ""%s"". " + ...
+            "Only %s are permitted.", char(x), sentinels());
     end
 elseif isnumeric(x) && isscalar(x)
     v = double(x);
 else
     error('prodserver:mcp:invalidNumericElement', ...
         "Numeric data array contains an element of unexpected type ""%s"". " + ...
-        "Elements must be numbers or the sentinel strings ""NaN"", ""Inf"", ""-Inf"".", ...
-        class(x));
+        "Elements must be numbers or the sentinel strings %s.", ...
+        class(x), sentinels());
 end
+end
+
+function [v, ok] = specialFloat(text)
+% The number a sentinel string stands for -- NaN, Inf or -Inf -- and
+% whether TEXT is one.
+    [ok, k] = ismember(string(text), prodserver.mcp.MCPConstants.SpecialFloatText);
+    values = [NaN Inf -Inf];
+    v = [];
+    if ok
+        v = values(k);
+    end
+end
+
+function text = sentinels()
+% "NaN", "Inf" and "-Inf", for messages.
+    text = prodserver.mcp.internal.andList( ...
+        """" + prodserver.mcp.MCPConstants.SpecialFloatText + """");
 end
 
 % =========================================================================
@@ -267,7 +280,7 @@ function value = decodeLogicalArray(j)
         flat(k) = logical(el);
     end
     
-    value = reshapeRowMajor(flat, sz);
+    value = prodserver.mcp.jsonrpc.fromRowMajor(flat, sz);
 end
 
 % =========================================================================
@@ -301,7 +314,7 @@ function value = decodeCharMatrix(j)
         flat(k) = char(el);
     end
     
-    value = reshapeRowMajor(flat, sz);
+    value = prodserver.mcp.jsonrpc.fromRowMajor(flat, sz);
 end
 
 % =========================================================================
@@ -339,7 +352,7 @@ function value = decodeStringArray(j)
         end
     end
     
-    value = reshapeRowMajor(flat, sz);
+    value = prodserver.mcp.jsonrpc.fromRowMajor(flat, sz);
 end
 
 % =========================================================================
@@ -374,7 +387,7 @@ function value = decodeStructArray(j)
     end
     
     % Assemble into a struct array in row-major order.
-    value = reshapeRowMajor([elements{:}], sz);
+    value = prodserver.mcp.jsonrpc.fromRowMajor([elements{:}], sz);
 end
 
 function value = decodeScalarStruct(j)
@@ -411,7 +424,7 @@ function value = decodeCellArray(j)
         flat{k} = decodeValue(data{k});
     end
 
-    value = reshapeRowMajor(flat, sz);
+    value = prodserver.mcp.jsonrpc.fromRowMajor(flat, sz);
 end
 
 % =========================================================================
@@ -420,7 +433,6 @@ end
 function value = decodeDatetimeArray(j)
 
     sz = validateSize(j);
-    n  = prod(sz);
     
     tz = '';
     if isfield(j, 'tz')
@@ -433,48 +445,35 @@ function value = decodeDatetimeArray(j)
     if ~iscell(data)
         data = num2cell(data);
     end
+    data = reshape(data, 1, []);
     
-    flat = NaT(1, n);
+    isText = cellfun(@(el) ischar(el) || isstring(el), data);
+    if ~all(isText)
+        k = find(~isText, 1);
+        error('prodserver:mcp:invalidDatetimeElement', ...
+            'datetime data array element %d must be an ISO 8601 string, got "%s".', ...
+            k, class(data{k}));
+    end
+    isNaT = strcmp(data, prodserver.mcp.MCPConstants.NaTText);
+
+    % One parse for the whole array. Each string has its own offset; tz,
+    % if given, names the zone they are in.
+    [flat, ok, ~, mixed] = prodserver.mcp.jsonrpc.parseISODateTime(data);
+    bad = find(~ok & ~isNaT, 1);
+    if isempty(bad) && mixed
+        bad = find(ok, 1);
+    end
+    if ~isempty(bad)
+        error('prodserver:mcp:invalidDatetimeString', ...
+            "datetime data array element %d (""%s"") could not be parsed " + ...
+            "as an ISO 8601 datetime in the array's time zone.", bad, ...
+            string(data{bad}));
+    end
     if ~isempty(tz)
         flat.TimeZone = tz;
     end
-    
-    for k = 1:n
-        el = data{k};
-        if ~ischar(el) && ~isstring(el)
-            error('prodserver:mcp:invalidDatetimeElement', ...
-                'datetime data array element %d must be an ISO 8601 string, got "%s".', ...
-                k, class(el));
-        end
-        s = char(el);
-        if strcmp(s, 'NaT')
-            % flat(k) already NaT
-            continue
-        end
-        tzArgs = {};
-        if ~isempty(tz)
-            tzArgs = {tz};
-        end
-        dt = tryParseDatetime(s,tzArgs{:});
-        if isnat(dt)
-            error('prodserver:mcp:invalidDatetimeString', ...
-                "datetime data array element %d (""%s"") could not be parsed " + ...
-                "as an ISO 8601 datetime.", k, s);
-        end
-        if ~isempty(tz)
-            dt.TimeZone = tz;
-        end
-        % A datetime may be encoded with a timezone at the end of the
-        % string rather than with a tz field in the structure. If this is
-        % the first time we're assigning a time into flat, assign the time
-        % zone too, if flat doesn't have one.
-        if k == 1 && ~isempty(dt.TimeZone) && isempty(flat.TimeZone)
-            flat.TimeZone = dt.TimeZone;
-        end
-        flat(k) = dt;
-    end
 
-    value = reshapeRowMajor(flat, sz);
+    value = prodserver.mcp.jsonrpc.fromRowMajor(flat, sz);
 end
 
 % =========================================================================
@@ -490,23 +489,11 @@ function value = decodeDurationArray(j)
     end
     
     sz = validateSize(j);
-    n  = prod(sz);
     data = j.data;
     validateDataLength(data, sz, 'duration');
-    
-    flat = zeros(1, n);
-    if isnumeric(data) && ~iscell(data)
-        flat = double(data(:)');
-    else
-        if ~iscell(data)
-            data = num2cell(data);
-        end
-        for k = 1:n
-            flat(k) = decodeScalarFloat(data{k});
-        end
-    end
-    
-    flat  = reshapeRowMajor(flat, sz);
+
+    % Seconds, with the same NaN/Inf sentinels as numeric data.
+    flat  = prodserver.mcp.jsonrpc.fromRowMajor(decodeNumericFlat(data, prod(sz)), sz);
     value = seconds(flat);
 end
 
@@ -523,7 +510,13 @@ if ~isfield(j, 'categories')
         'categorical wrapper is missing required field "categories".');
 end
 
-cats    = cellstr(j.categories);
+% jsondecode gives an empty list as [], not an empty cell: no categories,
+% as for an array that is all <undefined>.
+if isempty(j.categories)
+    cats = cell(0, 1);
+else
+    cats = cellstr(j.categories);
+end
 isOrd   = isfield(j, 'ordinal') && j.ordinal;
 data    = j.data;
 validateDataLength(data, sz, 'categorical');
@@ -553,7 +546,7 @@ flat  = categorical(flatStrs, cats, 'Ordinal', isOrd);
 % Elements that were null (empty string, not in cats) become <undefined>.
 flat(strcmp(flatStrs, '') & ~ismember('', cats)) = missing;
 
-value = reshapeRowMajor(flat, sz);
+value = prodserver.mcp.jsonrpc.fromRowMajor(flat, sz);
 end
 
 % =========================================================================
@@ -566,23 +559,7 @@ if ~isfield(j, 'variables')
         'table wrapper is missing required field "variables".');
 end
 
-vars     = j.variables;
-if ~iscell(vars)
-    vars = num2cell(vars);
-end
-nVars    = numel(vars);
-names    = cell(1, nVars);
-columns  = cell(1, nVars);
-
-for k = 1:nVars
-    v = vars{k};
-    if ~isfield(v, 'name') || ~isfield(v, 'value')
-        error('prodserver:mcp:invalidTableVariable', ...
-            'table variable %d is missing "name" or "value" field.', k);
-    end
-    names{k}   = char(v.name);
-    columns{k} = decodeValue(v.value);
-end
+[names, columns] = decodeVariables(j.variables, 'table', 'Table');
 
 value = table(columns{:}, 'VariableNames', names);
 
@@ -612,29 +589,33 @@ if ~isa(rowTimes, 'datetime') && ~isa(rowTimes, 'duration')
         class(rowTimes));
 end
 
-vars    = j.variables;
-if ~iscell(vars)
-    vars = num2cell(vars);
-end
-nVars   = numel(vars);
-names   = cell(1, nVars);
-columns = cell(1, nVars);
-
-for k = 1:nVars
-    v = vars{k};
-    if ~isfield(v, 'name') || ~isfield(v, 'value')
-        error('prodserver:mcp:invalidTimetableVariable', ...
-            'timetable variable %d is missing "name" or "value" field.', k);
-    end
-    names{k}   = char(v.name);
-    columns{k} = decodeValue(v.value);
-end
+[names, columns] = decodeVariables(j.variables, 'timetable', 'Timetable');
 
 value = timetable(columns{:}, 'RowTimes', rowTimes(:), ...
     'VariableNames', names);
 % Time column may have non-default name.
 if isfield(j,'timeName')
     value.Properties.DimensionNames{1} = j.timeName;
+end
+end
+
+function [names, columns] = decodeVariables(vars, noun, idNoun)
+%DECODEVARIABLES  The names and decoded values of a table's or timetable's
+%variables. NOUN and IDNOUN name the class in the message and the error ID.
+if ~iscell(vars)
+    vars = num2cell(vars);
+end
+nVars   = numel(vars);
+names   = cell(1, nVars);
+columns = cell(1, nVars);
+for k = 1:nVars
+    v = vars{k};
+    if ~isfield(v, 'name') || ~isfield(v, 'value')
+        error("prodserver:mcp:invalid" + idNoun + "Variable", ...
+            '%s variable %d is missing "name" or "value" field.', noun, k);
+    end
+    names{k}   = char(v.name);
+    columns{k} = decodeValue(v.value);
 end
 end
 
@@ -688,97 +669,3 @@ function validateDataLength(data, sz, typeName)
             typeName, szStr, expected, actual);
     end
 end
-
-function value = reshapeRowMajor(flat, sz)
-%RESHAPEROWMAJOR  Reshape a row-major flat array into a MATLAB array.
-%
-%   The flat input was decoded in row-major order (last index varies
-%   fastest). MATLAB's reshape uses column-major order (first index varies
-%   fastest), so for arrays larger than 1-D we must permute after reshape.
-
-    if isscalar(sz)
-        sz = [sz 1];
-    end
-
-    if prod(sz) == 0
-        if iscell(flat)
-            value = reshape({}, sz);
-        elseif ischar(flat)
-            value = reshape(flat, sz);
-        else
-            value = reshape(flat, sz);
-        end
-        return
-    end
-
-    ndim = numel(sz);
-
-    if ndim == 2 && sz(1) == 1
-        % Row vector — flat is already correct shape.
-        value = reshape(flat, sz);
-        return
-    end
-
-    if ndim == 2
-        % 2-D case: reshape into [cols, rows] then transpose.
-        rows = sz(1);
-        cols = sz(2);
-        % Transposing a complex matrix inverts the sign of the imaginary
-        % part. We don't want that here, so use .' on complex data.
-        value = reshape(flat, cols, rows);
-        if ~isreal(flat)
-            value = value.';
-        else
-            value = value';
-        end
-        return
-    end
-
-    % N-D case: reshape into reversed-dimension order then permute.
-    % Row-major flat: last dim varies fastest → reshape into [sz(end), ..., sz(1)]
-    % then permute back to [sz(1), ..., sz(end)].
-    revSz = fliplr(sz);
-    value = reshape(flat, revSz);
-    value = permute(value, ndim:-1:1);
-end
-
-function dt = tryParseDatetime(s,tz)
-%TRYPARSEDATETIME  Attempt ISO 8601 parse; return NaT on failure.
-
-% Formats tried in order: UTC Z-suffix, offset suffix, no suffix (unzoned).
-formats = { ...
-    "yyyy-MM-dd'T'HH:mm:ss.SSSXXX", ...
-    "yyyy-MM-dd'T'HH:mm:ssXXX",     ...
-    "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", ...
-    "yyyy-MM-dd'T'HH:mm:ss'Z'",     ...
-    "yyyy-MM-dd'T'HH:mm:ss.SSS",    ...
-    "yyyy-MM-dd'T'HH:mm:ss",        ...
-    "yyyy-MM-dd",                    ...
-};
-
-dt = NaT;
-for k = 1:numel(formats)
-    try
-        % Must specify TimeZone explicitly if datetime ends with XXX.
-        tmz = {};
-        if endsWith(formats{k},"XXX")
-            if nargin == 2
-                tmz = {"TimeZone", tz};
-            else
-                % datetime will error if there's no timezone specified.
-                continue;
-            end       
-        end
-        dt = datetime(s, 'InputFormat', formats{k}, tmz{:});
-        % Handle UTC suffix explicitly — datetime with 'Z' format string
-        % does not always set TimeZone.
-        if endsWith(s, 'Z') && isempty(dt.TimeZone)
-            dt.TimeZone = 'UTC';
-        end
-        return
-    catch
-        % Try next format.
-    end
-end
-end
-

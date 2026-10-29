@@ -22,9 +22,9 @@ Pass optional arguments with *argument=value* syntax following required inputs. 
 | Argument | Type | Description | Default |
 | :---     | :--- | :---        | :---    |
 | delay | integer | Number of seconds to pause between retries. | 2 |
-| retry | integer | Number of times to retry on HTTP protocol errors (404, for example). | 10 | 
-| timeout | integer | Number of seconds to wait for a reply. | 30 |
-
+| protocol | string | MCP revision: `"discover"` asks the server, `"2025-06-18"` or `"2026-07-28"` uses that one. See [Protocol Revision](#protocol-revision). | `"discover"` |
+| retry | integer | Number of times to resend a request that gets HTTP 404, 408 or 429. A refused connection or a timeout isn't retried. | 10 |
+| timeout | integer | Number of seconds to wait for each reply. | 30 |
 
 Fields of the tool structure:
 
@@ -38,7 +38,7 @@ Fields of the tool structure:
 
 The `properties` field of each schema is a structure with one field per parameter. Each parameter field value captures the `type` and `description` of the parameter.
 
-The server field describes the server hosting the tool and provides enough information for MCP hosts to call the tool. Two types of servers exist: http and stdio.
+The server field describes the server hosting the tool and provides enough information for MCP hosts to call the tool.
 
 **HTTP server structure**
 | Field | Type | Description | 
@@ -46,20 +46,21 @@ The server field describes the server hosting the tool and provides enough infor
 | type  | string | Type of the server. Always 'http'. |
 | url | string | Network address of the MCP server hosting the tool. |
 
-**STDIO server structure**
-| Field | Type | Description | 
-| :---  | :--- | :---        |
-| type  | string | Type of the server. Always 'stdio'. |
-| command | string | Command that starts the server. |
-| args | array | Strings passed to the command to start the server. |
+### Protocol Revision
+
+With the default `protocol="discover"`, the function picks the revision as [`call`](./call.md#protocol-revision) does: it probes with `server/discover`, falls back to `2025-06-18`, and remembers the answer for each endpoint. If the request fails with `prodserver:mcp:RemoteError`, `prodserver:mcp:HttpError`, `prodserver:mcp:UnattributableRequest`, `prodserver:mcp:NoSessionFromServer` or `prodserver:mcp:MethodNotFound`, it forgets the answer, probes again and retries once.
+
+Naming a revision skips the probe and the retry. The function also remembers that revision for the endpoint, so later calls that use `"discover"`, including `call`, use it too. Any value other than the three above raises `prodserver:mcp:UnsupportedProtocolVersion`. That includes the aliases `2025-03-26` and `2024-11-05`, which the server accepts but the client doesn't.
+
+An `endpoint` with no archive behind it raises `prodserver:mcp:HttpError` with status 404 when the revision is `2025-06-18`, which is what `"discover"` picks for it. With `protocol="2026-07-28"` it raises `prodserver:mcp:UnknownServer`.
 
 # Examples
 
 List the tools available on the server running at `http://localhost:9910/primeSequence/mcp`.
 ```MATLAB
-tools = list("http://localhost:9910/primeSequence/mcp","tool")
+tools = prodserver.mcp.list("http://localhost:9910/primeSequence/mcp","tool")
 ```
-The return value `tools` is a structure with fields `name`, `description`, `inputSchema`, `outputSchema`, and `server`.
+The return value `tools` is a cell array with one structure per tool. Each structure has the fields `name`, `description`, `inputSchema`, `outputSchema`, and `server`.
 
 `inputSchema` and `outputSchema` are optional. If they do not appear, the tool has none of the corresponding parameters.
 
@@ -71,15 +72,23 @@ inputSchema
     properties
         noisyURL
                    type: 'string'
-            description: 'URL pointing to the input value for noisy.'
+            description: 'URL pointing to the input value for 'noisy'. The content of the URL is:
+                          Noisy signal'
+               examples: {3×1 cell}
         period
-                  type: 'number'
+                   type: 'number'
             description: 'period'
         cleanURL
-                 type: 'string'
-            description: 'URL pointing to the output value for clean.'
+                   type: 'string'
+            description: 'URL pointing to the output value for 'clean'. This value never returned
+                          inline. Read result from URL using scheme-appropriate method: file
+                          system read for file: URLs, HTTP GET for http:// URLs and so on. The
+                          content of the URL is:
+                          Filtered signal'
+               examples: {3×1 cell}
+              writeOnly: 1
 ```
-`outputSchema` has an analogous structure.
+Each `examples` cell holds sample URLs such as `'file:///tmp/storage/data.csv'`. `cleanURL` is `writeOnly`: the tool writes its output there. Since the only output became an input, `outputSchema` has no properties.
 
 ***
 Fields of the resource structure:

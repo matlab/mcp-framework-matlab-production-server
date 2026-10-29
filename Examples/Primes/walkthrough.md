@@ -28,6 +28,8 @@ Package `primeSequence` as an MCP tool. This function returns small numeric vect
 ctf = prodserver.mcp.build("primeSequence", wrapper="None");
 ```
 
+On a shared server, give the archive a name of your own with `build`'s `archive` option, for example by adding your user name: `deploy` replaces an archive with the same name, even one someone else deployed.
+
 ## Deploy
 
 Upload to MATLAB Production Server.

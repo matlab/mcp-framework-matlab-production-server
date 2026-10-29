@@ -42,14 +42,8 @@ function definition = mcpDefinition(tool,fcn,opts)
             "description for %s. Add descriptive comment to %s following " + ...
             "the function line.", fcn, mf.FullPath);
     end
-    if opts.encoding == prodserver.mcp.WireEncoding.Invertible
-        if ~contains(desc, MCPConstants.WireEncodingResourceURI)
-            desc = desc + " " + char(MCPConstants.WireEncodingRequiredMsg);
-        end
-    else
-        desc = erase(desc, " " + char(MCPConstants.WireEncodingRequiredMsg));
-    end
-    definition.tools.description = desc;
+    definition.tools.description = ...
+        prodserver.mcp.internal.encodingDescription(desc, opts.encoding);
 
     % MPS mapping of tool name to callable MATLAB function
     definition.signatures.(tool).function = mf.Name;
@@ -86,7 +80,7 @@ function definition = mcpDefinition(tool,fcn,opts)
     % variable name. (This will require fix-up when description is returned
     % as JSON from server.)
     if ~isempty(opts.defs)
-        definition.tools.(MCPConstants.DefsField) = opts.defs;
+        definition.tools.inputSchema.(MCPConstants.DefsField) = opts.defs;
         if hasField(opts.defs,"outputSchema")
             external = fieldnames(opts.defs.outputSchema);
             for n = 1:numel(external)
@@ -141,7 +135,7 @@ function definition = defineParameters(definition,tool,io,descriptions, ...
 
     % Collect argument information from metafunction data.
     [parameters,required,kind,order,group,validation,default] = ...
-        argumentDeclaration(signature,descriptions,encoding,stage);
+        argumentDeclaration(signature,descriptions,encoding,stage,typemap,io);
     
     % Populate MATLAB signature structure with MATLAB native types.
     if ~isempty(parameters)
@@ -157,16 +151,27 @@ function definition = defineParameters(definition,tool,io,descriptions, ...
 
     % Convert MATLAB types to compatible JSON types
     parameters = mcpArgumentTypes(parameters,typemap);
+
+    % A wrapped parameter that may be a scalar may also be sent bare, as the
+    % wire-encoding rules say -- and a scalar output is. Now, not in
+    % argumentDeclaration: the bare forms need the JSON types just set.
+    % Only the invertible encoding has a wrapper; under JSON, a struct with
+    % a data field is just a struct.
+    if encoding == prodserver.mcp.WireEncoding.Invertible
+        for k = 1:numel(signature)
+            name = signature(k).Identifier.Name;
+            sz = [];
+            if prodserver.mcp.internal.hasField(signature(k), "Validation.Size")
+                sz = signature(k).Validation.Size;
+            end
+            parameters.(name) = prodserver.mcp.jsonrpc.allowBareForms( ...
+                parameters.(name), prodserver.mcp.jsonrpc.WireShape.fromSize(sz));
+        end
+    end
     
     % Description of parameters
-    definition.tools.(schemaName).type = "object";
-    if isempty(fieldnames(parameters)) == false
-        definition.tools.(schemaName).properties = parameters;
-        definition.tools.(schemaName).required = required;
-        [minArgs, maxArgs] = ParameterKind.NargRange(kind);
-        definition.tools.(schemaName).minProperties = minArgs;
-        definition.tools.(schemaName).maxProperties = maxArgs;
-    end
+    definition.tools.(schemaName) = ...
+        prodserver.mcp.internal.parameterObject(parameters, required, kind);
     % Ideally we'd add this, but some LLMs (Gemini!) choke on the
     % "additionalProperties" field.
     %definition.tools.(schemaName).additionalProperties = false;
@@ -186,13 +191,13 @@ function pt = parameterTypeName(param,name)
     % encoding. If we're using the invertible encoding, the type is in the
     % properties sub-structure of the wrapper. Surface it. Use the
     % annotation field to determine if we're using the invertible encoding.
-    % The contains test is looking for text in the
-    % wireEncodingArgTemplate.json. So if you change that, change this.
-   
-    wireEncoding = false;
-    if isfield(param,"annotation") && ...
-            contains(param.annotation,"Invertible wire encoding")
-        wireEncoding = true;
+    wireEncoding = prodserver.mcp.jsonrpc.isInvertibleSchema(param);
+
+    % A schema for a class JSON can't describe records the class itself.
+    % See wireTypeSchema.
+    if nargin == 1 && prodserver.mcp.internal.hasField(param, "schema.matlabClass")
+        pt = param.schema.matlabClass;
+        return
     end
 
     if nargin == 1
@@ -245,6 +250,12 @@ function parameters = mcpArgumentTypes(parameters,typemap)
 
     name = string(fieldnames(parameters));
     for n = 1:numel(name)
+        % A schema for a class JSON can't describe already has JSON types.
+        if isfield(parameters.(name(n)).schema,"matlabClass")
+            parameters.(name(n)) = rmfield(parameters.(name(n)),"schema");
+            continue
+        end
+
         % Find the type name for this parameter.
         t = parameterTypeName(parameters.(name(n)));
 
@@ -270,8 +281,8 @@ function parameters = mcpArgumentTypes(parameters,typemap)
             badType = parameterTypeName(parameters.(name(n)));
             error("prodserver:mcp:IncompatibleArgumentType", ...
                 "Parameter '%s' has unsupported MATLAB type '%s'. Valid " + ...
-                "types include numeric types, strings, cell arrays and " + ...
-                "structures.", name(n), badType);
+                "types include %s.", name(n), badType, ...
+                prodserver.mcp.jsonrpc.WireSupport.supportedClasses());
         end
 
         % Array and scalar have different representation. And wireEncoding

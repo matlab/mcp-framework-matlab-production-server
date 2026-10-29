@@ -1,4 +1,4 @@
-classdef tDiscoveryCI < MCPCaller
+classdef tDiscoveryCI < prodserver.mcp.test.base.MCPCaller
 
 % Copyright 2026 The MathWorks, Inc.
 

@@ -46,7 +46,7 @@ function tf = isuri(x,opts)
 
     % Optimization? Attempting to sacrifice space to gain time. These parts
     % of the URI pattern never change.
-    persistent suffix authority ipv6 scheme pathRoot
+    persistent suffix authority ipv6 scheme pathRoot drive
     if isempty(authority)
         % file:, for example.
         scheme = Constants.SchemeNamePattern + ":";
@@ -104,10 +104,19 @@ function tf = isuri(x,opts)
     % http://localhost:9910
     % http://localhost:9910/path/to/resource
     % file:C:/file/system/path/to/data.mat
+    % file:///C:/file/system/path/to/data.mat
     uri = (scheme + authority | ...
            scheme + authority + pathSep + pth | ...
+           scheme + "//" + pathSep + drive + pth | ...
            scheme + pathRoot + pth ) + suffix;
     tf = matches(x,uri);
+
+    % An empty authority (file:///path) has no host name to check. RFC 3986
+    % allows it for any scheme; schemes that require a host, like http,
+    % must check for one themselves (see isserver).
+    if tf && startsWith(x, scheme + "//" + pathSep)
+        return;
+    end
 
     % Still must check for valid host name. This is a lot of work. How
     % necessary is this accuracy?

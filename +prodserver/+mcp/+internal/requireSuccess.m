@@ -12,57 +12,84 @@ function requireSuccess(response,uri,opts)
     end
 
     import prodserver.mcp.internal.hasField
+    import prodserver.mcp.MCPConstants
+    C = prodserver.mcp.protocol.v20260728.Constants;
 
     sc = response.StatusCode;
 
-    % A JSON-RPC error member is a failure whatever HTTP status carries it, so
-    % this is checked before the status at all. Most of them arrive on a 200:
-    % the client-level codes -- parse error, invalid request, method not found,
-    % invalid params, resource not found -- are protocol failures, not transport
-    % failures, so the transport correctly reports success. Only a genuine
-    % internal fault is a 500. Gating the inspection on the status therefore
-    % missed every one of them, and the caller went on to fail further down on
-    % the absence of a result, reporting a missing field instead of the reason
-    % the server gave for not sending one.
+    % The body is inspected at ANY status, not only a failing one. A JSON-RPC
+    % error is a failure whatever status carries it: 2025-06-18 reports an
+    % unknown tool or bad arguments as -32602 over HTTP 200, and 2026-07-28
+    % uses 400 and 404. Likewise result.isError: MCP reports a tool that ran
+    % and failed in band, over 200, and a caller that asked for the tool's
+    % outputs must get an error rather than the error text in place of them
+    % (XD32). Callers that want the raw response do not call requireSuccess.
     %
-    % The test is error.code rather than error, because a bare error field is
-    % not necessarily a JSON-RPC error object: signatureHandler answers an
-    % unsupported verb with struct('error', <char>), which has no code and must
-    % keep falling through to the HttpError branch below.
-    if hasField(response,"Body.Data.error.code")
-        ex = MException("prodserver:mcp:RemoteError", ...
+    % The one exception is a non-2xx status the caller has explicitly
+    % tolerated by raising opts.failure (terminate allows any 4xx): that
+    % caller has said the response is acceptable whatever it carries.
+    data = [];
+    tolerated = double(sc) >= 300 && double(sc) < opts.failure;
+    if ~isempty(response.Body) && ~tolerated
+        data = response.Body.Data;
+    end
+
+    if prodserver.mcp.internal.isJsonRpcError(data)
+        code = data.error.code;
+        % The identifier decides whether prodserver.mcp.call and its
+        % siblings clear the protocol cache and retry, because
+        % isProtocolError matches "RemoteError". Only the codes that can
+        % mean "you are speaking the wrong revision" may be retried. Any
+        % other code is final, and -32603 in particular can be raised after
+        % the tool has run (encoding its outputs), so retrying it would run
+        % the tool a second time.
+        if isnumeric(code) && isscalar(code) && ...
+                any(code == [C.ErrorHeaderMismatch, ...
+                C.ErrorUnsupportedVersion, MCPConstants.ErrorMethodNotFound])
+            id = "prodserver:mcp:RemoteError";
+        else
+            id = "prodserver:mcp:JsonRpcError";
+        end
+        ex = MException(id, ...
             "Request %s to %s generated JSON-RPC protocol " + ...
-            "error: %s (code %d).", opts.request, uri, ...
-            errorMessage(response.Body.Data.error), ...
-            response.Body.Data.error.code);
+            "error: %s (code %s).", opts.request, uri, ...
+            string(data.error.message), string(code));
         throwAsCaller(ex);
     end
 
-    % A tool that ran and raised, reported through the MCP isError convention.
-    % Like the error member above, this is a failure whatever status carries
-    % it, and it normally arrives on a 200: the transport and the protocol both
-    % worked. It used to be inspected only on a 5xx, which this server never
-    % sends with isError, so every tool error passed as a success and the
-    % caller either complained about missing structured content or returned
-    % the error text as the tool's output. Only CallToolResult defines
-    % isError, so no other method's result can trip this.
-    if hasField(response,"Body.Data.result.isError") && ...
-            isequal(response.Body.Data.result.isError,true)
+    if hasField(data, "result.isError") && ...
+            (isequal(data.result.isError, true) || isequal(data.result.isError, 1))
+        content = [];
+        if hasField(data, "result.content")
+            content = data.result.content;
+        end
+        % ToolError, deliberately not matching isProtocolError: the tool ran,
+        % and a retry would run it again.
         ex = MException("prodserver:mcp:ToolError", ...
-            "Request %s to %s raised an error in the tool: %s", ...
-            opts.request, uri, toolErrorText(response.Body.Data.result));
+            "Request %s to %s generated tool error: %s", opts.request, ...
+            uri, contentText(content));
         throwAsCaller(ex);
     end
 
-    % Check HTTP status code.
     if double(sc) >= opts.failure
+        % A 5xx with no JSON-RPC error gets its own identifier, ServerError,
+        % because isProtocolError matches HttpError. A server that crashed,
+        % or a proxy that failed, may have done so after the tool ran, and
+        % prodserver.mcp.call must not answer that by sending tools/call a
+        % second time. A 4xx is a verdict on the request itself (a stale
+        % archive is a 404), so it stays HttpError and may still be retried.
+        if double(sc) >= 500
+            id = "prodserver:mcp:ServerError";
+        else
+            id = "prodserver:mcp:HttpError";
+        end
         body = errorResponseBody(response);
         if strlength(body) > 0
-            ex = MException("prodserver:mcp:HttpError",...
+            ex = MException(id,...
                 "Request %s to %s failed with error code %s: %s\nBody: %s", ...
                 opts.request,uri,string(sc),getReasonPhrase(sc),body);
         else
-            ex = MException("prodserver:mcp:HttpError",...
+            ex = MException(id,...
                 "Request %s to %s failed with error code %s: %s", ...
                 opts.request,uri,string(sc),getReasonPhrase(sc));
         end
@@ -70,45 +97,26 @@ function requireSuccess(response,uri,opts)
     end
 end
 
-function msg = errorMessage(err)
-%errorMessage The message from a JSON-RPC error object.
-%   JSON-RPC requires message alongside code, but a server that omits it must
-%   not turn a reportable protocol error into an indexing failure inside the
-%   reporting code -- the code alone still tells the caller what went wrong.
-
-    if isfield(err,'message') && ~isempty(err.message)
-        msg = string(err.message);
-    else
-        msg = "(no message)";
-    end
-end
-
-function txt = toolErrorText(result)
-%toolErrorText The text parts of an isError result's content, joined.
-%   content is an array, which jsondecode returns as a struct array when its
-%   items share fields and as a cell array when they do not. Indexing .text on
-%   a struct array yields a comma-separated list, so every shape is walked
-%   item by item, and non-text items are skipped.
-
-    txt = "(no error text)";
-    if ~isfield(result,'content') || isempty(result.content)
-        return
-    end
-    items = result.content;
-    if isstruct(items)
-        items = num2cell(items);
-    elseif ~iscell(items)
-        return
+function txt = contentText(content)
+%contentText Join the text of every text item in a result's content.
+%   content decodes as a struct array when every item has the same fields,
+%   and as a cell array when they differ, so both shapes are walked.
+    if isstruct(content)
+        content = num2cell(content);
     end
     parts = string.empty;
-    for k = 1:numel(items)
-        item = items{k};
-        if isstruct(item) && isfield(item,'text') && ...
-                (ischar(item.text) || isstring(item.text))
-            parts(end+1) = string(item.text); %#ok<AGROW>
+    if iscell(content)
+        for k = 1:numel(content)
+            c = content{k};
+            if isstruct(c) && isscalar(c) && isfield(c, "text") && ...
+                    (ischar(c.text) || isstring(c.text))
+                parts(end+1) = string(c.text); %#ok<AGROW>
+            end
         end
     end
-    if ~isempty(parts)
+    if isempty(parts)
+        txt = "(no text content)";
+    else
         txt = strjoin(parts, newline);
     end
 end

@@ -118,6 +118,27 @@ classdef tvalidate < matlab.unittest.TestCase
 
             test.verifyError(@()mustBeMCPServer(""), ...
                 "prodserver:mcp:InvalidServerAddress");
+
+            % A URI may have an empty host; an HTTP server address may not.
+            test.verifyError(@()mustBeMCPServer("http:///mcp"), ...
+                "prodserver:mcp:InvalidServerAddress");
+            test.verifyError(@()mustBeMCPServer("https:///mcp"), ...
+                "prodserver:mcp:InvalidServerAddress");
+        end
+
+        function server(test)
+            import prodserver.mcp.validation.mustBeServer
+
+            mustBeServer("http://localhost:9910");
+            mustBeServer("https://host/");
+
+            % Empty host, missing host, or more than the authority
+            test.verifyError(@()mustBeServer("http:///"), ...
+                "prodserver:mcp:InvalidServerAddress");
+            test.verifyError(@()mustBeServer("http://"), ...
+                "prodserver:mcp:InvalidServerAddress");
+            test.verifyError(@()mustBeServer("http://host/path"), ...
+                "prodserver:mcp:InvalidServerAddress");
         end
 
         function portNumber(test)
@@ -146,13 +167,13 @@ classdef tvalidate < matlab.unittest.TestCase
             mustBeSameSize(5, '', string.empty, struct.empty, {}, []);
 
             test.verifyError(@()mustBeSameSize(1,1,[2,3], 4), ...
-                "prodserver:mcp:DifferentSize");
+                "prodserver:mcp:SizeMismatch");
             test.verifyError(@()mustBeSameSize(1,magic(3),magic(4)), ...
-                "prodserver:mcp:DifferentSize");
+                "prodserver:mcp:SizeMismatch");
             test.verifyError(@()mustBeSameSize(1,1:10,1:5), ...
-                "prodserver:mcp:DifferentSize");
+                "prodserver:mcp:SizeMismatch");
             test.verifyError(@()mustBeSameSize(1,zeros(1,10),zeros(10,1)), ...
-                "prodserver:mcp:DifferentSize");
+                "prodserver:mcp:SizeMismatch");
         end
 
         function scheme(test)
@@ -220,6 +241,10 @@ classdef tvalidate < matlab.unittest.TestCase
             mustBeURI("file:c:/path/to/my/data/file.txt");
             mustBeURI("http://us3r@h0st.com/pi");
             mustBeURI("http://user@host.com/path?p1=v1&p2=v2#location");
+
+            % Empty authority (RFC 3986 3.2.2, RFC 8089)
+            mustBeURI("file:///tmp/x.mat");
+            mustBeURI("file:///C:/x.mat");
 
             test.verifyError(@()mustBeURI(18),"prodserver:mcp:BadURIType");
             test.verifyError(@()mustBeURI(@sin),"prodserver:mcp:BadURIType");

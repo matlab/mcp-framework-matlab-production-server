@@ -11,14 +11,7 @@ classdef tCatalog < matlab.unittest.TestCase
     methods (TestClassSetup)
 
         function loadFixture(test)
-            fixtureFile = fullfile(fileparts(mfilename("fullpath")), ...
-                "metrics_fixture.txt");
-            raw = string(fileread(fixtureFile));
-            data = splitlines(raw);
-            if strlength(data(end)) == 0
-                data = data(1:end-1);
-            end
-            test.catalog = prodserver.mcp.metrics.Catalog(data, ...
+            test.catalog = prodserver.mcp.metrics.Catalog(fixtureData(), ...
                 "http://localhost:9910/AlphaServer/mcp");
         end
 
@@ -176,6 +169,26 @@ classdef tCatalog < matlab.unittest.TestCase
                     contains(m(k).name, "_AlphaServer_"), ...
                     "Server scope metric should contain _AlphaServer_");
             end
+        end
+
+        % --- Plain server address (no /<archive>/mcp) ---
+
+        function plainAddressParsesAllMetrics(test)
+        % metrics() accepts a plain server address, so the catalog must too.
+            c = prodserver.mcp.metrics.Catalog(fixtureData(), ...
+                "http://localhost:9910");
+            test.verifyNumElements(c.scope(prodserver.mcp.metrics.Scope.All), 27);
+            test.verifyNotEmpty(c.scope(prodserver.mcp.metrics.Scope.MCP));
+            test.verifyNotEmpty(c.scope(prodserver.mcp.metrics.Scope.Tool));
+        end
+
+        function plainAddressServerScopeErrors(test)
+        % No archive name to match on, so Scope.Server can't be answered.
+            c = prodserver.mcp.metrics.Catalog(fixtureData(), ...
+                "http://localhost:9910/");
+            test.verifyError( ...
+                @() c.scope(prodserver.mcp.metrics.Scope.Server), ...
+                "prodserver:mcp:NoServerScope");
         end
 
         function scopeToolReturnsOnlyToolCallMetrics(test)
@@ -390,5 +403,15 @@ classdef tCatalog < matlab.unittest.TestCase
             test.verifyEqual(m.value, 47);
         end
 
+    end
+end
+
+function data = fixtureData()
+    fixtureFile = fullfile(fileparts(mfilename("fullpath")), ...
+        "metrics_fixture.txt");
+    raw = string(fileread(fixtureFile));
+    data = splitlines(raw);
+    if strlength(data(end)) == 0
+        data = data(1:end-1);
     end
 end

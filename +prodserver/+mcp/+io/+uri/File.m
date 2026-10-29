@@ -82,6 +82,11 @@ classdef File < prodserver.mcp.io.Scheme
         %  file:/C:/path/to/storage/X.mat  
         %becomes
         %  C:/path/to/storage/X.mat
+        %
+        %A URI whose path has a .. segment, or an encoded separator (%2F, or
+        %%5C on Windows), is an error, prodserver:mcp:BadFilePath: no file
+        %name needs either, and a client could use them to reach a file
+        %outside the folder it names.
             
             import prodserver.mcp.validation.istext
 
@@ -119,9 +124,110 @@ classdef File < prodserver.mcp.io.Scheme
                 pth(startsWithDriveLetter) = ...
                     extractAfter(pth(startsWithDriveLetter),1);
             end
-            
-            % Restore percent-encoded characters
-            pth = prodserver.mcp.io.percentDecode(pth);
+
+            % parseURI has already restored percent-encoded characters.
+            % Decoding again would turn a literal %41 in a file name into A.
+
+            encodedSeparator = ["%2F" "%2f"];
+            if ispc
+                encodedSeparator = [encodedSeparator "%5C" "%5c"];
+            end
+            for n = 1:numel(uri)
+                rawPath = regexprep(uri(n).uri, "[?#].*$", "");
+                if contains(rawPath, encodedSeparator) || ...
+                        any(split(pth(n), "/") == "..")
+                    error("prodserver:mcp:BadFilePath", ...
+                        "Cannot read file URI %s: its path must not " + ...
+                        "contain a '..' segment or an encoded separator.", ...
+                        uri(n).uri);
+                end
+            end
+        end
+
+        function uri = Path2FileURI(pth)
+        %Path2FileURI Convert a platform-specific file system path to a File
+        %URI. The inverse of FileURI2Path: the URI parses with parseURI and
+        %reads with deserialize. For example, on Windows:
+        %  C:\path\to\my data\X.json
+        %becomes
+        %  file:///C:/path/to/my%20data/X.json
+        %and the UNC path \\server\share\X.json becomes
+        %  file:////server/share/X.json
+        %
+        %A relative path is made absolute against the current folder, and
+        %a path from the root (\x) against its drive or UNC share. A
+        %drive-relative path such as C:x is an error: its folder is the
+        %current folder of drive C, which MATLAB doesn't know. Every character except unreserved characters, / and : is
+        %percent-encoded as UTF-8, including %, # and ?, so no character
+        %of a file name can change the meaning of the URI.
+
+            arguments
+                pth string
+            end
+
+            persistent drivePath driveRelative
+            if isempty(drivePath)
+                drivePath = textBoundary("start") + lettersPattern(1) + ":/";
+                driveRelative = textBoundary("start") + lettersPattern(1) + ":" + ...
+                    (textBoundary("end") | wildcardPattern(1, Except="/"));
+            end
+
+            uri = strings(size(pth));
+            for n = 1:numel(pth)
+                p = pth(n);
+                if ismissing(p) || strlength(p) == 0
+                    error("prodserver:mcp:BadFilePath", ...
+                        "Cannot convert an empty path to a file URI.");
+                end
+
+                % Windows accepts both separators; a URI uses only /.
+                % Elsewhere \ is an ordinary file name character, which
+                % percent-encoding preserves.
+                if ispc
+                    p = replace(p, "\", "/");
+                    % The long-path prefix \\?\ is not part of the path:
+                    % \\?\C:\x is C:\x, \\?\UNC\server\share is a UNC path.
+                    if startsWith(p, "//?/UNC/", IgnoreCase=true)
+                        p = "//" + extractAfter(p, 8);
+                    elseif startsWith(p, "//?/")
+                        p = extractAfter(p, 4);
+                    end
+                end
+
+                % Make the path absolute.
+                if ispc
+                    here = replace(string(pwd), "\", "/");
+                    if startsWith(p, drivePath) || startsWith(p, "//")
+                        % Drive or UNC path: already absolute.
+                    elseif startsWith(p, driveRelative)
+                        error("prodserver:mcp:BadFilePath", ...
+                            "Cannot convert the drive-relative path '%s' " + ...
+                            "to a file URI. Give the full path, starting " + ...
+                            "%s\\.", pth(n), extractBefore(p, 3));
+                    elseif startsWith(p, "/")
+                        % Root of the current drive or UNC share.
+                        p = driveRoot(here) + p;
+                    else
+                        p = here + "/" + p;
+                    end
+                elseif ~startsWith(p, "/")
+                    p = string(pwd) + "/" + p;
+                end
+
+                % . and .. are resolved here, where the path is the local
+                % user's own; FileURI2Path refuses .. from a client.
+                p = prodserver.mcp.io.removeDotSegments(p);
+
+                % A drive letter path needs a leading /: file:///C:/x. A UNC
+                % path keeps its //, giving an empty authority and the path
+                % //server/share: file:////server/share/x.
+                if ispc && startsWith(p, drivePath)
+                    p = "/" + p;
+                end
+
+                uri(n) = "file://" + prodserver.mcp.io.percentEncode(p, ...
+                    except="/:");
+            end
         end
     end
 
@@ -196,6 +302,13 @@ classdef File < prodserver.mcp.io.Scheme
 
         function tf = exist(fs,uri)
         %exist Does the URI exist in the scheme?
+
+            % string: a char URI is one URI, not an array of characters.
+            arguments
+                fs
+                uri string
+            end
+
             import prodserver.mcp.internal.Constants
 
             if isempty(uri)
@@ -213,13 +326,15 @@ classdef File < prodserver.mcp.io.Scheme
             % that exists.
             stf = false(size(uri));
             for n = 1:numel(uri)      
-                u = prodserver.mcp.io.parseURI(uri(n));
-                stf(n) = exist(u.path,"file") == 2;
+                % FileURI2Path, not the raw path: file:///C:/x has path
+                % /C:/x, which is not a Windows file name.
+                pth = prodserver.mcp.io.uri.File.FileURI2Path(uri(n));
+                stf(n) = exist(pth,"file") == 2;
             end
 
             % Some of the URIs that are in this scheme might not have
             % values -- change them from true to false.
-            tf(tf) = stf(n);
+            tf(tf) = stf;
         end
 
         function tf = isactive(fs)
@@ -282,7 +397,7 @@ classdef File < prodserver.mcp.io.Scheme
                         end
                         [ok,msg] = rmdir(f);
                         if ok == false
-                            error( ...
+                            error("prodserver:mcp:SessionDataPersists", ...
   "Unable to clear or remove session root %s for %s scheme: %s", ...
                                 x.folder, class(fs), msg);
                         end
@@ -355,12 +470,12 @@ function folder = sessionRootFolder(sid,config)
     if isKey(tokens, File.sessionRootToken)
         folder = tokens(File.sessionRootToken);
     else
-        id = prodserver.mcp.internal.parseSessionID(sid);
-        id = sanitizeForPath(id);
+        sid = prodserver.mcp.internal.parseSessionID(sid);
+        sid = sanitizeForPath(sid);
         if isKey(tokens, File.persistRootToken)
-            folder = fullfile(tokens(File.persistRootToken),id);
+            folder = fullfile(tokens(File.persistRootToken),sid);
         else
-            folder = fullfile(config.defaults.persistroot,id);
+            folder = fullfile(config.defaults.persistroot,sid);
         end
     end
 end
@@ -393,3 +508,12 @@ function tokens = fileTokens()
     tokens(File.persistRootToken) = persistFolder;
 end
 
+function root = driveRoot(folder)
+% The drive (C:) or UNC share (//server/share) of FOLDER, with / separators.
+    share = regexp(folder, "^//[^/]+/[^/]+", "match", "once");
+    if ismissing(share) || strlength(share) == 0
+        root = extractBefore(folder, 3);
+    else
+        root = share;
+    end
+end

@@ -51,10 +51,6 @@ classdef tArgOrder < prodserver.mcp.test.base.MCPHandlerBase
             toolEncoding = prodserver.mcp.jsonrpc.toolEncoding("primeSequence", ...
                 defFile=test.definitionFile);
 
-            % Make up a session ID
-            id = matlab.lang.internal.uuid;
-            req.Headers = [req.Headers; { MCPConstants.SessionId id} ];
-
             % Call orderMatters with inputs out of order.
             body = [...
 '{' ...
@@ -72,6 +68,7 @@ classdef tArgOrder < prodserver.mcp.test.base.MCPHandlerBase
 '    }'...
 '}'
 ];
+            [req, body] = test.applyProtocol(req, body);
             reqT = req;
             reqT.Method = "POST";  % Because there's a body
             reqT.Path = "/orderMatters/mcp";

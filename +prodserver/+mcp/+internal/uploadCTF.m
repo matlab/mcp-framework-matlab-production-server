@@ -22,6 +22,15 @@ function [status, detail] = uploadCTF(ctf, url, opts)
 %   Create Error" and the like -- only in the response body. Callers need that
 %   text to tell the user anything useful, so it is no longer discarded.
 %
+%   OPTS.timeout is a CONNECT timeout, in seconds: how long to wait for the
+%   server to accept the connection, not how long the upload may take. A
+%   large archive can legitimately take far longer than that to transfer,
+%   so no response timeout is set on the upload itself.
+%
+% The caller checks that the server at URL is active: deploy, the only
+% caller, has just done so (isserver), and a second health check here would
+% only probe the same server again.
+%
 % Upload will fail if the server is not running or if the server does not
 % allow remote archive management. To allow remote archive management,
 % set --enable-archive-management in the instance configuration file.
@@ -55,40 +64,39 @@ function [status, detail] = uploadCTF(ctf, url, opts)
             "File: %s", ctf)
     end
 
-    [~,isActive] = prodserver.mcp.validation.isserver(url,...
-        retry=opts.retry,timeout=opts.timeout);
-    if isActive == false
-        error("prodserver:mcp:InactiveServer", ...
-   "No response from server '%s'. Check server status and access " + ...
-            "permissions",url);
-    end
- 
     % Remote archive management endpoint
     archiveURL = sprintf("%s/api/archives?ctf=%s",url,ctfName);
 
-    % List / Show
+    % List / Show. Seeded, so a zero retry budget -- which runs no attempts
+    % -- reports that no listing was obtained rather than reading an
+    % unassigned variable. Only a failure that can change on its own is
+    % retried, after a pause: re-asking immediately cannot outlast a server
+    % that is still starting.
     webOpts = weboptions(Timeout=opts.timeout);
-    n = 1;
-    while n <= opts.retry
-        try
-            list_response = webread(archiveURL,webOpts);
-            % If we got a good response, exit the loop.
-            if all(hasField(list_response,["action","result","archive"]))
-                n = opts.retry + 1;
-            end
-        catch ex
-            % No recovery from this failure, no sense in retrying.
-            if contains(ex.message,"Archive Management Disabled")
-                error("prodserver:mcp:ArchiveManagementDisabled", ...
+    try
+        [list_response, lastError] = prodserver.mcp.internal.webreadWithRetry( ...
+            archiveURL, webOpts, attempts=opts.retry, delay=opts.delay, ...
+            retryable=@(ex) transientFailure(ex) && ...
+                ~contains(ex.message,"Archive Management Disabled"), ...
+            accept=@validListing);
+    catch ex
+        % No recovery from this failure, no sense in retrying.
+        if contains(ex.message,"Archive Management Disabled")
+            error("prodserver:mcp:ArchiveManagementDisabled", ...
     "Cannot upload to %s because that server has archive management " + ...
     "disabled. Enable archive management and try again.", url);
-            end
-            % We've tried as many times as we're allowed.
-            if n == opts.retry
-                rethrow(ex);
-            end
         end
-        n = n + 1;
+        rethrow(ex);
+    end
+    % Out of attempts. A last attempt that failed is reported as itself.
+    if ~isempty(lastError)
+        rethrow(lastError);
+    end
+    if ~validListing(list_response)
+        error("prodserver:mcp:ArchiveListFailed", ...
+            "Could not list the archives on %s after %d attempt(s), so " + ...
+            "cannot tell whether %s is already installed.", ...
+            url, opts.retry, ctfName);
     end
  
     % Read the bytes of the CTF archive. All of them. This may result in a
@@ -104,9 +112,11 @@ function [status, detail] = uploadCTF(ctf, url, opts)
     % Request method is POST, since we're changing server state.
     requestMethod = matlab.net.http.RequestMethod.POST;
 
-    % Is an archive of the same name already present on the server?
-    alreadyThere = ismember(ctfName, list_response.archive);
-    alreadyThere = list_response(alreadyThere).result == true;
+    % Is an archive of the same name already present on the server? A
+    % listing that does not name this archive at all means no: indexing it
+    % by an all-false mask used to leave nothing for == to compare.
+    named = list_response(ismember(string({list_response.archive}), ctfName));
+    alreadyThere = any([named.result] == true);
 
     % Overwrite or error for pre-existing archives.
     if alreadyThere && opts.overwrite == false
@@ -153,10 +163,11 @@ function [status, detail] = uploadCTF(ctf, url, opts)
             status = upload_response.StatusCode;
             detail = responseDetail(upload_response);
         catch ex
-            % Look for timeout exceptions and retry. Heuristic.
-            rpt = getReport(ex);
-            if contains(rpt,"timeout",IgnoreCase=true) == false && ...
-                    contains(rpt,"timed out",IgnoreCase=true) == false
+            % Retry a timeout or a refused connection; nothing else that
+            % raises rather than answering will change on its own. A refused
+            % connection used to be rethrown here, although the listing
+            % above -- moments earlier -- retries it.
+            if ~prodserver.mcp.internal.isTransientError(ex, status=[])
                 rethrow(ex);
             end
             detail = string(ex.message);
@@ -217,4 +228,21 @@ function detail = responseDetail(response)
     if strlength(detail) == 0 && ~isempty(response.StatusLine)
         detail = string(response.StatusLine.ReasonPhrase);
     end
+end
+
+
+function tf = validListing(list_response)
+%validListing Is this the archive-management endpoint's listing?
+    tf = ~isempty(list_response) && ...
+        all(prodserver.mcp.internal.hasField(list_response, ...
+        ["action","result","archive"]));
+end
+
+
+function tf = transientFailure(ex)
+%transientFailure Could the listing request succeed if sent again?
+%   A refused connection or a timeout (the server may still be starting), a
+%   404, 408 or 429, or a 5xx. Any other 4xx is a property of the request.
+%   Listing is read-only, so repeating it after a 5xx is safe.
+    tf = prodserver.mcp.internal.isTransientError(ex, serverErrors=true);
 end

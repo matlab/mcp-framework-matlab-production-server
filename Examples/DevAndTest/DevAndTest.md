@@ -9,7 +9,6 @@ Copy the files in the `Examples/DevAndTest` folder into a new folder. Start MATL
 ### Create Test Project
 Use `prodserver.mcp.build` and `productionServerArchiveCompiler` to create a debuggable test project.
 ```MATLAB
-cd s:\MPS\MCP\Examples\DevAndTest
 prodserver.mcp.build("primeSequence",wrapper="None",stop="Routes")
 copyfile("deploy/McpServices.mat", ".")
 setenv("PRODSERVER_ROUTES_FILE","deploy/dev_test_routes.json")
@@ -50,7 +49,7 @@ Before starting your client, set breakpoints in your MATLAB code or the MCP Fram
 3. Call the primeSequence MCP tool with `prodserver.mcp.call`.
 
 ```MATLAB
-seq = prodserver.mcp.call("http://localhost/primeSequence/mcp", "primeSequence", 11, "balanced") 
+seq = prodserver.mcp.call("http://localhost:9910/primeSequence/mcp", "primeSequence", 11, "balanced") 
 ```
 
 ## Your Own Tools

@@ -8,16 +8,10 @@ function x = loadJSON(file, opts)
         opts.format prodserver.mcp.WireEncoding = "Invertible"
     end
 
-    fid = fopen(file);
-    rawData = fread(fid, inf);
-    jsonString = char(rawData');
-    fclose(fid);
-    j = jsondecode(jsonString);
-
-    if opts.format == prodserver.mcp.WireEncoding.JSON
-        x = j;
-    else
-        x = prodserver.mcp.jsonrpc.mcpWireDecodeValue(j);
-    end
-
+    % JSON is UTF-8 (RFC 8259), and saveJSON writes UTF-8. readUTF8 also
+    % keeps characters fileread loses, and drops a byte order mark, which
+    % jsondecode rejects.
+    j = jsondecode(prodserver.mcp.internal.readUTF8(file));
+    decoded = prodserver.mcp.jsonrpc.mcpDecode(opts.format, j);
+    x = decoded{1};
 end

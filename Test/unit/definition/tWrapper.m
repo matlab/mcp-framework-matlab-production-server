@@ -115,7 +115,7 @@ classdef tWrapper < matlab.unittest.TestCase & ...
             % Generate wrappers for three tools
             fcn = ["toyToolOne", "toyToolTwo", "toyToolThree"];
 
-            % Vanilla argument list -- tools only, no GenAI.
+            % Vanilla argument list.
             typemap.geom = "float";
             wrap = prodserver.mcp.internal.wrapForMCP(fcn,["","",""], ...
                 wrapFolder,typemap=typemap, encoding=encoding);
@@ -153,7 +153,7 @@ classdef tWrapper < matlab.unittest.TestCase & ...
             fcn = "toyToolThree";
             wrapper = fcn + MCPConstants.WrapperFileSuffix;
 
-            % Vanilla argument list -- tools only, no GenAI.
+            % Vanilla argument list.
             wrapFile = prodserver.mcp.internal.wrapForMCP(fcn,"",...
                 wrapFolder, encoding=encoding);
             rehash
@@ -205,7 +205,7 @@ classdef tWrapper < matlab.unittest.TestCase & ...
             fcn = "toyToolDupNames";
             wrapper = fcn + "MCP";
 
-            % Vanilla argument list -- tools only, no GenAI.
+            % Vanilla argument list.
             wrapFile = prodserver.mcp.internal.wrapForMCP(fcn,"",wrapFolder, ...
                 encoding="Invertible");
             rehash

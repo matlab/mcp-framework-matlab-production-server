@@ -1,8 +1,17 @@
 classdef tInitialize < matlab.unittest.TestCase
-% Test prodserver.mcp.handler.initialize (handle the MCP initialize request:
+% Test prodserver.mcp.protocol.v20250618.initialize (handle the MCP initialize request:
 % negotiate protocol version, advertise capabilities, mint a session id).
+%
+% The handler is tested directly, and then end to end through mcpHandler,
+% because two of its defects (ND3, ND4) were in the headers mcpHandler
+% assembles around it, which a direct call cannot see.
 
 % Copyright 2026 The MathWorks, Inc.
+
+    properties (Constant)
+        Negotiated = "2025-06-18";
+        Archive = "myArchive";
+    end
 
     methods
 
@@ -12,84 +21,214 @@ classdef tInitialize < matlab.unittest.TestCase
             jrpc.params.protocolVersion = protocolVersion;
         end
 
+        function verifyVersionHeader(test, msgHeaders, expected)
+            import prodserver.mcp.MCPConstants
+            rows = strcmpi(msgHeaders(:,1), MCPConstants.ProtocolVersion);
+            test.assertEqual(nnz(rows), 1, ...
+                "Exactly one MCP-Protocol-Version header");
+            test.verifyClass(msgHeaders{rows,2}, "char");
+            test.verifyEqual(string(msgHeaders{rows,2}), expected);
+        end
+
+        function response = post(test, protocolVersion, headers)
+        %post initialize through mcpHandler, at /<Archive>/mcp.
+            arguments
+                test
+                protocolVersion
+                headers = cell(0,2)
+            end
+            import prodserver.mcp.MCPConstants
+            jrpc = test.request(protocolVersion);
+            jrpc.method = "initialize";
+            body = jsonencode(jrpc);
+            req = struct('ApiVersion', [1 0 0], 'Method', "POST", ...
+                'Path', "/" + test.Archive + "/mcp");
+            req.Headers = [{'Server', 'MATLAB Production Server'}; ...
+                {MCPConstants.ContentType, 'application/json'}; headers; ...
+                {MCPConstants.ContentLength, numel(body)}];
+            req.Body = unicode2native(body, "UTF-8");
+            response = prodserver.mcp.internal.mcpHandler(req);
+            prodserver.mcp.test.verifyConformantResponse(test, response);
+        end
+
+        function verifyNegotiation(test, requested)
+        % The body and the header both carry the negotiated version.
+            [result, ~, ~, msgHeaders] = ...
+                prodserver.mcp.protocol.v20250618.initialize( ...
+                    test.request(requested));
+            test.verifyEqual(result.result.protocolVersion, test.Negotiated, ...
+                "Negotiated version for requested " + requested);
+            test.verifyVersionHeader(msgHeaders, test.Negotiated);
+        end
+
     end
 
     methods (Test)
 
         function tNegotiatesProtocolAndIdentity(test)
-            result = prodserver.mcp.handler.initialize(test.request("2025-06-18"));
+            import prodserver.mcp.MCPConstants
+            result = prodserver.mcp.protocol.v20250618.initialize(test.request("2025-06-18"));
             test.verifyEqual(result.id, 7);
             test.verifyEqual(result.jsonrpc, "2.0");
             r = result.result;
             test.verifyEqual(r.protocolVersion, "2025-06-18");
-            test.verifyEqual(r.serverInfo.name, "MATLAB Production Server");
-            test.verifyEqual(r.serverInfo.version, "1.0.0");
+            % One source for the server's identity (ND10).
+            test.verifyEqual(r.serverInfo.name, MCPConstants.ServerName);
+            test.verifyEqual(r.serverInfo.version, MCPConstants.ServerVersion);
         end
 
         function tAdvertisesCapabilities(test)
-            result = prodserver.mcp.handler.initialize(test.request("2025-06-18"));
+            result = prodserver.mcp.protocol.v20250618.initialize(test.request("2025-06-18"));
             r = result.result;
-            test.verifyTrue(r.capabilities.tools.listChanged);
-            test.verifyTrue(r.capabilities.resources.listChanged);
+            test.verifyFalse(r.capabilities.tools.listChanged);
+            test.verifyFalse(r.capabilities.resources.listChanged);
         end
 
         function tSessionIdHeader(test)
-            import prodserver.mcp.MCPConstants
+            import prodserver.mcp.protocol.v20250618.Constants
             [~, httpCode, httpMsg, msgHeaders] = ...
-                prodserver.mcp.handler.initialize(test.request("2025-06-18"));
+                prodserver.mcp.protocol.v20250618.initialize(test.request("2025-06-18"));
             test.verifyEqual(httpCode, 200);
             test.verifyEqual(httpMsg, 'OK');
             % A session-id header is appended; the value must be char, not string.
-            test.verifyEqual(msgHeaders{1, 1}, char(MCPConstants.SessionId));
+            test.verifyEqual(msgHeaders{1, 1}, char(Constants.SessionId));
             test.verifyClass(msgHeaders{1, 2}, "char");
             test.verifyNotEmpty(msgHeaders{1, 2});
         end
 
-        function tAlwaysReportsSupportedVersion(test)
-            % The lifecycle spec requires the server to answer with the version
-            % it will actually use, not the one it was asked for. This server
-            % implements exactly one, so every request gets the same answer --
-            % including requests naming an older revision or nothing valid at
-            % all. Echoing the client's string, as this used to, made the
-            % server claim to speak protocols it does not implement.
-            asked = ["2024-11-05" "2025-03-26" "not-a-version"];
-            for v = asked
-                result = prodserver.mcp.handler.initialize(test.request(v));
-                test.verifyEqual(result.result.protocolVersion, ...
-                    prodserver.mcp.MCPConstants.protocolVersion, ...
-                    sprintf("initialize(%s) must still report the " + ...
-                        "server's own version.", v));
-            end
+        % G6: negotiation. Each case checks the header as well as the body.
+
+        function tSupportedVersionIsEchoed(test)
+            test.verifyNegotiation("2025-06-18");
         end
 
-        function tServerTitleIsVersionIndependent(test)
-            % serverInfo.title is an optional display string, not part of
-            % negotiation: it must not appear or disappear with the requested
-            % version.
-            asked = ["2024-11-05" "2025-03-26" "2025-06-18"];
-            titles = strings(1,numel(asked));
-            for k = 1:numel(asked)
-                r = prodserver.mcp.handler.initialize(test.request(asked(k)));
-                test.assertTrue(isfield(r.result.serverInfo,"title"), ...
-                    sprintf("serverInfo.title missing for %s.", asked(k)));
-                titles(k) = string(r.result.serverInfo.title);
-            end
-            test.verifyEqual(numel(unique(titles)), 1, ...
-                "serverInfo.title must not vary with the requested version.");
-            % Not a development-stage placeholder.
-            test.verifyFalse(contains(titles(1),"Prototype", ...
-                IgnoreCase=true));
+        function tAliasIsNotEchoed(test)
+            % 2024-11-05 is the HTTP+SSE transport, which this server does
+            % not provide. Echoing it would claim that it does.
+            test.verifyNegotiation("2024-11-05");
         end
 
-        function tMissingProtocolVersionIsBadParams(test)
-            % protocolVersion is required by the initialize schema. Absent, it
-            % is bad params -- not an indexing failure reported as an internal
-            % server fault.
+        function tVersionWithoutInitializeIsNotEchoed(test)
+            % 2026-07-28 is supported, but has no initialize: a handshake
+            % cannot agree on it.
+            test.verifyNegotiation("2026-07-28");
+        end
+
+        function tUnsupportedVersionIsNegotiatedNotRefused(test)
+            % Negotiation is not an error path: answer with a version we
+            % support, over 200.
+            [~, httpCode] = prodserver.mcp.protocol.v20250618.initialize( ...
+                test.request("1999-01-01"));
+            test.verifyEqual(httpCode, 200);
+            test.verifyNegotiation("1999-01-01");
+        end
+
+        function tMissingProtocolVersionIsInvalidParams(test)
             jrpc.jsonrpc = "2.0";
             jrpc.id = 7;
             jrpc.params = struct();
-            test.verifyError(@()prodserver.mcp.handler.initialize(jrpc), ...
-                "prodserver:mcp:MissingParams");
+            test.verifyError(@() prodserver.mcp.protocol.v20250618.initialize(jrpc), ...
+                "prodserver:mcp:InvalidParams");
+        end
+
+        function tMissingParamsIsInvalidParams(test)
+            % XD1: confirmed live as a 500.
+            jrpc.jsonrpc = "2.0";
+            jrpc.id = 7;
+            test.verifyError(@() prodserver.mcp.protocol.v20250618.initialize(jrpc), ...
+                "prodserver:mcp:InvalidParams");
+        end
+
+        function tNonTextProtocolVersionIsInvalidParams(test)
+            % XD1: guard the type, not just the presence.
+            for v = {7, {"2025-06-18"}, ["2025-06-18" "2024-11-05"], struct('v',1)}
+                test.verifyError(@() prodserver.mcp.protocol.v20250618.initialize( ...
+                    test.request(v{1})), "prodserver:mcp:InvalidParams");
+            end
+        end
+
+        % XD20: title is the archive name.
+
+        function tTitleIsArchiveName(test)
+            result = prodserver.mcp.protocol.v20250618.initialize( ...
+                test.request("2025-06-18"), test.Archive);
+            test.verifyEqual(result.result.serverInfo.title, test.Archive);
+        end
+
+        function tNoTitleWithoutArchiveName(test)
+            % No path, no name: omit title rather than invent one.
+            result = prodserver.mcp.protocol.v20250618.initialize( ...
+                test.request("2025-06-18"));
+            test.verifyFalse(isfield(result.result.serverInfo, "title"));
+        end
+
+        function tNoTitleFor2024Client(test)
+            % Keyed on the requested version: the negotiated one is later.
+            result = prodserver.mcp.protocol.v20250618.initialize( ...
+                test.request("2024-11-05"), test.Archive);
+            test.verifyEqual(result.result.protocolVersion, test.Negotiated);
+            test.verifyFalse(isfield(result.result.serverInfo, "title"));
+        end
+
+        % End to end, through mcpHandler.
+
+        function tEndToEndHeadersAgreeWithBody(test)
+            % ND4: the header used to copy the request's version unnegotiated
+            % (and not as char), so it said 2024-11-05 while the body said
+            % 2025-06-18.
+            %
+            % The unsupported version goes in the body only: in a header it
+            % is refused with 400 at resolution, before initialize runs
+            % (tVersionResolution).
+            import prodserver.mcp.MCPConstants
+            cases = {"2025-06-18", {MCPConstants.ProtocolVersion, '2025-06-18'}
+                     "2024-11-05", {MCPConstants.ProtocolVersion, '2024-11-05'}
+                     "1999-01-01", cell(0,2)};
+            for k = 1:size(cases, 1)
+                v = cases{k,1};
+                response = test.post(v, cases{k,2});
+                test.verifyEqual(response.HttpCode, 200, v);
+                decoded = prodserver.mcp.internal.decodeBody(response);
+                test.verifyEqual(string(decoded.result.protocolVersion), ...
+                    test.Negotiated, v);
+                test.verifyVersionHeader(response.Headers, test.Negotiated);
+            end
+        end
+
+        function tEndToEndOneSessionId(test)
+            % ND3: an initialize carrying a session id got two -- the echo
+            % and the newly minted one. The minted one replaces the echo.
+            import prodserver.mcp.protocol.v20250618.Constants
+            stale = 'stale-session-id';
+            response = test.post("2025-06-18", {Constants.SessionId, stale});
+            test.verifyEqual(response.HttpCode, 200);
+            rows = strcmpi(response.Headers(:,1), Constants.SessionId);
+            test.assertEqual(nnz(rows), 1, ...
+                "An initialize response carries exactly one session id");
+            test.verifyNotEqual(response.Headers{rows,2}, stale, ...
+                "The session id is the minted one, not the request's");
+        end
+
+        function tEndToEndTitleIsArchiveName(test)
+            response = test.post("2025-06-18");
+            decoded = prodserver.mcp.internal.decodeBody(response);
+            test.verifyEqual(string(decoded.result.serverInfo.title), test.Archive);
+        end
+
+        function tEndToEndNonTextVersionIsInvalidParams(test)
+            % -32602 over 200, the 2025-06-18 mapping for InvalidParams --
+            % not the -32603/500 string() used to raise. Nor does a failed
+            % initialize hand out a session.
+            import prodserver.mcp.protocol.v20250618.Constants
+            response = test.post(7);
+            test.verifyEqual(response.HttpCode, 200, ...
+                native2unicode(response.Body, "UTF-8"));
+            decoded = prodserver.mcp.internal.decodeBody(response);
+            test.verifyEqual(decoded.error.code, ...
+                prodserver.mcp.MCPConstants.ErrorInvalidParams);
+            test.verifyEqual(decoded.id, 7);
+            test.verifyFalse(any(strcmpi(response.Headers(:,1), ...
+                Constants.SessionId)));
         end
 
     end

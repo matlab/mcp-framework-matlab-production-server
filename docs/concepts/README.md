@@ -10,6 +10,6 @@ How things work under the hood. Read these when you want to understand *why* the
 | [Wire Encoding](./wire-encoding.md) | How MATLAB values are encoded as JSON for the MCP protocol |
 | [Discovery](./discovery.md) | How deployed tools register with the MPS discovery endpoint |
 | [Security](./security.md) | HTTPS configuration and access control on MATLAB Production Server |
-| [Protocol Conformance](./protocol-conformance.md) | Supported MCP revision, required headers, HTTP status and error codes, and sessions |
+| [Protocol Conformance](./protocol-conformance.md) | Supported MCP revisions, how a request is assigned one, required headers, HTTP status and error codes, and sessions |
 
 --- Copyright 2026 The MathWorks, Inc. ---

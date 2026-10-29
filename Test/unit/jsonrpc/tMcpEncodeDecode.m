@@ -24,16 +24,6 @@ classdef tMcpEncodeDecode < matlab.unittest.TestCase
             test.verifyEqual(encoded{1}, 42);
         end
 
-        function tEncodeHybridProducesWrapper(test)
-            import prodserver.mcp.jsonrpc.mcpEncode
-            import prodserver.mcp.WireEncoding
-
-            encoded = mcpEncode(WireEncoding.Hybrid, [4 5 6]);
-            w = encoded{1};
-            test.verifyTrue(isstruct(w));
-            test.verifyEqual(string(w.type), "double");
-        end
-
         function tDecodeInvertibleUnwraps(test)
             import prodserver.mcp.jsonrpc.mcpDecode
             import prodserver.mcp.WireEncoding
@@ -51,13 +41,10 @@ classdef tMcpEncodeDecode < matlab.unittest.TestCase
             test.verifyEqual(decoded{1}, 99);
         end
 
-        function tDecodeHybridUnwraps(test)
-            import prodserver.mcp.jsonrpc.mcpDecode
-            import prodserver.mcp.WireEncoding
-
-            wrapper = struct("type", "double", "size", [1 1], "data", 7);
-            decoded = mcpDecode(WireEncoding.Hybrid, wrapper);
-            test.verifyEqual(decoded{1}, 7);
+        function tOnlyJSONAndInvertible(test)
+            % Hybrid was never more than Invertible under another name.
+            test.verifyEqual(sort(string(enumeration( ...
+                "prodserver.mcp.WireEncoding"))), ["Invertible"; "JSON"]);
         end
 
         function tMultipleValuesEncode(test)

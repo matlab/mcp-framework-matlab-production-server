@@ -17,6 +17,15 @@ classdef tCountSchemaItems < matlab.unittest.TestCase
 
     methods (Test)
 
+        function tItemsWithoutType(test)
+            % The example path writes items.anyOf for elements of several
+            % types: each element still counts one, or more.
+            s = struct('type', "array", 'maxItems', 4, 'items', struct('anyOf', ...
+                {{struct('type', "number"), struct('type', "string")}}));
+            [mn, mx] = prodserver.mcp.jsonrpc.countSchemaItems(s);
+            test.verifyEqual([mn mx], [0 4]);
+        end
+
         function tEmptyAndNoArg(test)
             % No schema / empty schema is unbounded.
             [minItems, maxItems] = prodserver.mcp.jsonrpc.countSchemaItems();
@@ -57,6 +66,18 @@ classdef tCountSchemaItems < matlab.unittest.TestCase
                 "properties", struct("a", struct("type", "string")));
             rs.required = "a";
             test.verifyCount(rs, 1, 1);
+        end
+
+        function tRequiredAsStringArray(test)
+            % A string array is a list of names. It used to become one
+            % 2-row char matrix, which matched neither name, so neither
+            % required field counted toward the minimum.
+            rs = struct("type", "object", ...
+                "properties", struct("a", struct("type", "string"), ...
+                                      "b", struct("type", "string"), ...
+                                      "c", struct("type", "string")));
+            rs.required = ["a" "b"];
+            test.verifyCount(rs, 2, 3);
         end
 
         function tUnboundedAdditionalProperties(test)

@@ -1,7 +1,12 @@
-function [result, httpCode, httpMsg, msgHeaders] = call(jrpc)
+function [result, httpCode, httpMsg, msgHeaders] = call(jrpc, version)
 %call Handle MCP tools/call request. Resolves the named tool, assembles
 %   positional, optional, and name-value arguments in order, invokes the
 %   function, and encodes each output as structured content.
+%
+%   VERSION is the protocol revision serving the request. It decides how
+%   invalid arguments are reported and names the per-revision metrics; the
+%   rest of the tool contract is revision-independent, which is why there is
+%   one call.m and not one per adapter.
 
 % Copyright 2025-2026 The MathWorks, Inc.
 
@@ -26,11 +31,12 @@ function [result, httpCode, httpMsg, msgHeaders] = call(jrpc)
     % don't count as uniform output.
     tName = cellfun(@(t)string(t.name),tools);
 
-    % params.name identifies the tool and is required by the tools/call
-    % schema. Without it there is nothing to look up.
-    if ~hasField(jrpc,"params.name")
-        error("prodserver:mcp:MissingParams", ...
-            "tools/call request lacks the required params.name.");
+    % A tools/call with no 'name' is a malformed request, not a server
+    % fault: without this guard the field access below raises a raw MATLAB
+    % error that maps to -32603/500.
+    if ~hasField(jrpc, 'params.name')
+        error("prodserver:mcp:InvalidParams", ...
+            "tools/call requires a 'name' parameter naming the tool to invoke.");
     end
 
     fcn = jrpc.params.name;
@@ -48,10 +54,21 @@ function [result, httpCode, httpMsg, msgHeaders] = call(jrpc)
     % Only one definition matching the tool name.
     t = tools{k};
 
-    % Record number of times each tool is called
-    toolCallMetric = prodserver.mcp.MCPConstants.MCPMetricPrefix + ...
-        fcn + prodserver.mcp.MCPConstants.MCPToolCallSuffix;
-    prodserver.metrics.incrementCounter(toolCallMetric,1)
+    % Each call to a known tool is counted exactly once: as a call
+    % (MCP_<tool>_Call) when the tool is invoked, or as a rejection
+    % (MCP_<tool>_Rejected) when the server refuses it first. Each is broken
+    % out by protocol revision too. VERSION is the revision actually serving
+    % the request, handed down by the dispatcher, so this names no revision
+    % and needs no default.
+    %
+    % Re-deriving it from the body instead gets the wrong answer whenever an
+    % alias is in play: a _meta declaring 2024-11-05 resolves to the
+    % 2025-06-18 adapter, and reading the body would file the call under a
+    % bucket supportedVersions() does not contain.
+    stem = prodserver.mcp.MCPConstants.MCPMetricPrefix + fcn;
+    revision = "_" + replace(version, "-", "_");
+    callMetric = stem + prodserver.mcp.MCPConstants.MCPToolCallSuffix;
+    rejectedMetric = stem + prodserver.mcp.MCPConstants.MCPToolRejectedSuffix;
 
     % JRPC in MCP does not define argument order. So we (cleverly!)
     % insert order information into the definition. Assemble a cell
@@ -59,16 +76,103 @@ function [result, httpCode, httpMsg, msgHeaders] = call(jrpc)
     sig = d.signatures;
 
     % Determine wire encoding for this tool.
-    toolEncoding = prodserver.mcp.jsonrpc.toolEncoding(fcn,sig=sig);
+    toolEncoding = prodserver.mcp.jsonrpc.toolEncoding(fcn,sig=sig,def=t);
 
-    % arguments is optional in the tools/call schema: a tool that takes no
-    % inputs is called without it. Treat an absent or empty arguments object
-    % as no arguments supplied rather than failing to index it.
-    if hasField(jrpc,"params.arguments") && isstruct(jrpc.params.arguments)
-        actual = string(fieldnames(jrpc.params.arguments));
-    else
-        actual = string.empty(0,1);
+    % The tool's required inputs, in order. A tool with no required inputs
+    % has no 'required' member at all -- defineForMCP emits a bare
+    % {"type":"object"} schema -- and that must give an empty list, not a
+    % field-access error that turns a legal zero-argument call into
+    % -32603/500.
+    in = prodserver.mcp.internal.requiredNames(t, "inputSchema");
+
+    % The identifier of every invalid-argument error, under 2025-06-18.
+    badArguments = "prodserver:mcp:InvalidParams:arguments";
+
+    % Arguments that fail validation -- none where some are required, an
+    % unknown name, a missing required one, a value the schema rejects -- are
+    % reported the way the serving revision says: 2026-07-28 as a tool
+    % execution error the model can read and correct, 2025-06-18 as -32602.
+    % Either way the tool never runs, and the arguments are checked before
+    % wire decoding: decoding a JSON string turns it into a char, which
+    % MATLAB will treat as character codes wherever it expects a number.
+    toolErrors = prodserver.mcp.protocol.inputErrorsAreToolErrors(version);
+
+    % 'arguments' must be a JSON object. A JSON array of objects decodes to a
+    % struct array, which would otherwise fail the per-argument checks below
+    % with a raw MATLAB error, -32603/500. Only null counts as absent; but
+    % jsondecode gives null and an empty array alike as [], so [] can't be
+    % told from null here.
+    isNull = @(a) isnumeric(a) && isempty(a);
+    if hasField(jrpc, 'params.arguments') && ...
+            ~isNull(jrpc.params.arguments) && ...
+            ~(isstruct(jrpc.params.arguments) && isscalar(jrpc.params.arguments))
+        result = rejectArguments(result, toolErrors, ...
+            rejectedMetric, revision, ...
+            "prodserver:mcp:InvalidParams", sprintf( ...
+            "The 'arguments' of a call to tool '%s' must be a JSON object.", fcn));
+        return
+    end
+
+    % A call may legitimately omit 'arguments' (or send null) only when the
+    % tool declares no required inputs. It must not reach the raw
+    % fieldnames() access -- that raises an untyped MATLAB error and maps to
+    % -32603/500.
+    if ~hasField(jrpc, 'params.arguments') || ~isstruct(jrpc.params.arguments)
+        if ~isempty(in)
+            result = rejectArguments(result, toolErrors, ...
+                rejectedMetric, revision, ...
+                "prodserver:mcp:InvalidParams", sprintf( ...
+                "Tool '%s' requires inputs '%s', but the call carried no " + ...
+                "'arguments' object.", fcn, strjoin(in, ",")));
+            return
+        end
         jrpc.params.arguments = struct();
+    end
+
+    actual = string(fieldnames(jrpc.params.arguments));
+
+    % Every required argument must be present (XD12). An empty IN requires
+    % nothing, so leaves nothing missing.
+    missing = setdiff(in, actual, "stable");
+    if ~isempty(missing)
+        result = rejectArguments(result, toolErrors, ...
+            rejectedMetric, revision, ...
+            "prodserver:mcp:BadInputArguments", sprintf( ...
+            "Tool '%s' requires inputs '%s', but received '%s'. Missing: '%s'.", ...
+            fcn, strjoin(in, ","), strjoin(actual, ","), strjoin(missing, ",")));
+        return
+    end
+
+    % Every argument must be an input of the tool, with a value its schema
+    % allows.
+    badValue = prodserver.mcp.validation.toolArgumentError(t, ...
+        jrpc.params.arguments, toolEncoding);
+    if strlength(badValue) > 0
+        result = rejectArguments(result, toolErrors, ...
+            rejectedMetric, revision, ...
+            badArguments, badValue);
+        return
+    end
+
+    % Plain JSON carries datetimes as ISO 8601 text and durations as
+    % seconds; the schema says which values those are. The invertible
+    % encoding has its own forms, which wire decoding handles.
+    if toolEncoding == prodserver.mcp.WireEncoding.JSON
+        try
+            [jrpc.params.arguments, badValue] = ...
+                prodserver.mcp.jsonrpc.decodeJSONValues(t.inputSchema, ...
+                    jrpc.params.arguments, "Argument");
+        catch decodeErr
+            % As for wire decoding below: arguments that can't be converted
+            % are invalid input, never an internal error.
+            badValue = decodeErr.message;
+        end
+        if strlength(badValue) > 0
+            result = rejectArguments(result, toolErrors, ...
+                rejectedMetric, revision, ...
+                badArguments, badValue);
+            return
+        end
     end
 
     % Wire-decode input arguments using the tool's encoding.
@@ -76,7 +180,15 @@ function [result, httpCode, httpMsg, msgHeaders] = call(jrpc)
     for i = 1:numel(actual)
         allVals{i} = jrpc.params.arguments.(actual(i));
     end
-    decoded = mcpDecode(toolEncoding, allVals{:});
+    try
+        decoded = mcpDecode(toolEncoding, allVals{:});
+    catch decodeErr
+        % Arguments that can't be decoded are invalid input, like any other.
+        result = rejectArguments(result, toolErrors, ...
+            rejectedMetric, revision, ...
+            badArguments, decodeErr.message);
+        return
+    end
     for i = 1:numel(actual)
         jrpc.params.arguments.(actual(i)) = decoded{i};
     end
@@ -84,97 +196,93 @@ function [result, httpCode, httpMsg, msgHeaders] = call(jrpc)
     % Separate optional from required arguments.
     %  1. Subtract required from all positional to yield max. optional.
     %  2. Keep optional that appear in the tools/call body.
-    % A tool with no required inputs may advertise "required" either way: the
-    % key can be absent entirely, or present and empty. Both shapes are real --
-    % Test/tools/toyTools/toyZeroInputs.json omits it, while a live server
-    % serving that same tool returns "required":[] -- so neither the field nor
-    % its contents can be assumed. Hence the guard, and hence string() rather
-    % than split() just below: jsondecode turns "required":[] into a 0x0 double,
-    % which string() tolerates and split() rejects with
-    % MATLAB:string:MustBeCharCellArrayOrString. That exact mismatch crashed the
-    % client side in +jsonrpc/toolsCall.m.
-    if isfield(t.inputSchema,"required")
-        in = string(t.inputSchema.required);
-    else
-        in = string.empty(0,1);
+    %
+    % A signature built by observing example calls (build's example= path,
+    % through SchemaObserver) has no 'input' member at all for a tool that
+    % takes no inputs, so every call to it failed with -32603/500 once
+    % deployed (ND12). In-process tests build signatures with defineForMCP,
+    % which always writes an empty 'input', and could not see it.
+    optional = string.empty;
+    if hasField(sig, fcn + ".input.kind")
+        kind = ParameterKind(sig.(fcn).input.kind);
+        optional = string(sig.(fcn).input.order(kind == ParameterKind.Optional));
     end
-    kind = ParameterKind(sig.(fcn).input.kind);
-    optional = sig.(fcn).input.order(kind == ParameterKind.Optional);
     optional = intersect(optional, actual, "stable");
     nvp = setdiff(actual,[in(:); optional(:)]);
-
-    % EVERY required argument must be present. Testing that the intersection
-    % is non-empty would only catch the case where all of them are missing,
-    % and a partially-supplied call would then fail on an indexing error
-    % below -- reported as an internal fault rather than bad params.
-    missing = setdiff(in, actual, "stable");
-    if ~isempty(missing)
-        error("prodserver:mcp:BadInputArguments", ...
-            "Tool '%s' requires inputs '%s', but received '%s'. " + ...
-            "Missing: '%s'.", ...
-            fcn, strjoin(in,","), strjoin(actual,","), strjoin(missing,","));
-    end
 
     % Make space for all arguments.
     N = numel(in) + numel(optional) + (numel(nvp) * 2);
     inArgs = cell(1,N);
 
-    % Fill positionally: required first, then optional positional, then
-    % name-value pairs at the end. One cursor runs across all three loops.
-    %
-    % The cursor is deliberately independent of any loop variable. Reusing the
-    % required-argument loop variable, and guarding the optional and
-    % name-value loops behind it, breaks for a tool with no required inputs:
-    % MATLAB assigns the loop variable the empty range when a loop does not
-    % run, so the guard is never satisfied and every supplied argument is
-    % silently dropped.
-    n = 1;
+    % Required arguments. Every field read here is one the check above has
+    % just proved present, so none of these accesses can fail.
     for k = 1:numel(in)
-        inArgs{n} = jrpc.params.arguments.(in{k});
+        inArgs{k} = jrpc.params.arguments.(in(k));
+    end
+
+    % n is the index of the last required argument. Assigned explicitly
+    % rather than inherited from the loop variable above, which is left
+    % unspecified when the range is empty -- as it is for a tool that
+    % requires no inputs.
+    n = numel(in);
+    if n < numel(actual)
         n = n + 1;
+
+        % Optional positional arguments.
+        for k = 1:numel(optional)
+            inArgs{n} = jrpc.params.arguments.(optional(k));
+            n = n + 1;
+        end
+
+        % TODO: Repeated arguments.
+
+        % Add name-value pairs to the end of the argument list: use
+        % name of the argument as the name of the name-value pair.
+        for k = 1:numel(nvp)
+            inArgs{n} = nvp(k);
+            inArgs{n+1} = jrpc.params.arguments.(nvp(k));
+            n = n + 2;
+        end
     end
 
-    % Optional positional arguments. Already narrowed to those the call
-    % actually supplied.
-    for k = 1:numel(optional)
-        inArgs{n} = jrpc.params.arguments.(optional(k));
-        n = n + 1;
+    % Create a cell array large enough for all the outputs. 'output' is
+    % absent for a tool with no outputs, for the same reason as 'input'.
+    % Read through sig.(fcn) so a tool with no signature entry at all still
+    % fails here, as the internal error it is.
+    out = {};
+    if isfield(sig.(fcn), "output") && isfield(sig.(fcn).output, "name")
+        out = cellstr(sig.(fcn).output.name);
     end
-
-    % TODO: Repeated arguments.
-
-    % Add name-value pairs to the end of the argument list: use
-    % name of the argument as the name of the name-value pair.
-    for k = 1:numel(nvp)
-        inArgs{n} = nvp(k);
-        inArgs{n+1} = jrpc.params.arguments.(nvp(k));
-        n = n + 2;
-    end
-
-    % Create a cell array large enough for all the outputs. 
-    out = sig.(fcn).output.name;
     outArgs = cell(1,numel(out));
 
-    % Call the tool and encode its outputs. A failure anywhere below is a
-    % tool-EXECUTION error (the tool ran and failed). MCP represents that as
-    % an isError result carried over HTTP 200 -- NOT as a JSON-RPC protocol
-    % error. Protocol-level errors (unknown method, bad/missing params) are
-    % raised before this point and formatted by the top-level handler.
+    % Call the tool and shape its output. A failure anywhere once the tool
+    % is invoked is a tool-execution error: the tool ran and rejected its
+    % input (or failed internally). MCP reports this in-band as an isError
+    % content block over HTTP 200 -- not as a protocol-level JSON-RPC error
+    % -- so the model sees the message and can correct the call. Problems
+    % found before this point are handled there: an unknown tool is a
+    % protocol error, and invalid arguments are reported as rejectArguments
+    % says.
     %
-    % Call through a function handle, not feval. An arguments block that
-    % rejects an input inside feval counts the function name as argument 1,
-    % so the error names the wrong position, and that text is what the
-    % client, often an LLM, reads to correct its call.
-    %
-    % str2func does not check that the function exists, so a definition
-    % naming a missing function fails when the handle is called, inside the
-    % try, and is reported as isError just as it was under feval.
+    % Call through a handle, never feval. When an arguments block rejects an
+    % input inside feval, MATLAB can count the function name as argument 1,
+    % so every "Invalid argument at position N" the model reads is one too
+    % high (D36). Whether it does depends on how THIS function was reached:
+    % ProtocolDispatcher's own feval happens to mask the miscount, a direct or
+    % handle call exposes it. A handle counts correctly in every context.
+    % str2func does not check that the function exists, so a missing tool
+    % still fails at the call, inside the try, exactly as feval did.
     tool = str2func(sig.(fcn).function);
+
+    % The tool is about to be invoked: this is a call, whether or not the
+    % tool then raises an error.
+    countMetric(callMetric, revision);
     try
+        % Call the tool.
         [outArgs{:}] = tool(inArgs{:});
 
         % Content must have a value to be wire-encoded.
-        content = []; %#ok<NASGU>
+        content = [];
 
         % Extract tool results from cell array and write them to structure
         % (which will be JSON-encoded). outArgs and out define the order,
@@ -192,28 +300,23 @@ function [result, httpCode, httpMsg, msgHeaders] = call(jrpc)
         % Find external outputs: look for t.inputSchema.properties objects
         % with writeOnly: true.
         if hasField(t,"inputSchema.properties")
-            % Named props, not in: in holds the required-argument list, and
-            % overwriting it here left the two meanings of one variable only a
-            % few lines apart.
-            props = fieldnames(t.inputSchema.properties);
-            for p = 1:numel(props)
-                if hasField(t.inputSchema.properties.(props{p}),"writeOnly") && ...
-                    t.inputSchema.properties.(props{p}).writeOnly == true
-                    if isfield(jrpc.params.arguments,props{p})
-                        r.structuredContent.(props{p}) = ...
-                            jrpc.params.arguments.(props{p});
+            in = fieldnames(t.inputSchema.properties);
+            for n = 1:numel(in)
+                if hasField(t.inputSchema.properties.(in{n}),"writeOnly") && ...
+                    t.inputSchema.properties.(in{n}).writeOnly == true
+                    if hasField(jrpc, "params.arguments." + string(in{n}))
+                        r.structuredContent.(in{n}) = jrpc.params.arguments.(in{n});
                     end
                 end
             end
         end
 
-        % Return content as a string. Should not be required but some clients
-        % require non-empty content, even when structuredContent has a value
-        % (looking at you, Claude).
+        % Return content as a string. Should not be required, but some
+        % clients require non-empty content even when structuredContent
+        % has a value.
         %
-        % Encode to JSON. Gets encoded again later, which allows it to
-        % be delivered to the client as a legitimate JSON string. Which
-        % is what Claude wants...
+        % Encode to JSON. Gets encoded again later, which delivers it to
+        % the client as a legitimate JSON string, as those clients expect.
         c.type = "text";
         if isfield(r, 'structuredContent')
             c.text = jsonencode(r.structuredContent);
@@ -221,21 +324,42 @@ function [result, httpCode, httpMsg, msgHeaders] = call(jrpc)
             c.text = "{}";
         end
         r.content = {c} ;  % Must be array for Claude desktop.
-    catch me
-        % Tool-execution error. Report via the MCP isError convention
-        % (follow it or these errors will be ignored); HTTP status stays
-        % 200 because the transport and the protocol both succeeded.
-        r = struct();
-        r.isError = true;
-        tc.type = "text";
-        if ~isempty(me.stack)
-            location = me.stack(1);
-            [~, efile] = fileparts(location.file);
-            tc.text = sprintf("%s:%d : %s", efile, location.line, me.message);
-        else
-            tc.text = me.message;
-        end
-        r.content = {tc};
+        result.result = r;
+    catch toolErr
+        % Tool-execution failure: surface the tool's message as an isError
+        % content block (HTTP 200 is left in place), discarding any partial
+        % output so the result is a clean error for the model to act on.
+        %
+        % The message only, deliberately without the "file:line : " prefix
+        % that 1.5 added and that protocol errors still carry. The reader is
+        % the model, which can act on the message but not on a location;
+        % stack(1) need not be the tool's own code; and the prefix discloses
+        % deployed file names and line numbers to every client.
+        result.result = toolError(toolErr.message);
     end
-    result.result = r;
+end
+
+function result = rejectArguments(result, toolErrors, metric, revision, id, msg)
+% Reject a call's arguments without running the tool, counting the
+% rejection in METRIC. As a tool execution error -- isError, the message in
+% content, HTTP 200 -- if toolErrors; otherwise by raising ID, which the
+% protocol maps to -32602.
+    countMetric(metric, revision);
+    if toolErrors
+        result.result = toolError("Input validation error: " + msg);
+    else
+        error(id, "%s", msg);
+    end
+end
+
+function r = toolError(text)
+% A tool execution error: isError, and TEXT for the model to act on.
+    r.isError = true;
+    r.content = {struct('type', "text", 'text', text)};  % An array, for Claude desktop
+end
+
+function countMetric(metric, revision)
+% Count once in METRIC and once in its per-revision breakdown.
+    prodserver.metrics.incrementCounter(metric, 1);
+    prodserver.metrics.incrementCounter(metric + revision, 1);
 end

@@ -42,7 +42,7 @@ function msg = encodeBody(msg)
             end
         end
 
-        if startsWith(bodyCT,"application/json")
+        if startsWith(bodyCT,prodserver.mcp.internal.Constants.MIMETypeJSON)
             data = jsonencode(data);
             if mps
                 data = unicode2native(data,"UTF-8");

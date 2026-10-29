@@ -66,10 +66,8 @@ function j = encodeValue(value)
         j = encodeTimetable(value);
     else
         error('prodserver:mcp:unsupportedType', ...
-            "Cannot encode value of class '%s'. Supported classes are: " + ...
-            "numeric, logical, char, string, struct, cell, datetime, " + ...
-            "duration, calendarDuration, categorical, table, timetable.", ...
-            class(value));
+            "Cannot encode value of class '%s'. Supported classes are: %s.", ...
+            class(value), strjoin(prodserver.mcp.jsonrpc.WireSupport.classNames(), ", "));
     end
 end
 
@@ -81,9 +79,7 @@ function j = encodeNumeric(value)
     cls = class(value);
 
     % Validate class is one of the supported numeric types.
-    supported = {'double','single','int8','int16','int32','int64', ...
-                 'uint8','uint16','uint32','uint64'};
-    if ~ismember(cls, supported)
+    if ~ismember(cls, prodserver.mcp.internal.Constants.NumericClasses)
         error('prodserver:mcp:unsupportedNumericType', ...
             'Numeric class "%s" is not supported by the MCP encoding.', cls);
     end
@@ -92,14 +88,14 @@ function j = encodeNumeric(value)
 
     % Scalar real — bare value where possible.
     if isscalar(value) && isReal
-        j = encodeScalarDouble(value);
+        j = encodeNumber(value);
         return
     end
 
     % Scalar complex — bare {"re","im"} object.
     if isscalar(value) && ~isReal
-        j = struct('re', encodeScalarDouble(real(value)), ...
-                   'im', encodeScalarDouble(imag(value)));
+        j = struct('re', encodeNumber(real(value)), ...
+                   'im', encodeNumber(imag(value)));
         return
     end
 
@@ -109,36 +105,25 @@ function j = encodeNumeric(value)
     j.size = size(value);  % [rows, cols, ...]
 
     if isReal
-        j.data = flattenRowMajor(value, @encodeNumericElement);
+        j.data = flattenRowMajor(value, @encodeNumber);
     else
-        j.data = flattenRowMajor(real(value), @encodeNumericElement);
-        j.im   = flattenRowMajor(imag(value), @encodeNumericElement);
-    end
-    end
-
-    % Encode a single numeric element, handling NaN/Inf as strings.
-    function v = encodeNumericElement(x)
-    if isnan(x)
-        v = "NaN";
-    elseif isinf(x) && x > 0
-        v = "Inf";
-    elseif isinf(x) && x < 0
-        v = "-Inf";
-    else
-        v = double(x);  % jsonencode needs double for non-integer JSON numbers
+        j.data = flattenRowMajor(real(value), @encodeNumber);
+        j.im   = flattenRowMajor(imag(value), @encodeNumber);
     end
 end
 
-% Encode a scalar double for a bare value or re/im field.
-function v = encodeScalarDouble(x)
+% Encode one number: a bare value, a re/im field or an array element.
+% NaN and Inf have no JSON literal, so they are strings.
+function v = encodeNumber(x)
+    import prodserver.mcp.MCPConstants
     if isnan(x)
-        v = "NaN";
+        v = MCPConstants.NaNText;
     elseif isinf(x) && x > 0
-        v = "Inf";
+        v = MCPConstants.InfText;
     elseif isinf(x) && x < 0
-        v = "-Inf";
+        v = MCPConstants.NegInfText;
     else
-        v = double(x);
+        v = double(x);  % jsonencode needs double for non-integer JSON numbers
     end
 end
 
@@ -170,13 +155,16 @@ function j = encodeChar(value)
         return
     end
 
-    % Row vector (1×N) or scalar (1×1) — bare string.
-    if isrow(value)
+    % Row vector (1×N) or scalar (1×1) — bare string, unless the decoder
+    % would read that text as something else: a date-time, or NaN, Inf,
+    % -Inf or NaT. Then it takes the wrapper below.
+    if isrow(value) && ~readsAsOtherValue(value)
         j = string(value);
         return
     end
 
-    % Multi-row char matrix — typed wrapper, individual characters row-major.
+    % Multi-row char matrix, or text that needs it — typed wrapper,
+    % individual characters row-major.
     j = struct();
     j.type = 'char';
     j.size = size(value);
@@ -194,7 +182,9 @@ function j = encodeString(value)
             % use a 1×1 typed wrapper so the missing is preserved.
             j = struct('type', 'string', 'size', [1 1], 'data', {{missing}});
         else
-            j = struct('type','string','size',[1,1],'data',{value});  
+            % data is an array, even of one: so the rules say, and so the
+            % published schema describes it (see wrapInvertible).
+            j = struct('type','string','size',[1,1],'data',{{value}});
         end
         return
     end
@@ -206,9 +196,21 @@ function j = encodeString(value)
     j.data = flattenRowMajor(value, @(s) encodeStringElement(s));
 end
 
+function tf = readsAsOtherValue(text)
+% True if mcpWireDecodeValue would decode bare TEXT as something other than
+% text: a special float, NaT or an ISO 8601 date-time.
+    C = prodserver.mcp.MCPConstants;
+    tf = ismember(string(text), [C.SpecialFloatText, C.NaTText]);
+    if ~tf
+        [~, tf] = prodserver.mcp.jsonrpc.parseISODateTime(text);
+    end
+end
+
 function v = encodeStringElement(s)
     if ismissing(s)
-        v = {missing};   % jsonencode converts missing in a cell to null
+        % jsonencode writes a missing element of a cell as null. Not
+        % {missing}: in the cell of elements, that is [null].
+        v = missing;
     else
         v = s;
     end
@@ -262,7 +264,7 @@ function j = encodeStruct(value)
     j.size = size(value);
 
     % Flatten in row-major order.
-    idx = rowMajorIndices(size(value));
+    idx = prodserver.mcp.jsonrpc.rowMajorOrder(size(value));
     elements = cell(1, numel(value));
     for k = 1:numel(value)
         el = struct();
@@ -289,7 +291,7 @@ function j = encodeCell(value)
         return
     end
 
-    idx = rowMajorIndices(size(value));
+    idx = prodserver.mcp.jsonrpc.rowMajorOrder(size(value));
     elements = cell(1, numel(value));
     for k = 1:numel(value)
         elements{k} = encodeValue(value{idx(k)});
@@ -302,46 +304,29 @@ end
 % =========================================================================
 function j = encodeDatetime(value)
 
-    % Determine timezone string once.
-    tz = value.TimeZone;  % '' for unzoned, 'UTC', or IANA name
+    % '' for unzoned, 'UTC', or a zone the ISO text can't name -- its
+    % offset is not a zone -- which goes in the wrapper's tz.
+    tz = value.TimeZone;
+    namedZone = ~isempty(tz) && ~strcmpi(tz, 'UTC');
 
-    if isscalar(value)
-        j = datetimeToIso(value, tz);
+    % A scalar is bare ISO text, unless its zone needs naming.
+    if isscalar(value) && ~namedZone
+        j = char(prodserver.mcp.jsonrpc.isoDateTimeText(value, ...
+            prodserver.mcp.MCPConstants.NaTText));
         return
     end
 
     j = struct();
     j.type = 'datetime';
     j.size = size(value);
-    if ~isempty(tz) && ~strcmpi(tz, 'UTC')
+    if namedZone
         j.tz = tz;
     end
 
-    idx = rowMajorIndices(size(value));
-    strs = cell(1, numel(value));
-    for k = 1:numel(value)
-        strs{k} = datetimeToIso(value(idx(k)), tz);
-    end
-    j.data = strs;
-end
-
-function s = datetimeToIso(dt, tz)
-    % Format a scalar datetime as an ISO 8601 string.
-    if isnat(dt)
-        s = 'NaT';
-        return
-    end
-    if isempty(tz)
-        % Unzoned — no suffix.
-        s = char(datetime(dt, 'Format', "yyyy-MM-dd'T'HH:mm:ss.SSS"));
-    elseif strcmpi(tz, 'UTC')
-        s = char(datetime(dt, 'Format', "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", ...
-            'TimeZone', 'UTC'));
-    else
-        % IANA zone — include offset suffix and embed tz in array wrapper.
-        s = char(datetime(dt, 'Format', "yyyy-MM-dd'T'HH:mm:ss.SSSXXX", ...
-            'TimeZone', tz));
-    end
+    idx = prodserver.mcp.jsonrpc.rowMajorOrder(size(value));
+    text = prodserver.mcp.jsonrpc.isoDateTimeText(value(idx), ...
+        prodserver.mcp.MCPConstants.NaTText);
+    j.data = cellstr(reshape(text, 1, []));
 end
 
 % =========================================================================
@@ -351,22 +336,22 @@ function j = encodeDuration(value)
 
     if isa(value, 'calendarDuration')
         error('prodserver:mcp:unsupportedDurationType', ...
-            'calendarDuration cannot be encoded losslessly as seconds. ' + ...
-            'Convert to duration before encoding, or represent as a struct ' + ...
-            'with year/month/day fields.');
+            ['calendarDuration cannot be encoded losslessly as seconds. ' ...
+            'Convert to duration before encoding, or represent as a struct ' ...
+            'with year/month/day fields.']);
     end
 
     seconds_val = seconds(value);  % Convert to numeric seconds
 
     if isscalar(value)
-        j = struct('type', 'duration', 'seconds', encodeNumericElement(seconds_val));
+        j = struct('type', 'duration', 'seconds', encodeNumber(seconds_val));
         return
     end
 
     j = struct();
     j.type = 'duration';
     j.size = size(value);
-    j.data = flattenRowMajor(seconds_val, @encodeNumericElement);
+    j.data = flattenRowMajor(seconds_val, @encodeNumber);
 end
 
 % =========================================================================
@@ -385,12 +370,12 @@ function j = encodeCategorical(value)
         j.ordinal = true;
     end
 
-    idx = rowMajorIndices(size(value));
+    idx = prodserver.mcp.jsonrpc.rowMajorOrder(size(value));
     elements = cell(1, numel(value));
     for k = 1:numel(value)
         el = value(idx(k));
         if isundefined(el)
-            elements{k} = {missing};  % → JSON null
+            elements{k} = missing;  % → JSON null (not [null])
         else
             elements{k} = char(el);
         end
@@ -412,15 +397,7 @@ function j = encodeTable(value)
         j.rowNames = rn;
     end
 
-    varNames = value.Properties.VariableNames;
-    vars = cell(1, numel(varNames));
-    for k = 1:numel(varNames)
-        vname = varNames{k};
-        col   = value.(vname);
-        entry = struct('name', vname, 'value', encodeValue(col));
-        vars{k} = entry;
-    end
-    j.variables = vars;
+    j.variables = encodeVariables(value);
 end
 
 % =========================================================================
@@ -433,16 +410,17 @@ function j = encodeTimetable(value)
     j.rows     = height(value);
     j.rowTimes = encodeValue(value.Properties.RowTimes);
     j.timeName = value.Properties.DimensionNames{1}; % Allow non-default
+    j.variables = encodeVariables(value);
+end
 
+% The variables of a table or timetable: one encoded value per variable.
+function vars = encodeVariables(value)
     varNames = value.Properties.VariableNames;
     vars = cell(1, numel(varNames));
     for k = 1:numel(varNames)
-        vname = varNames{k};
-        col   = value.(vname);
-        entry = struct('name', vname, 'value', encodeValue(col));
-        vars{k} = entry;
+        vars{k} = struct('name', varNames{k}, ...
+            'value', encodeValue(value.(varNames{k})));
     end
-    j.variables = vars;
 end
 
 % =========================================================================
@@ -452,50 +430,9 @@ end
 function flat = flattenRowMajor(value, encodeFn)
     %FLATTENROWMAJOR  Return a cell array of encoded elements in row-major order.
 
-    idx = rowMajorIndices(size(value));
+    idx = prodserver.mcp.jsonrpc.rowMajorOrder(size(value));
     flat = cell(1, numel(value));
     for k = 1:numel(value)
         flat{k} = encodeFn(value(idx(k)));
     end
-end
-
-function idx = rowMajorIndices(sz)
-    %ROWMAJORINDICES  Linear indices that visit elements in row-major order.
-    %
-    %   MATLAB's default linear indexing is column-major (first index varies
-    %   fastest). Row-major (last index varies fastest) requires a permutation.
-    %
-    %   For a 2-D array this is equivalent to iterating (row, col) with col
-    %   varying in the inner loop. For N-D it generalises to last dim fastest.
-
-    if isscalar(sz)
-        sz = [sz 1];
-    end
-
-    ndim = numel(sz);
-    if ndim == 1 || prod(sz) == 0
-        idx = 1:prod(sz);
-        return
-    end
-
-    % Build N-D grid of subscripts in row-major order, then convert to linear.
-    % Row-major: last dimension varies fastest → permute order is [ndim, ndim-1, ..., 1]
-    % relative to MATLAB's native column-major ndgrid output.
-
-    grids = cell(1, ndim);
-    ranges = arrayfun(@(n) 1:n, sz, 'UniformOutput', false);
-    [grids{:}] = ndgrid(ranges{:});  % column-major grids
-
-    % Flatten each grid and interleave in row-major order.
-    % Row-major traversal: vary last subscript fastest.
-    % ndgrid gives us grids where grids{1} varies fastest (col-major).
-    % We want grids{end} to vary fastest, so we permute the order.
-    permOrder = ndim:-1:1;
-    subs = cell(1, ndim);
-    for d = 1:ndim
-        g = grids{d};
-        g = permute(g, permOrder);
-        subs{d} = g(:)';
-    end
-    idx = sub2ind(sz, subs{:});
 end

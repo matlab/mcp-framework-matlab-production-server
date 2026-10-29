@@ -1,4 +1,4 @@
-classdef tSchemaDeployCI < MCPCaller
+classdef tSchemaDeployCI < prodserver.mcp.test.base.MCPCaller
 % Test deployment and invocation of MCP tools built from schema-generated
 % definitions for functions without argument blocks.
 
@@ -38,20 +38,28 @@ classdef tSchemaDeployCI < MCPCaller
             % Deploy
             endpoint = prodserver.mcp.deploy(ctf, test.server);
 
-            % Verify tool exists
-            tf = prodserver.mcp.exist(endpoint, fcn, "Tool", ...
-                delay=10, retry=5);
-            test.verifyTrue(tf, fcn + " not found at " + endpoint);
-
-            % Call and verify
+            % Expected
             x = 5.0; y = 3.0; z = 2.0;
             [eTotal, eProduct, eReport] = schemaComputeNoBlock(x, y, z);
-            [aTotal, aProduct, aReport] = prodserver.mcp.call(...
-                endpoint, fcn, x, y, z);
 
-            test.verifyEqual(aTotal, eTotal, "total");
-            test.verifyEqual(aProduct, eProduct, "product");
-            test.verifyEqual(aReport, eReport, "report");
+            for p = test.Protocols
+                prodserver.mcp.client.Adapter.create(endpoint, action="clear");
+                prodserver.mcp.client.Adapter.create(endpoint, protocol=p);
+
+                % Verify tool exists
+                tf = prodserver.mcp.exist(endpoint, fcn, "Tool", ...
+                    delay=10, retry=5, protocol=p);
+                test.verifyTrue(tf, ...
+                    fcn + " not found at " + endpoint + " [" + p + "]");
+
+                % Call and verify
+                [aTotal, aProduct, aReport] = prodserver.mcp.call(...
+                    endpoint, fcn, x, y, z);
+
+                test.verifyEqual(aTotal, eTotal, "total [" + p + "]");
+                test.verifyEqual(aProduct, eProduct, "product [" + p + "]");
+                test.verifyEqual(aReport, eReport, "report [" + p + "]");
+            end
         end
 
         function multiToolNoBlock(test)
@@ -72,32 +80,46 @@ classdef tSchemaDeployCI < MCPCaller
             % Deploy
             endpoint = prodserver.mcp.deploy(ctf, test.server);
 
-            % Verify both tools exist
-            for n = 1:numel(fcns)
-                tf = prodserver.mcp.exist(endpoint, fcns(n), "Tool", ...
-                    delay=10, retry=5);
-                test.verifyTrue(tf, fcns(n) + " not found at " + endpoint);
-            end
-
-            % Call schemaComputeNoBlock
+            % Expected
             x = 4.0; y = 5.0; z = 6.0;
             [eTotal, eProduct, eReport] = schemaComputeNoBlock(x, y, z);
-            [aTotal, aProduct, aReport] = prodserver.mcp.call(...
-                endpoint, "schemaComputeNoBlock", x, y, z);
 
-            test.verifyEqual(aTotal, eTotal, "schemaComputeNoBlock total");
-            test.verifyEqual(aProduct, eProduct, "schemaComputeNoBlock product");
-            test.verifyEqual(aReport, eReport, "schemaComputeNoBlock report");
-
-            % Call schemaVectorNoBlock
             values = [1.0, 2.0, 3.0]; scale = 2.0;
             [eMag, eNorm, eCount] = schemaVectorNoBlock(values, scale);
-            [aMag, aNorm, aCount] = prodserver.mcp.call(...
-                endpoint, "schemaVectorNoBlock", values, scale);
 
-            test.verifyEqual(aMag, eMag, "magnitude", AbsTol=1e-12);
-            test.verifyEqual(aNorm, eNorm, "normalized", AbsTol=1e-12);
-            test.verifyEqual(aCount, eCount, "count");
+            for p = test.Protocols
+                prodserver.mcp.client.Adapter.create(endpoint, action="clear");
+                prodserver.mcp.client.Adapter.create(endpoint, protocol=p);
+
+                % Verify both tools exist
+                for n = 1:numel(fcns)
+                    tf = prodserver.mcp.exist(endpoint, fcns(n), "Tool", ...
+                        delay=10, retry=5, protocol=p);
+                    test.verifyTrue(tf, ...
+                        fcns(n) + " not found [" + p + "]");
+                end
+
+                % Call schemaComputeNoBlock
+                [aTotal, aProduct, aReport] = prodserver.mcp.call(...
+                    endpoint, "schemaComputeNoBlock", x, y, z);
+
+                test.verifyEqual(aTotal, eTotal, ...
+                    "schemaComputeNoBlock total [" + p + "]");
+                test.verifyEqual(aProduct, eProduct, ...
+                    "schemaComputeNoBlock product [" + p + "]");
+                test.verifyEqual(aReport, eReport, ...
+                    "schemaComputeNoBlock report [" + p + "]");
+
+                % Call schemaVectorNoBlock
+                [aMag, aNorm, aCount] = prodserver.mcp.call(...
+                    endpoint, "schemaVectorNoBlock", values, scale);
+
+                test.verifyEqual(aMag, eMag, ...
+                    "magnitude [" + p + "]", AbsTol=1e-12);
+                test.verifyEqual(aNorm, eNorm, ...
+                    "normalized [" + p + "]", AbsTol=1e-12);
+                test.verifyEqual(aCount, eCount, "count [" + p + "]");
+            end
         end
 
         function toolsListable(test)
@@ -115,20 +137,26 @@ classdef tSchemaDeployCI < MCPCaller
             % Deploy
             endpoint = prodserver.mcp.deploy(ctf, test.server);
 
-            % Wait for tools to be available
-            for n = 1:numel(fcns)
-                tf = prodserver.mcp.exist(endpoint, fcns(n), "Tool", ...
-                    delay=10, retry=5);
-                test.verifyTrue(tf, fcns(n) + " not found at " + endpoint);
-            end
+            for p = test.Protocols
+                prodserver.mcp.client.Adapter.create(endpoint, action="clear");
+                prodserver.mcp.client.Adapter.create(endpoint, protocol=p);
 
-            % List tools
-            tools = prodserver.mcp.list(endpoint, "Tool");
-            toolNames = string(cellfun(@(t)t.name, tools, ...
-                UniformOutput=false));
-            for n = 1:numel(fcns)
-                test.verifyTrue(ismember(fcns(n), toolNames), ...
-                    fcns(n) + " not in list");
+                % Wait for tools to be available
+                for n = 1:numel(fcns)
+                    tf = prodserver.mcp.exist(endpoint, fcns(n), "Tool", ...
+                        delay=10, retry=5, protocol=p);
+                    test.verifyTrue(tf, ...
+                        fcns(n) + " not found [" + p + "]");
+                end
+
+                % List tools
+                tools = prodserver.mcp.list(endpoint, "Tool");
+                toolNames = string(cellfun(@(t)t.name, tools, ...
+                    UniformOutput=false));
+                for n = 1:numel(fcns)
+                    test.verifyTrue(ismember(fcns(n), toolNames), ...
+                        fcns(n) + " not in list [" + p + "]");
+                end
             end
         end
 

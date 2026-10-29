@@ -28,7 +28,7 @@ The response lists every deployed archive on the instance. Each archive entry in
         "prodserver.mcp.internal.mcpHandler": {
           "signatures": [
             {
-              "help": "Model Context Protocol entry point enabling AI agents to invoke MCP tools.",
+              "help": "Model Context Protocol entry point enabling AI agents to invoke MCP tools. MCP-Versions: 2025-06-18, 2026-07-28",
               "inputs": [
                 {"name": "request", "mwtype": "struct", "mwsize": [],
                  "help": "MCP JSON-RPC request"}
@@ -48,7 +48,7 @@ The response lists every deployed archive on the instance. Each archive entry in
 }
 ```
 
-The archive name (`analysisTools`) is the key you need for step 2. An archive hosts an MCP server if its functions include `prodserver.mcp.internal.mcpHandler`.
+The archive name (`analysisTools`) is the key you need for step 2. An archive hosts an MCP server if its functions include `prodserver.mcp.internal.mcpHandler`. The `help` text ends with `MCP-Versions:` followed by the MCP revisions the server supports.
 
 ### Step 2: Get the Tool Signatures
 
@@ -58,7 +58,7 @@ Use the archive name from step 1 to query the `/signature` endpoint:
 GET http://localhost:9910/analysisTools/signature
 ```
 
-This returns the MATLAB-level signatures of every tool in the archive — parameter names, types, sizes, and whether each is required or optional:
+This returns the MATLAB-level signatures of every tool in the archive — parameter names, types, sizes, and whether each is required or optional. This example is abridged: each `input` and `output` also has `group` and `default` members, which give each parameter's name-value group and default value.
 
 ```json
 {
@@ -89,6 +89,8 @@ This returns the MATLAB-level signatures of every tool in the archive — parame
 ```
 
 For multi-tool archives, the response contains one entry per tool. The signatures contain MATLAB types, not JSON types.
+
+A tool with no inputs may have no `input` member at all, and a tool with no outputs can have no `output` member. Whether the member is absent or empty depends on how the tool was built, so treat the two the same.
 
 ## Automatic Registration
 
@@ -121,6 +123,20 @@ Use `prodserver.mcp.list` to query the list of MCP tools from within MATLAB. `pr
 tools = prodserver.mcp.list("http://localhost:9910/analysisTools/mcp", "Tool")
 ```
 The `/api/discovery` endpoint is meant for clients that cannot call `tools/list`.
+
+## Discovery and `server/discover`
+
+`server/discover` is an MCP method, not part of MPS discovery. Despite the similar name, it answers a different question:
+
+| | `/api/discovery` | `server/discover` |
+| :--- | :--- | :--- |
+| Defined by | MATLAB Production Server | MCP revision `2026-07-28` |
+| Scope | Every archive on the instance | One archive, at `/<archive>/mcp` |
+| Request | `GET`, no MCP | A JSON-RPC `POST` |
+| Returns | Archive names, and `MCP-Versions:` in the `help` text | The supported revisions, the server's capabilities and its instructions. Not the tools — use `tools/list`. |
+| Affected by `discovery=false` | Yes, the archive is left out | No |
+
+Use `/api/discovery` to find which archives host MCP servers. Use `server/discover` to find out how to talk to one of them. See [Protocol Conformance](./protocol-conformance.md#methods).
 
 ## Configuration Requirements
 

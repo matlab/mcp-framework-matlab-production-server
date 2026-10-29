@@ -122,17 +122,3 @@ classdef tOutputContract < MockCaller
     end
 
 end
-
-function err = captureError(fcn,n)
-%captureError Invoke FCN asking for N outputs; return the MException it raised.
-%   Empty if it raised none. nargout is part of the contract under test, and an
-%   anonymous handle invoked by verifyError is called with nargout 0, so the
-%   count has to be set here rather than left to the framework.
-
-    err = MException.empty;
-    out = cell(1,n);
-    try
-        [out{1:n}] = fcn(); %#ok<NASGU> the outputs are not what is under test
-    catch err
-    end
-end

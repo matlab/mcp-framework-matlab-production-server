@@ -38,6 +38,25 @@ classdef tRequireSuccess < matlab.unittest.TestCase
                 "prodserver:mcp:HttpError");
         end
 
+        function tServerErrorIsNotHttpError(test)
+            % A 5xx without a JSON-RPC error may follow a tool that ran, so
+            % it must not carry the identifier isProtocolError retries on.
+            import matlab.net.http.StatusCode
+            for code = [StatusCode.InternalServerError, StatusCode.BadGateway]
+                try
+                    prodserver.mcp.internal.requireSuccess( ...
+                        test.response(code), test.URI);
+                    test.verifyFail("Expected requireSuccess to throw.");
+                catch err
+                    test.verifyEqual(err.identifier, ...
+                        'prodserver:mcp:ServerError', string(code));
+                    test.verifyFalse( ...
+                        prodserver.mcp.protocol.isProtocolError(err), ...
+                        string(code));
+                end
+            end
+        end
+
         function tClientErrorWithBody(test)
             import matlab.net.http.StatusCode
             r = test.response(StatusCode.NotFound, 'short body');
@@ -45,121 +64,116 @@ classdef tRequireSuccess < matlab.unittest.TestCase
                 "prodserver:mcp:HttpError");
         end
 
-        function tJsonRpcErrorOnOkIsRemoteError(test)
-            % The regression test. Client-level JSON-RPC codes -- parse error,
-            % invalid request, method not found, invalid params, resource not
-            % found -- are protocol failures, not transport failures, so the
-            % server answers HTTP 200 and puts the error in the body. The body
-            % inspection used to be gated on a failing status, so every one of
-            % them passed silently here and the caller failed further down on
-            % the absence of a result, reporting a missing field instead of the
-            % reason the server gave for not sending one.
+        function tClientErrorJsonRpcErrorIsRemoteError(test)
+            % 2026-07-28 mandates 400 for an unsupported protocol version, a
+            % header mismatch and a missing required _meta field, and 404 for
+            % an unimplemented method. Each carries a structured JSON-RPC
+            % error whose message is far more useful than the bare status
+            % line, so the body must be parsed at ANY failing status -- not
+            % only at >= 500, which was the old gate.
             import matlab.net.http.StatusCode
-            body.jsonrpc = "2.0";
-            body.id = 1;
-            body.error.message = "Tool 'nope' not available on this MCP server.";
-            body.error.code = -32602;
-            r = test.response(StatusCode.OK, body);
+            body.error.message = "Unsupported protocol version";
+            body.error.code = -32022;
+            r = test.response(StatusCode.BadRequest, body);
             try
                 prodserver.mcp.internal.requireSuccess(r, test.URI);
                 test.verifyFail("Expected requireSuccess to throw.");
             catch err
                 test.verifyEqual(err.identifier, 'prodserver:mcp:RemoteError');
-                % The server's own explanation must survive, not be replaced by
-                % a complaint about the field it is carried in.
-                test.verifyTrue(contains(err.message, "not available"), ...
-                    "The server's message must reach the caller");
-                test.verifyTrue(contains(err.message, "-32602"), ...
-                    "The JSON-RPC code must reach the caller");
+                test.verifyTrue(contains(err.message, ...
+                    "Unsupported protocol version"), ...
+                    "The server's own message must survive: " + err.message);
+                test.verifyTrue(contains(err.message, "-32022"), ...
+                    "The JSON-RPC code must be reported: " + err.message);
             end
         end
 
-        function tResultIsErrorOnOkIsToolError(test)
-            % The regression test for tool errors. An isError result over HTTP
-            % 200 is how the server reports a tool that ran and raised. It used
-            % to be inspected only on a 5xx, so it passed here as a success and
-            % prodserver.mcp.call either raised NoStructuredContent or returned
-            % the error text as the tool's output.
+        function tNotFoundJsonRpcErrorIsRemoteError(test)
+            % 2026-07-28 reports an unimplemented method as HTTP 404 with
+            % -32601, which must not be flattened into a bare HttpError.
             import matlab.net.http.StatusCode
-            body.jsonrpc = "2.0";
-            body.id = 1;
-            body.result.isError = true;
+            body.error.message = "Method not found";
+            body.error.code = -32601;
+            r = test.response(StatusCode.NotFound, body);
+            test.verifyError(@() prodserver.mcp.internal.requireSuccess( ...
+                r, test.URI), "prodserver:mcp:RemoteError");
+        end
+
+        function tSuccessWithIsErrorIsToolError(test)
+            % Inverted in conformance Phase XA (XD32). A tool that ran and
+            % failed is reported in band, over HTTP 200 -- and a caller that
+            % asked for the tool's outputs must get an error, not the error
+            % text in place of them. ToolError deliberately does not match
+            % isProtocolError: the tool ran, so a retry would run it again.
+            import matlab.net.http.StatusCode
+            body.result.isError = 1;
             body.result.content.type = "text";
-            body.result.content.text = "tool failed";
+            body.result.content.text = "tool rejected its input";
             r = test.response(StatusCode.OK, body);
             try
                 prodserver.mcp.internal.requireSuccess(r, test.URI);
                 test.verifyFail("Expected requireSuccess to throw.");
             catch err
                 test.verifyEqual(err.identifier, 'prodserver:mcp:ToolError');
-                test.verifyTrue(contains(err.message, "tool failed"), ...
-                    "The tool's message must reach the caller");
+                test.verifyTrue(contains(err.message, "tool rejected its input"), ...
+                    err.message);
+                test.verifyFalse(prodserver.mcp.protocol.isProtocolError(err), ...
+                    "A tool error must never trigger clear-cache-and-retry");
             end
         end
 
-        function tResultIsErrorFalsePasses(test)
-            % isError false is an explicit success, not a failure.
+        function tSuccessWithJsonRpcErrorIsAFailure(test)
+            % Inverted in conformance Phase XA (ND5). A JSON-RPC error over
+            % 200 is how 2025-06-18 reports an unknown tool or bad
+            % arguments; swallowing it left the caller with no outputs and
+            % no explanation. -32602 is final, so it is not retryable.
             import matlab.net.http.StatusCode
-            body.result.isError = false;
-            body.result.content.text = "fine";
-            r = test.response(StatusCode.OK, body);
-            test.verifyWarningFree(@() prodserver.mcp.internal.requireSuccess( ...
-                r, test.URI));
-        end
-
-        function tResultIsErrorWithoutTextStillReports(test)
-            % An isError result with no text content is still a tool error. The
-            % reporting code must not fail on the absent text.
-            import matlab.net.http.StatusCode
-            body.result.isError = true;
-            r = test.response(StatusCode.OK, body);
-            test.verifyError(@() prodserver.mcp.internal.requireSuccess( ...
-                r, test.URI), "prodserver:mcp:ToolError");
-        end
-
-        function tBareErrorFieldIsNotAJsonRpcError(test)
-            % signatureHandler answers an unsupported verb with
-            % struct('error', <char>) -- a field named error that is not a
-            % JSON-RPC error object. Testing for the error member alone would
-            % index a code that is not there, so a reportable HTTP failure would
-            % become an indexing failure inside the reporting code.
-            import matlab.net.http.StatusCode
-            body = struct('error', 'Only GET and POST methods are supported.');
-            r = test.response(StatusCode.MethodNotAllowed, body);
-            test.verifyError(@() prodserver.mcp.internal.requireSuccess( ...
-                r, test.URI), "prodserver:mcp:HttpError");
-        end
-
-        function tErrorWithoutMessageStillReports(test)
-            % JSON-RPC requires message alongside code, but a server that omits
-            % it must not turn a reportable protocol error into an indexing
-            % failure. The code alone still says what went wrong.
-            import matlab.net.http.StatusCode
-            body.error.code = -32600;
+            body.error.message = "Unknown tool: invalid_tool_name";
+            body.error.code = -32602;
             r = test.response(StatusCode.OK, body);
             try
                 prodserver.mcp.internal.requireSuccess(r, test.URI);
                 test.verifyFail("Expected requireSuccess to throw.");
             catch err
-                test.verifyEqual(err.identifier, 'prodserver:mcp:RemoteError');
-                test.verifyTrue(contains(err.message, "-32600"));
+                test.verifyEqual(err.identifier, 'prodserver:mcp:JsonRpcError');
+                test.verifyTrue(contains(err.message, "invalid_tool_name"), ...
+                    err.message);
+                test.verifyTrue(contains(err.message, "-32602"), err.message);
+                test.verifyFalse(prodserver.mcp.protocol.isProtocolError(err));
             end
         end
 
-        function tServerErrorJsonRpcError(test)
-            % A 500 carrying a JSON-RPC error object surfaces RemoteError.
+        function tMethodNotFoundOver200IsRemoteError(test)
+            % -32601 can mean "you are speaking the wrong revision", so it
+            % keeps the retryable identifier at any status.
             import matlab.net.http.StatusCode
-            body.error.message = "boom";
-            body.error.code = -32000;
-            r = test.response(StatusCode.InternalServerError, body);
-            test.verifyError(@() prodserver.mcp.internal.requireSuccess(r, test.URI), ...
-                "prodserver:mcp:RemoteError");
+            body.error.message = "Method not found";
+            body.error.code = -32601;
+            r = test.response(StatusCode.OK, body);
+            test.verifyError(@() prodserver.mcp.internal.requireSuccess( ...
+                r, test.URI), "prodserver:mcp:RemoteError");
+        end
+
+        function tServerErrorJsonRpcError(test)
+            % A 500 carrying a JSON-RPC error object raises JsonRpcError, not
+            % RemoteError (changed in conformance Phase XA). Only the
+            % stale-protocol codes are retryable; -32603 in particular can
+            % follow tool execution, and a retry would run the tool twice.
+            import matlab.net.http.StatusCode
+            for code = [-32000 -32603]
+                body.error.message = "boom";
+                body.error.code = code;
+                r = test.response(StatusCode.InternalServerError, body);
+                test.verifyError(@() prodserver.mcp.internal.requireSuccess(r, test.URI), ...
+                    "prodserver:mcp:JsonRpcError", "code " + code);
+            end
         end
 
         function tServerErrorResultIsError(test)
-            % result.isError is a tool error whatever status carries it.
+            % A 500 carrying result.isError raises ToolError with the text
+            % (was RemoteError before conformance Phase XA).
             import matlab.net.http.StatusCode
-            body.result.isError = true;
+            body.result.isError = 1;
             body.result.content.text = "tool failed";
             r = test.response(StatusCode.InternalServerError, body);
             try
@@ -169,6 +183,56 @@ classdef tRequireSuccess < matlab.unittest.TestCase
                 test.verifyEqual(err.identifier, 'prodserver:mcp:ToolError');
                 test.verifyTrue(contains(err.message, "tool failed"));
             end
+        end
+
+        function tToolErrorJoinsEveryTextItem(test)
+            % content decodes as a struct array when the items share
+            % fields and as a cell array when they do not. Both must yield
+            % every text item, and a non-text item must not crash.
+            import matlab.net.http.StatusCode
+            same.result.isError = true;
+            same.result.content = struct('type', {"text","text"}, ...
+                'text', {"first", "second"});
+            mixed.result.isError = true;
+            mixed.result.content = {struct('type',"image",'data',"AAAA"), ...
+                struct('type',"text",'text',"third")};
+            cases = {same, ["first","second"]; mixed, "third"};
+            for k = 1:size(cases,1)
+                r = test.response(StatusCode.OK, cases{k,1});
+                try
+                    prodserver.mcp.internal.requireSuccess(r, test.URI);
+                    test.verifyFail("Expected requireSuccess to throw.");
+                catch err
+                    test.verifyEqual(err.identifier, 'prodserver:mcp:ToolError');
+                    for t = cases{k,2}
+                        test.verifyTrue(contains(err.message, t), err.message);
+                    end
+                end
+            end
+        end
+
+        function tNonStructErrorMemberDoesNotCrash(test)
+            % ND6: a body whose 'error' member is not an error object must
+            % not be dereferenced as one. Over 200 it is simply a success;
+            % over 500 it is a ServerError carrying the body.
+            import matlab.net.http.StatusCode
+            body.error = "not an object";
+            test.verifyWarningFree(@() prodserver.mcp.internal.requireSuccess( ...
+                test.response(StatusCode.OK, body), test.URI));
+            test.verifyError(@() prodserver.mcp.internal.requireSuccess( ...
+                test.response(StatusCode.InternalServerError, body), test.URI), ...
+                "prodserver:mcp:ServerError");
+        end
+
+        function tToleratedStatusIgnoresBody(test)
+            % terminate passes failure=500 so that any 4xx is acceptable.
+            % That tolerance covers the body too.
+            import matlab.net.http.StatusCode
+            body.error.message = "Bad Request";
+            body.error.code = -32600;
+            test.verifyWarningFree(@() prodserver.mcp.internal.requireSuccess( ...
+                test.response(StatusCode.BadRequest, body), test.URI, ...
+                failure=500));
         end
 
         function tCustomFailureThreshold(test)

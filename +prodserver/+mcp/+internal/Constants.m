@@ -4,10 +4,32 @@ classdef Constants
 
      properties (Constant)
 
+        % MATLAB classes by how the wire encodings carry them: the one
+        % list behind WireSupport, jsonParameterType, the encoders' and
+        % the validator's messages.
+        FloatClasses = ["double", "single"];
+        IntegerClasses = ["int8", "uint8", "int16", "uint16", "int32", ...
+            "uint32", "int64", "uint64"];
+        NumericClasses = [prodserver.mcp.internal.Constants.IntegerClasses, ...
+            prodserver.mcp.internal.Constants.FloatClasses];
+        % Plain JSON values, in both encodings.
+        JSONClasses = [prodserver.mcp.internal.Constants.NumericClasses, ...
+            "logical", "char", "string", "struct", "cell"];
+        % Both encodings, but plain JSON only by converting them.
+        ConvertedClasses = ["datetime", "duration"];
+        % Only the invertible encoding.
+        InvertibleClasses = ["categorical", "table", "timetable"];
+
+        % Tags schemaFromValue leaves in an observed schema, for
+        % SchemaObserver to resolve. Internal: never published, and not
+        % MCPConstants.MatlabClass_Field, which is.
+        ClassTag = "x_matlabClass";       % A class JSON can't describe
+        ScalarTag = "x_matlabScalar";     % Whether that value was scalar
+        ElementsTag = "x_matlabElements"; % Tagged elements of a cell
+
         % MATLAB cast-able types
-        castType = ["int8", "uint8", "int16", "uint16", "int32", ...
-            "uint32", "int64", "uint64", "double", "single", "logical", ...
-            "char"];
+        castType = [prodserver.mcp.internal.Constants.NumericClasses, ...
+            "logical", "char"];
 
         % Primitive (non-container) types
         primitiveType = [prodserver.mcp.internal.Constants.castType, ...
@@ -32,12 +54,20 @@ classdef Constants
 
         DefaultPersistVar = "xyzzy";
 
-        HTTPClientError = 400;
-        HTTPServerError = 500;
+        % The header in which <archive>/ping names the build answering
+        % (see archiveUUID), so that deploy can tell the archive it
+        % uploaded from the one it replaces.
+        ArchiveUUIDHeader = 'MATLAB-MCP-Archive-UUID';
 
-        % Value of the Server response header, on every response this
-        % framework emits.
-        ServerHeader = "MATLAB Production Server/Model Context Protocol (v1.0)";
+        % Seconds deploy waits for /api/discovery to say which build an
+        % archive that doesn't send that header is. Server metadata answers
+        % at once or not usefully at all.
+        DiscoveryTimeout = 10;
+
+        % HTTP statuses sendRequest retries: the only ones that can change
+        % while the request does not. 404 is Production Server's answer
+        % while an archive is still being unpacked.
+        RetryableStatus = [404 408 429];
 
         MultiMCOSEnvVar = "MW_MULTIMCOS_MODE";
 
@@ -45,6 +75,7 @@ classdef Constants
         % Additional MIME types
         MIMETypeJSON = "application/json";
         MIMETypePlainText = "text/plain";
+        MIMETypeBinary = "application/octet-stream";
 
         % Argument info syntax patterns and constants
         ParameterSizePattern = textBoundary("start") + "(" + ...
@@ -53,28 +84,6 @@ classdef Constants
             asManyOfPattern(alphanumericsPattern(1) | "_", 1, Inf);
         ValidationPattern = textBoundary("start") + "{" + wildcardPattern(Except="}") + "}";
         DefaultPattern = lookBehindBoundary("=") + wildcardPattern + ...
-            textBoundary("end");
-
-        % HTTP session ID - RFC 7329
-        SessionIDPrefix = "SID";
-        SessionIDSep = ":";
-        SessionIDType = "MathWorks-Production-MCP-Server";
-        SessionIDHeader = "Session-ID";
-        SessionIDPattern = ...
-            prodserver.mcp.internal.Constants.SessionIDPrefix + ...
-            prodserver.mcp.internal.Constants.SessionIDSep + ...
-            prodserver.mcp.internal.Constants.SessionIDType + ...
-            prodserver.mcp.internal.Constants.SessionIDSep + ...
-            asManyOfPattern(wildcardPattern(Except=prodserver.mcp.internal.Constants.SessionIDSep)) + ...
-            prodserver.mcp.internal.Constants.SessionIDSep + ...
-            wildcardPattern(36);
-
-        % Session ID at the end of an HTTP path
-        SessionIDAtEnd = lookBehindBoundary(...
-            prodserver.mcp.internal.Constants.URISep) + ...
-            prodserver.mcp.internal.Constants.SessionIDPrefix + ...
-            prodserver.mcp.internal.Constants.SessionIDSep + ...
-            wildcardPattern(Except=prodserver.mcp.internal.Constants.URISep) + ...
             textBoundary("end");
 
         % Single hexadecimal digit

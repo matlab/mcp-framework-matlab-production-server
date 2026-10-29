@@ -8,7 +8,6 @@ function encoded = mcpEncode(encoding, varargin)
 %   ENCODING is a prodserver.mcp.WireEncoding value:
 %     Invertible — full typed-wrapper encoding (lossless round-trip)
 %     JSON       — bare jsonencode-compatible values (no wrappers)
-%     Hybrid     — Invertible only where JSON threatens errors
 %
 %   See also: mcpDecode, mcpWireEncodeValue, WireEncoding
 
@@ -19,9 +18,9 @@ function encoded = mcpEncode(encoding, varargin)
             encoded = cellfun(@prodserver.mcp.jsonrpc.mcpWireEncodeValue, ...
                 varargin, UniformOutput=false);
         case prodserver.mcp.WireEncoding.JSON
-            encoded = varargin;
-        case prodserver.mcp.WireEncoding.Hybrid
-            encoded = cellfun(@prodserver.mcp.jsonrpc.mcpWireEncodeValue, ...
+            % jsonencode would write datetimes and durations as
+            % locale-dependent display text, and a timetable as {}.
+            encoded = cellfun(@prodserver.mcp.jsonrpc.plainJSONValue, ...
                 varargin, UniformOutput=false);
     end
 end

@@ -30,6 +30,15 @@ classdef tImportJSON < matlab.unittest.TestCase
             test.verifyEqual(importJSON(u), 9);
         end
 
+        function tThroughDeserialize(test)
+            % deserialize calls every reader as fcn(uri, type, config,
+            % import=...); importJSON must accept that and ignore import.
+            mu = prodserver.mcp.io.MarshallURI();
+            test.verifyEqual(deserialize(mu, "json:x?42"), {42});
+            test.verifyEqual(deserialize(mu, "json:x?42", ...
+                import=delimitedTextImportOptions), {42});
+        end
+
     end
 
 end

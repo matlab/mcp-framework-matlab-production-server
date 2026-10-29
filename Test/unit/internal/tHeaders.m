@@ -65,6 +65,14 @@ classdef tHeaders < matlab.unittest.TestCase
             test.verifyEqual(value,string(ct));
         end
 
+        function getHeaderOddList(test)
+            % A cell array that isn't Nx2 can't be read as name-value pairs.
+            headers = {'Content-Type' 'application/json' 'Content-Length'};
+            test.verifyError(@()prodserver.mcp.internal.getHeaderValue( ...
+                prodserver.mcp.MCPConstants.ContentType, headers), ...
+                "prodserver:mcp:InvalidHeaderList");
+        end
+
 
     end
 end

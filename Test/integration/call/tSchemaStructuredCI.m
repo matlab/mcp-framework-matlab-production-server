@@ -1,4 +1,4 @@
-classdef tSchemaStructuredCI < MCPCaller
+classdef tSchemaStructuredCI < prodserver.mcp.test.base.MCPCaller
 % Test deployment and invocation of MCP tools built from schema-generated
 % definitions for functions that return structured MATLAB types (datetime,
 % duration, table, timetable, complex).
@@ -34,18 +34,28 @@ classdef tSchemaStructuredCI < MCPCaller
                 encoding="Invertible");
             endpoint = prodserver.mcp.deploy(ctf, test.server);
 
-            tf = prodserver.mcp.exist(endpoint, fcn, "Tool", ...
-                delay=10, retry=5);
-            test.verifyTrue(tf, fcn + " not found at " + endpoint);
-
             realPart = [3, 0]; imagPart = [4, 1];
             [eZ, eMag, ePhase] = schemaComplexNoBlock(realPart, imagPart);
-            [aZ, aMag, aPhase] = prodserver.mcp.call(...
-                endpoint, fcn, realPart, imagPart);
 
-            test.verifyEqual(aZ, eZ, AbsTol=1e-12);
-            test.verifyEqual(aMag, eMag, AbsTol=1e-12);
-            test.verifyEqual(aPhase, ePhase, AbsTol=1e-12);
+            for p = test.Protocols
+                prodserver.mcp.client.Adapter.create(endpoint, action="clear");
+                prodserver.mcp.client.Adapter.create(endpoint, protocol=p);
+
+                tf = prodserver.mcp.exist(endpoint, fcn, "Tool", ...
+                    delay=10, retry=5, protocol=p);
+                test.verifyTrue(tf, ...
+                    fcn + " not found [" + p + "]");
+
+                [aZ, aMag, aPhase] = prodserver.mcp.call(...
+                    endpoint, fcn, realPart, imagPart);
+
+                test.verifyEqual(aZ, eZ, ...
+                    "[" + p + "]", AbsTol=1e-12);
+                test.verifyEqual(aMag, eMag, ...
+                    "[" + p + "]", AbsTol=1e-12);
+                test.verifyEqual(aPhase, ePhase, ...
+                    "[" + p + "]", AbsTol=1e-12);
+            end
         end
 
         function datetimeRoundTrip(test)
@@ -61,18 +71,58 @@ classdef tSchemaStructuredCI < MCPCaller
                 encoding="Invertible");
             endpoint = prodserver.mcp.deploy(ctf, test.server);
 
-            tf = prodserver.mcp.exist(endpoint, fcn, "Tool", ...
-                delay=10, retry=5);
-            test.verifyTrue(tf, fcn + " not found at " + endpoint);
-
             year = 2026; month = 6; day = 20;
             [eDt, eDow, eSerial] = schemaDatetimeNoBlock(year, month, day);
-            [aDt, aDow, aSerial] = prodserver.mcp.call(...
-                endpoint, fcn, year, month, day);
 
-            test.verifyEqual(aDt, eDt);
-            test.verifyEqual(aDow, eDow);
-            test.verifyEqual(aSerial, eSerial);
+            for p = test.Protocols
+                prodserver.mcp.client.Adapter.create(endpoint, action="clear");
+                prodserver.mcp.client.Adapter.create(endpoint, protocol=p);
+
+                tf = prodserver.mcp.exist(endpoint, fcn, "Tool", ...
+                    delay=10, retry=5, protocol=p);
+                test.verifyTrue(tf, ...
+                    fcn + " not found [" + p + "]");
+
+                [aDt, aDow, aSerial] = prodserver.mcp.call(...
+                    endpoint, fcn, year, month, day);
+
+                test.verifyEqual(aDt, eDt, "[" + p + "]");
+                test.verifyEqual(aDow, eDow, "[" + p + "]");
+                test.verifyEqual(aSerial, eSerial, "[" + p + "]");
+            end
+        end
+
+        function jsonTimesRoundTrip(test)
+            % Plain JSON: datetimes go as ISO 8601 text and durations as
+            % seconds, in both directions, and the client converts the
+            % output back as the output schema says.
+            fcn = "schemaWireTimes";
+            archive = "schemaStructJSONTimes";
+            test.applyFixture(prodserver.mcp.test.mixin.RemoveArchive(...
+                test.server, archive));
+
+            % dn is (1,:), which would otherwise be passed by URL.
+            ctf = prodserver.mcp.build(fcn, folder=test.tempFolder, ...
+                archive=archive, encoding="JSON", wrapper="None");
+            endpoint = prodserver.mcp.deploy(ctf, test.server);
+
+            d1 = datetime(2026,3,4,5,6,7, TimeZone="UTC");
+            dn = datetime(2026,1,1:2, TimeZone="UTC");
+            d3 = hours([1 2 3]);
+            expected = schemaWireTimes(d1, dn, d3);
+
+            for p = test.Protocols
+                prodserver.mcp.client.Adapter.create(endpoint, action="clear");
+                prodserver.mcp.client.Adapter.create(endpoint, protocol=p);
+
+                tf = prodserver.mcp.exist(endpoint, fcn, "Tool", ...
+                    delay=10, retry=5, protocol=p);
+                test.verifyTrue(tf, fcn + " not found [" + p + "]");
+
+                actual = prodserver.mcp.call(endpoint, fcn, d1, dn, d3);
+                test.verifyClass(actual, "datetime", "[" + p + "]");
+                test.verifyEqual(actual, expected, "[" + p + "]");
+            end
         end
 
         function durationRoundTrip(test)
@@ -88,17 +138,24 @@ classdef tSchemaStructuredCI < MCPCaller
                 encoding="Invertible");
             endpoint = prodserver.mcp.deploy(ctf, test.server);
 
-            tf = prodserver.mcp.exist(endpoint, fcn, "Tool", ...
-                delay=10, retry=5);
-            test.verifyTrue(tf, fcn + " not found at " + endpoint);
-
             h = 1; m = 30; s = 45;
             [eDur, eTotalSec] = schemaDurationNoBlock(h, m, s);
-            [aDur, aTotalSec] = prodserver.mcp.call(...
-                endpoint, fcn, h, m, s);
 
-            test.verifyEqual(aDur, eDur);
-            test.verifyEqual(aTotalSec, eTotalSec);
+            for p = test.Protocols
+                prodserver.mcp.client.Adapter.create(endpoint, action="clear");
+                prodserver.mcp.client.Adapter.create(endpoint, protocol=p);
+
+                tf = prodserver.mcp.exist(endpoint, fcn, "Tool", ...
+                    delay=10, retry=5, protocol=p);
+                test.verifyTrue(tf, ...
+                    fcn + " not found [" + p + "]");
+
+                [aDur, aTotalSec] = prodserver.mcp.call(...
+                    endpoint, fcn, h, m, s);
+
+                test.verifyEqual(aDur, eDur, "[" + p + "]");
+                test.verifyEqual(aTotalSec, eTotalSec, "[" + p + "]");
+            end
         end
 
         function tableRoundTrip(test)
@@ -114,17 +171,24 @@ classdef tSchemaStructuredCI < MCPCaller
                 encoding="Invertible");
             endpoint = prodserver.mcp.deploy(ctf, test.server);
 
-            tf = prodserver.mcp.exist(endpoint, fcn, "Tool", ...
-                delay=10, retry=5);
-            test.verifyTrue(tf, fcn + " not found at " + endpoint);
-
             names = ["Alice", "Bob"]; ages = [30, 25]; city = "NYC";
             [eT, eNrows] = schemaTableNoBlock(names, ages, city);
-            [aT, aNrows] = prodserver.mcp.call(...
-                endpoint, fcn, names, ages, city);
 
-            test.verifyEqual(aT, eT);
-            test.verifyEqual(aNrows, eNrows);
+            for p = test.Protocols
+                prodserver.mcp.client.Adapter.create(endpoint, action="clear");
+                prodserver.mcp.client.Adapter.create(endpoint, protocol=p);
+
+                tf = prodserver.mcp.exist(endpoint, fcn, "Tool", ...
+                    delay=10, retry=5, protocol=p);
+                test.verifyTrue(tf, ...
+                    fcn + " not found [" + p + "]");
+
+                [aT, aNrows] = prodserver.mcp.call(...
+                    endpoint, fcn, names, ages, city);
+
+                test.verifyEqual(aT, eT, "[" + p + "]");
+                test.verifyEqual(aNrows, eNrows, "[" + p + "]");
+            end
         end
 
         function timetableRoundTrip(test)
@@ -140,19 +204,26 @@ classdef tSchemaStructuredCI < MCPCaller
                 encoding="Invertible");
             endpoint = prodserver.mcp.deploy(ctf, test.server);
 
-            tf = prodserver.mcp.exist(endpoint, fcn, "Tool", ...
-                delay=10, retry=5);
-            test.verifyTrue(tf, fcn + " not found at " + endpoint);
-
             values = [10, 20, 30]; startHour = 9; intervalMin = 15;
             [eTT, eNrows, eSpan] = schemaTimetableNoBlock(...
                 values, startHour, intervalMin);
-            [aTT, aNrows, aSpan] = prodserver.mcp.call(...
-                endpoint, fcn, values, startHour, intervalMin);
 
-            test.verifyEqual(aTT, eTT);
-            test.verifyEqual(aNrows, eNrows);
-            test.verifyEqual(aSpan, eSpan);
+            for p = test.Protocols
+                prodserver.mcp.client.Adapter.create(endpoint, action="clear");
+                prodserver.mcp.client.Adapter.create(endpoint, protocol=p);
+
+                tf = prodserver.mcp.exist(endpoint, fcn, "Tool", ...
+                    delay=10, retry=5, protocol=p);
+                test.verifyTrue(tf, ...
+                    fcn + " not found [" + p + "]");
+
+                [aTT, aNrows, aSpan] = prodserver.mcp.call(...
+                    endpoint, fcn, values, startHour, intervalMin);
+
+                test.verifyEqual(aTT, eTT, "[" + p + "]");
+                test.verifyEqual(aNrows, eNrows, "[" + p + "]");
+                test.verifyEqual(aSpan, eSpan, "[" + p + "]");
+            end
         end
 
     end

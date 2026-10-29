@@ -8,7 +8,6 @@ classdef MCPConstants
 
     properties (Constant)
 
-        SessionId = 'Mcp-Session-Id'
         ProtocolVersion = 'MCP-Protocol-Version';
         ServiceVariable = "McpServices";
         DefinitionFile = prodserver.mcp.MCPConstants.ServiceVariable+".mat";
@@ -20,8 +19,10 @@ classdef MCPConstants
         AutoWrapper = "Auto";
         ContentType = 'Content-Type';
         ContentLength = 'Content-Length';
+        Accept = 'Accept';
+        % The Accept value every MCP POST must carry, in both revisions (G15).
+        AcceptMCP = 'application/json, text/event-stream';
         Host = 'Host';
-        SSE = "/sse";
         MCP = "/mcp";
         Signature = "/signature";
         GroupName = "GroupName";
@@ -29,24 +30,53 @@ classdef MCPConstants
         ExternalParamSuffix = "URL";
         ExternOutGroup = "out";
         jrpcVersion = "2.0"
-        protocolVersion = "2025-06-18";
-
-        % JSON-RPC 2.0 / MCP error codes
-        ErrorParseError     = -32700;
-        ErrorInvalidRequest = -32600;
-        ErrorMethodNotFound = -32601;
-        ErrorInvalidParams  = -32602;
-        ErrorInternalError  = -32603;
-
-        % MCP-specific error code, outside the JSON-RPC reserved range:
-        % resources/read for a URI this server does not host.
-        ErrorResourceNotFound = -32002;
 
         Array = "array";   % JSONRPC array type
         DefaultArgType = "double";  
 
         DefsField = "dollarDefs"; % Can't use $defs, so...
         DefsJSON = "$defs";
+
+        % Schema keyword naming the MATLAB class of a JSON value that plain
+        % JSON can't type on its own: "duration" for a number of seconds.
+        MatlabClass_Field = "x_matlab_class";
+        MatlabClass_JSON = "x-matlab-class";
+        UIExtension_Field = "io_mcp_ui_extension";
+        UIExtension_JSON = "io.modelcontextprotocol/ui";
+
+        MetaField = "x_meta";
+        MetaJSON = "_meta";
+
+        ServerName = "MATLAB Production Server"
+        % serverInfo.version. Tracks the framework release; update it
+        % with every release. tServerVersion fails if it doesn't match
+        % the newest release in ReleaseNotes.md.
+        ServerVersion = "1.6.0"
+
+        % The Server header on every response the framework's handlers send
+        % (XD19). char, as Production Server requires of header values.
+        ServerHeader = 'MATLAB Production Server/Model Context Protocol'
+
+        % Methods the MCP endpoint accepts: the Allow header of a 405 (G11).
+        AllowedMethods = 'POST, DELETE'
+
+        % Caching hints (2026-07-28 CacheableResult: ttlMs and cacheScope, G2).
+        % Discovery and the lists come from the archive's immutable
+        % definition and hold nothing caller-specific; redeployment is what
+        % invalidates them. A resource body may depend on who asked, and a
+        % wrongly public one could be served across authorization contexts,
+        % so it is private. All four values are the spec's own examples.
+        DefinitionCacheTtlMs = 300000
+        DefinitionCacheScope = "public"
+        ResourceCacheTtlMs = 60000
+        ResourceCacheScope = "private"
+
+        % Standard JSON-RPC 2.0 error codes (shared across all protocols)
+        ErrorParseError = -32700
+        ErrorInvalidRequest = -32600
+        ErrorMethodNotFound = -32601
+        ErrorInvalidParams = -32602
+        ErrorInternalError = -32603
 
         %
         % Claude Code and the Claude desktop can't read resources as first
@@ -89,7 +119,26 @@ classdef MCPConstants
             " in full and completely understand it before making any " + ...
             "call to this tool.";
 
-        WireEncodingFields = ["type", "data", "size"];
+        % The invertible encoding's text for the values JSON has no
+        % literal for.
+        NaNText = "NaN";
+        InfText = "Inf";
+        NegInfText = "-Inf";
+        SpecialFloatText = [prodserver.mcp.MCPConstants.NaNText, ...
+            prodserver.mcp.MCPConstants.InfText, ...
+            prodserver.mcp.MCPConstants.NegInfText];
+        NaTText = "NaT";
+
+        % The JSON Schema format of ISO 8601 date-time text, and what a
+        % message says when text isn't one.
+        DateTimeFormat = "date-time";
+        DateTimeExpected = "expected an ISO 8601 date-time, such as " + ...
+            "2026-01-02T03:04:05Z";
+
+        % The annotation of every schema of an invertibly encoded value.
+        % wireEncodingArgTemplate.json carries the same text.
+        InvertibleAnnotation = "Invertible wire encoding wrapper for " + ...
+            "MCP Framework for MATLAB Production Server";
 
         %
         % Metrics
@@ -100,6 +149,8 @@ classdef MCPConstants
         MCPRequestMetric = prodserver.mcp.MCPConstants.MCPMetricPrefix + ...
             "Framework" + prodserver.mcp.MCPConstants.MCPMetricSuffix;
         MCPToolCallSuffix = "_Call";
+        % A tools/call the server refused before invoking the tool.
+        MCPToolRejectedSuffix = "_Rejected";
 
         %
         % Function argument comments for the LLM
@@ -157,15 +208,6 @@ classdef MCPConstants
         % Call and response
         Ping = "ping";
         Pong = "pong";
-
-        % Map GenerativeAI enum values to environment variables
-        GenAIEnvVar = dictionary( ...
-            prodserver.mcp.GenerativeAI.OpenAI, "OPENAI_API_KEY", ...
-            prodserver.mcp.GenerativeAI.Gemini, "GEMINI_API_KEY", ...
-            prodserver.mcp.GenerativeAI.Anthropic, "ANTHROPIC_API_KEY", ...
-            prodserver.mcp.GenerativeAI.Ollama, "", ...
-            prodserver.mcp.GenerativeAI.Internal, "", ...
-            prodserver.mcp.GenerativeAI.None, "");
 
         % Names of the environment variables containing the network 
         % address of the test server and the optional location of the test

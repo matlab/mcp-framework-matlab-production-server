@@ -45,6 +45,15 @@ classdef ParameterKind
             end
         end
 
+        function order = PositionalOrder(names, pk)
+        % The names of the positional parameters -- required, then
+        % optional -- in order. They come first in NAMES.
+            count = prodserver.mcp.internal.ParameterKind.CountType(pk);
+            n = count(prodserver.mcp.internal.ParameterKind.Required) + ...
+                count(prodserver.mcp.internal.ParameterKind.Optional);
+            order = string(names(1:n));
+        end
+
         function pk = FromMetaData(required,identifier)
             import prodserver.mcp.internal.hasField
             import prodserver.mcp.internal.ParameterKind

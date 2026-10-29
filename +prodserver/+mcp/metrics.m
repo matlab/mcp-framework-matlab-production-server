@@ -35,35 +35,55 @@ function catalog = metrics(uri,opts)
         metricsQuery = metricsQuery + Constants.PortPrefix + uri.port;
     end
 
+    % An MCP endpoint names an archive. The catalog holds every metric on
+    % the instance, so for an archive the server doesn't have it would
+    % still look like an answer. Ask the archive's /ping route first: it
+    % counts nothing, unlike an MCP request, which would change the very
+    % metrics being read.
+    archive = prodserver.mcp.internal.archiveFromEndpoint(uri.uri);
+    if strlength(archive) > 0
+        pingURL= metricsQuery + "/" + archive + "/ping";
+        try
+            pong = prodserver.mcp.internal.webreadWithRetry( ...
+                pingURL, weboptions(Timeout=opts.timeout), ...
+                attempts=opts.retry, delay=opts.delay, ...
+                retryable=@(me) prodserver.mcp.internal.isTransientError(me, ...
+                    timeout=false, status=[]), ...
+                accept=@(r) ~isempty(r));
+        catch me
+            if contains(me.identifier, "HTTP404")
+                error("prodserver:mcp:UnknownArchive", ...
+                    "No MCP archive named '%s' at %s. Check the endpoint, " + ...
+                    "or list the server's archives.", archive, metricsQuery);
+            end
+            rethrow(me);
+        end
+        if isempty(pong)
+            serverUnresponsive(uri.uri);
+        end
+    end
+
     % Add the metrics API endpoint and query the server.
     metricsQuery = metricsQuery + metricsAPI;
+    % A refused connection often means the server is still starting up, so
+    % it is retried. Anything else is the server's answer.
     webOpts = weboptions(Timeout=opts.timeout);
-    result = [];
-    n = 1;
-    while n <= opts.retry && isempty(result)
-        try
-            result = webread(metricsQuery,webOpts);
-        catch me
-            % Often occurs because server still starting up.
-            if contains(me.identifier,"ConnectionRefused") || ...
-                    contains(me.message,"could not connect to server",IgnoreCase=true) || ...
-                    contains(me.message,"connection refused",IgnoreCase=true)
-                pause(opts.delay);
-            elseif contains(me.identifier,"HTTP403") && contains(me.message,"metrics disabled",IgnoreCase=true)
-                error("prodserver:mcp:MetricsDisabled", "Metrics disabled for %s. Enable metrics with the " + ...
-                    "--enable-metrics property in the main_config configuration file.");
-            else
-                rethrow(me);
-            end
+    try
+        result = prodserver.mcp.internal.webreadWithRetry(metricsQuery, ...
+            webOpts, attempts=opts.retry, delay=opts.delay, ...
+            retryable=@(me) prodserver.mcp.internal.isTransientError(me, ...
+                timeout=false, status=[]), ...
+            accept=@(r) ~isempty(r));
+    catch me
+        if contains(me.identifier,"HTTP403") && contains(me.message,"metrics disabled",IgnoreCase=true)
+            error("prodserver:mcp:MetricsDisabled", "Metrics disabled for %s. Enable metrics with the " + ...
+                "--enable-metrics property in the main_config configuration file.", uri.uri);
         end
-        n = n + 1;
+        rethrow(me);
     end
 
     if prodserver.mcp.validation.istext(result) == false
-        error("prodserver:mcp:ServerUnresponsive", ...
-            "The server at %s did not respond to a metrics query. " + ...
-            "Check to be sure the server is running and that you have " + ...
-            "permissions to access it.",uri.uri);
+        serverUnresponsive(uri.uri);
     end
 
     % Convert character result into a string array with one string per
@@ -77,4 +97,11 @@ function catalog = metrics(uri,opts)
 
     catalog = prodserver.mcp.metrics.Catalog(result,uri.uri);
 
+end
+
+function serverUnresponsive(address)
+    error("prodserver:mcp:ServerUnresponsive", ...
+        "The server at %s did not respond to a metrics query. " + ...
+        "Check to be sure the server is running and that you have " + ...
+        "permissions to access it.", address);
 end

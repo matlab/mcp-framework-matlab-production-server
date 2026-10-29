@@ -20,11 +20,10 @@ classdef Catalog
                     "has %d which is not an even number.", numel(data));
             end
 
-            serverPattern = "/" + wildcardPattern(except="/") + ...
-                prodserver.mcp.MCPConstants.MCP + textBoundary("end");
-            serverName = extract(uri, serverPattern);
-            serverName = split(serverName, "/");
-            mc.server = serverName(2);
+            % A plain server address names no archive. Every scope but
+            % Scope.Server still works, so leave the name empty rather than
+            % fail here.
+            mc.server = prodserver.mcp.internal.archiveFromEndpoint(uri);
 
             % Parse data into a structure. Each metric consists of two lines:
             % 
@@ -300,7 +299,13 @@ classdef Catalog
                     metrics = name(mc,toolPattern);
 
                 case prodserver.mcp.metrics.Scope.Server
-                    
+                    % Without an archive name the pattern would be "__",
+                    % which matches the wrong metrics or none.
+                    if strlength(mc.server) == 0
+                        error("prodserver:mcp:NoServerScope", ...
+                            "Scope.Server requires a catalog created " + ...
+                            "from an MCP endpoint (.../<archive>/mcp).");
+                    end
                     metrics = name(mc, "_" + mc.server + "_", ...
                         match="Contains");
 

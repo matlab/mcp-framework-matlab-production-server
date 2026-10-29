@@ -15,8 +15,7 @@ classdef RequireExamples < matlab.unittest.fixtures.Fixture
             import matlab.unittest.fixtures.PathFixture
 
             % Top-level folder that contains the +prodserver folder.
-            fix.pkgFolder = fullfile(fileparts(mfilename("fullpath")),...
-                "../../../..");
+            fix.pkgFolder = prodserver.mcp.internal.packageFolder();
 
             % Location of the MCP tool functions used in the tests
             fix.exampleFolder = fullfile(fix.pkgFolder,"Examples");
@@ -39,8 +38,9 @@ classdef RequireExamples < matlab.unittest.fixtures.Fixture
     methods(Access=protected)
 
         function tf = isCompatible(fx1,fx2)
-            tf = (fx1.toolFolder == fx2.toolFolder) && ...
-                (fx1.pkgFolder == fx2.pkgFolder);
+            % The folders are char, so == would compare characters.
+            tf = strcmp(fx1.pkgFolder,fx2.pkgFolder) && ...
+                strcmp(fx1.exampleFolder,fx2.exampleFolder);
         end
 
     end

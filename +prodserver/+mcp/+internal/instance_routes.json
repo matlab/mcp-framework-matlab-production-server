@@ -9,13 +9,6 @@
             }
       },
       {
-          "match": "^/<Archive>/sse$",
-          "webhandler": {
-              "component": "<Archive>",
-              "function": "prodserver.mcp.internal.mcpHandler"
-          }
-      },
-      {
           "match": "^/<Archive>/signature$",
           "webhandler": {
               "component": "<Archive>",

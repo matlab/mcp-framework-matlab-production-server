@@ -86,6 +86,15 @@ classdef tmcpHandler < prodserver.mcp.test.base.MCPHandlerBase
 
     methods(Test)
 
+        % DELETE is not tested here. Both cases -- the bare DELETE that no
+        % revision can attribute (405) and the session-naming DELETE that is
+        % acknowledged with 204 and echoes the id exactly once -- live in
+        % tVersionResolution, which is not parameterized by protocol. They
+        % belong there: DELETE routing is decided entirely by whether a
+        % revision claims the request, so running the bare case once per
+        % protocol parameter re-ran an identical test, and the session case
+        % had to filter every parameter but one away.
+
         function resourcesRead(test)
             import prodserver.mcp.internal.hasField
             import prodserver.mcp.MCPConstants
@@ -95,21 +104,18 @@ classdef tmcpHandler < prodserver.mcp.test.base.MCPHandlerBase
             req.Headers = [req.Headers; {MCPConstants.ContentType, ...
                 'application/json'}];
 
-            % Make up a session ID
-            id = matlab.lang.internal.uuid;
-            req.Headers = [req.Headers; { MCPConstants.SessionId id} ];
-
             % Get the resource
             uri = char(MCPConstants.WireEncodingResourceURI);
             body = ['{ "jsonrpc": "2.0", "id": 1, "method": "resources/read",' ...
                 '"params": { "uri": "' uri '"}}'];
+            [req, body] = test.applyProtocol(req, body);
 
             reqT = req;
             reqT.Method = "POST";  % Because there's a body
             reqT.Path = "/prime/mcp";
             reqT.Headers = [reqT.Headers; {MCPConstants.ContentLength, numel(body)}];
             reqT.Body = unicode2native(body,"UTF-8");
-            response = prodserver.mcp.internal.mcpHandler(reqT);
+            response = test.handle(reqT);
             response = prodserver.mcp.internal.decodeBody(response);
 
             test.verifyEqual(response.id, 1);   
@@ -131,20 +137,17 @@ classdef tmcpHandler < prodserver.mcp.test.base.MCPHandlerBase
             req.Headers = [req.Headers; {MCPConstants.ContentType, ...
                 'application/json'}];
 
-            % Make up a session ID
-            id = matlab.lang.internal.uuid;
-            req.Headers = [req.Headers; { MCPConstants.SessionId id} ];
-
             % List all resources
             body = ['{ "jsonrpc": "2.0", "id": 1, "method": "resources/list",' ...
                 '"params": { "cursor": "optional-cursor-value"}}'];
+            [req, body] = test.applyProtocol(req, body);
 
             reqT = req;
             reqT.Method = "POST";  % Because there's a body
             reqT.Path = "/prime/mcp";
             reqT.Headers = [reqT.Headers; {MCPConstants.ContentLength, numel(body)}];
             reqT.Body = unicode2native(body,"UTF-8");
-            response = prodserver.mcp.internal.mcpHandler(reqT);
+            response = test.handle(reqT);
             response = prodserver.mcp.internal.decodeBody(response);
 
             test.verifyEqual(response.id, 1);       
@@ -164,20 +167,17 @@ classdef tmcpHandler < prodserver.mcp.test.base.MCPHandlerBase
             req.Headers = [req.Headers; {MCPConstants.ContentType, ...
                 'application/json'}];
 
-            % Make up a session ID
-            id = matlab.lang.internal.uuid;
-            req.Headers = [req.Headers; { MCPConstants.SessionId id} ];
-
             % List all tools
             body = ['{ "jsonrpc": "2.0", "id": 1, "method": "tools/list",' ...
                '"params": { "cursor": "optional-cursor-value"}}'];
+            [req, body] = test.applyProtocol(req, body);
 
             reqT = req;
             reqT.Method = "POST";  % Because there's a body
             reqT.Path = "/prime/mcp";
             reqT.Headers = [reqT.Headers; {MCPConstants.ContentLength, numel(body)}];
             reqT.Body = unicode2native(body,"UTF-8");
-            response = prodserver.mcp.internal.mcpHandler(reqT);
+            response = test.handle(reqT);
             response = prodserver.mcp.internal.decodeBody(response);
 
             test.verifyEqual(response.id, 1);
@@ -202,8 +202,11 @@ classdef tmcpHandler < prodserver.mcp.test.base.MCPHandlerBase
             reqT.Method = "GET";  % Expecting an error
             reqT.Path = "/prime/mcp";
             reqT.Headers = [reqT.Headers; {MCPConstants.ContentLength, 0}];
-            response = prodserver.mcp.internal.mcpHandler(reqT);
+            response = test.handle(reqT);
             test.verifyEqual(response.HttpCode,405);
+        end
+
+        function errorResult(test)
         end
 
         function resourceContent(test)
@@ -215,11 +218,6 @@ classdef tmcpHandler < prodserver.mcp.test.base.MCPHandlerBase
             req.Headers = [req.Headers; {MCPConstants.ContentType, ...
                 'application/json'}];
 
-            % Make up a session ID
-            id = matlab.lang.internal.uuid;
-            req.Headers = [req.Headers; { MCPConstants.SessionId id} ];
-
-            % Call primeSequence requesting 13 Eisenstein primes.
             body = [...
                 '{' ...
                 '    "jsonrpc": "2.0",' ...
@@ -233,12 +231,13 @@ classdef tmcpHandler < prodserver.mcp.test.base.MCPHandlerBase
                 '    }'...
                 '}'
                 ];
+            [req, body] = test.applyProtocol(req, body);
             reqT = req;
             reqT.Method = "POST";  % Because there's a body
             reqT.Path = "/prime/mcp";
             reqT.Headers = [reqT.Headers; {MCPConstants.ContentLength, numel(body)}];
             reqT.Body = unicode2native(body,"UTF-8");
-            response = prodserver.mcp.internal.mcpHandler(reqT);
+            response = test.handle(reqT);
             response = decodeResponse(test,reqT,response);
 
             % Expecting content and structuredContent
@@ -285,10 +284,6 @@ classdef tmcpHandler < prodserver.mcp.test.base.MCPHandlerBase
             toolEncoding = prodserver.mcp.jsonrpc.toolEncoding("primeSequence", ...
                 defFile=test.definitionFile);
 
-            % Make up a session ID
-            id = matlab.lang.internal.uuid;
-            req.Headers = [req.Headers; { MCPConstants.SessionId id} ];
-
             % Call primeSequence requesting 13 Eisenstein primes.
             body = [...
 '{' ...
@@ -304,12 +299,13 @@ classdef tmcpHandler < prodserver.mcp.test.base.MCPHandlerBase
 '    }'...
 '}'
 ];
+            [req, body] = test.applyProtocol(req, body);
             reqT = req;
             reqT.Method = "POST";  % Because there's a body
             reqT.Path = "/prime/mcp";
             reqT.Headers = [reqT.Headers; {MCPConstants.ContentLength, numel(body)}];
             reqT.Body = unicode2native(body,"UTF-8");
-            response = prodserver.mcp.internal.mcpHandler(reqT);
+            response = test.handle(reqT);
             response = decodeResponse(test,reqT,response);
 
             % Expecting content and structuredContent
@@ -341,67 +337,65 @@ classdef tmcpHandler < prodserver.mcp.test.base.MCPHandlerBase
             test.verifyEqual(response.result.content.text, txt);
         end
 
-        function deleteTerminatesSession(test)
-        % A real session-termination DELETE carries the Mcp-Session-Id
-        % header and no JSON-RPC body. It must be acknowledged with 204 No
-        % Content, echoing the session id exactly once.
+        % Three former tests stood here -- server/discover, the Mcp-Method
+        % header mismatch, and a _meta missing clientCapabilities -- each
+        % opening with assumeEqual(test.protocol, "2026-07-28"). They are now
+        % tHandlerV20260728, parameterized by nothing. Nothing about them was
+        % ever per-protocol: the behaviour exists in exactly one revision, so
+        % the parameter had no second value it could take and every case but
+        % one was reported incomplete. This suite is filter-free as a result,
+        % which is what makes an incomplete here worth reading.
+
+        function notificationsAreAcceptedAndDropped(test)
+        % Stage B of the pipeline: a notification receives no response at all
+        % (MUST NOT in both specs), so mcpHandler acknowledges it with 202 and
+        % an empty body. Notification handling is protocol-independent by
+        % design, which is why no _meta and no session id appear here.
+        %
+        % The carve-out must sit ahead of BOTH the envelope check and protocol
+        % detection. A notification legitimately has no id, so validateEnvelope
+        % would reject it as -32600; and a 2026-07-28 notification legitimately
+        % carries no _meta, so detection would reject it as unattributable.
+        % Each method below is a live 202 that proves one of those orderings.
             import prodserver.mcp.MCPConstants
 
-            session = char(matlab.lang.internal.uuid);
+            notifMethods = ["notifications/initialized", ...
+                            "notifications/cancelled", ...
+                            "notifications/somethingWeDoNotKnow"];
 
-            reqT = test.request;
-            reqT.Method = "DELETE";
-            reqT.Path = "/prime/mcp";
-            reqT.Headers = [reqT.Headers; ...
-                {MCPConstants.SessionId session}; ...
-                {MCPConstants.ContentLength, '0'}];
-            response = prodserver.mcp.internal.mcpHandler(reqT);
+            for m = notifMethods
+                req = test.request;
+                req.Headers = [req.Headers; ...
+                    {MCPConstants.ContentType, 'application/json'}];
 
-            test.verifyEqual(response.HttpCode, 204);
+                % No id, and deliberately no protocol envelope of either era.
+                body = char("{""jsonrpc"": ""2.0"", ""method"": """ + m + """}");
 
-            names = string(response.Headers(:,1));
-            sessionRows = strcmpi(names, string(MCPConstants.SessionId));
-            test.verifyEqual(nnz(sessionRows), 1, ...
-                "Response must echo Mcp-Session-Id exactly once");
-            test.verifyEqual(string(response.Headers{sessionRows,2}), ...
-                string(session));
+                reqT = req;
+                reqT.Method = "POST";
+                reqT.Path = "/prime/mcp";
+                reqT.Headers = [reqT.Headers; ...
+                    {MCPConstants.ContentLength, numel(body)}];
+                reqT.Body = unicode2native(body,"UTF-8");
+                response = test.handle(reqT);
+
+                test.verifyEqual(response.HttpCode, 202, ...
+                    "202 Accepted expected for " + m);
+                test.verifyEmpty(response.Body, ...
+                    "A notification must receive no response body: " + m);
+            end
         end
 
-        function deleteWithoutSessionIsBadRequest(test)
-        % DELETE is a supported verb, so the refusal is about the request, not
-        % the method: a DELETE with no session header cannot be attributed to
-        % a session and is 400 Bad Request. 405 would be a lie -- it would
-        % tell the client DELETE is never allowed on this resource, which is
-        % the same signal GET uses to report there is no SSE transport.
+        function notificationWithParamsStillAccepted(test)
+        % notifications/cancelled carries params; they must not drag it into
+        % the request path.
             import prodserver.mcp.MCPConstants
-
-            reqT = test.request;
-            reqT.Method = "DELETE";
-            reqT.Path = "/prime/mcp";
-            reqT.Headers = [reqT.Headers; {MCPConstants.ContentLength, '0'}];
-            response = prodserver.mcp.internal.mcpHandler(reqT);
-
-            test.verifyEqual(response.HttpCode, 400);
-
-            % A transport-level refusal carries no JSON-RPC body.
-            test.verifyEmpty(response.Body);
-        end
-
-        function unsupportedMethodIsProtocolError(test)
-        % An unsupported MCP method is a protocol-level JSON-RPC error: it
-        % is carried in the body as error.code == -32601 (method not found)
-        % over HTTP 200, not surfaced as an HTTP 500 transport failure.
-            import prodserver.mcp.MCPConstants
-            import prodserver.mcp.internal.hasField
 
             req = test.request;
-            req.Headers = [req.Headers; {MCPConstants.ContentType, ...
-                'application/json'}];
-            id = matlab.lang.internal.uuid;
-            req.Headers = [req.Headers; {MCPConstants.SessionId id}];
-
-            body = ['{ "jsonrpc": "2.0", "id": 1, ' ...
-                '"method": "resources/subscribe", "params": {} }'];
+            req.Headers = [req.Headers; ...
+                {MCPConstants.ContentType, 'application/json'}];
+            body = ['{ "jsonrpc": "2.0", "method": "notifications/cancelled",' ...
+                '"params": { "requestId": 42, "reason": "user aborted" } }'];
 
             reqT = req;
             reqT.Method = "POST";
@@ -409,17 +403,251 @@ classdef tmcpHandler < prodserver.mcp.test.base.MCPHandlerBase
             reqT.Headers = [reqT.Headers; ...
                 {MCPConstants.ContentLength, numel(body)}];
             reqT.Body = unicode2native(body,"UTF-8");
-            response = prodserver.mcp.internal.mcpHandler(reqT);
 
-            test.verifyEqual(response.HttpCode, 200);
+            % cancelled logs the reason to stdout; evalc keeps that out of the
+            % test output while still returning the response.
+            [log, response] = evalc( ...
+                "prodserver.mcp.internal.mcpHandler(reqT)");
+            prodserver.mcp.test.verifyConformantResponse(test, response);
 
-            response = prodserver.mcp.internal.decodeBody(response);
-            test.verifyTrue(hasField(response, "error.code"), ...
-                "Protocol error must carry a JSON-RPC error.code");
-            test.verifyEqual(response.error.code, ...
-                MCPConstants.ErrorMethodNotFound);
-            test.verifyFalse(hasField(response, "result"), ...
-                "Protocol error must not carry a tool-style result");
+            test.verifyEqual(response.HttpCode, 202);
+            test.verifyEmpty(response.Body);
+            test.verifyTrue(contains(log, "user aborted"), ...
+                "The cancellation reason should have been logged");
+        end
+
+        function emptyBodyIsInvalidRequest(test)
+        % Stage A, strict mode: an empty POST body is -32600 over HTTP 400,
+        % not a -32603/500 from a raw MATLAB error falling through.
+            import prodserver.mcp.MCPConstants
+            import prodserver.mcp.internal.hasField
+
+            req = test.request;
+            req.Headers = [req.Headers; ...
+                {MCPConstants.ContentType, 'application/json'}];
+
+            reqT = req;
+            reqT.Method = "POST";
+            reqT.Path = "/prime/mcp";
+            reqT.Headers = [reqT.Headers; {MCPConstants.ContentLength, 0}];
+            reqT.Body = uint8.empty(1,0);
+            response = test.handle(reqT);
+
+            test.verifyEqual(response.HttpCode, 400);
+            decoded = prodserver.mcp.internal.decodeBody(response);
+            test.assertTrue(hasField(decoded,'error.code'));
+            test.verifyEqual(decoded.error.code, -32600);
+
+            % Asserted on the wire, not on the decoded struct: JSON null
+            % round-trips back through jsondecode as [], so only the raw body
+            % can show that the id member is present and null rather than
+            % missing altogether.
+            test.verifyTrue(contains(native2unicode(response.Body,"UTF-8"), ...
+                '"id":null'), ...
+                "A request with no readable id must echo id as JSON null");
+        end
+
+        function malformedJsonIsParseError(test)
+        % Stage A, strict mode: -32700 over HTTP 400.
+            import prodserver.mcp.MCPConstants
+            import prodserver.mcp.internal.hasField
+
+            req = test.request;
+            req.Headers = [req.Headers; ...
+                {MCPConstants.ContentType, 'application/json'}];
+            body = '{ "jsonrpc": "2.0", "id": 1, "method": ';
+
+            reqT = req;
+            reqT.Method = "POST";
+            reqT.Path = "/prime/mcp";
+            reqT.Headers = [reqT.Headers; ...
+                {MCPConstants.ContentLength, numel(body)}];
+            reqT.Body = unicode2native(body,"UTF-8");
+            response = test.handle(reqT);
+
+            test.verifyEqual(response.HttpCode, 400);
+            decoded = prodserver.mcp.internal.decodeBody(response);
+            test.assertTrue(hasField(decoded,'error.code'));
+            test.verifyEqual(decoded.error.code, -32700);
+            test.verifyTrue(contains(native2unicode(response.Body,"UTF-8"), ...
+                '"id":null'), ...
+                "An unparseable body has no id to echo, so it must be null");
+        end
+
+        function unsupportedMediaTypeIs415(test)
+        % Stage A, strict mode: we simply do not speak this media type.
+            import prodserver.mcp.MCPConstants
+
+            req = test.request;
+            req.Headers = [req.Headers; ...
+                {MCPConstants.ContentType, 'text/plain'}];
+            body = 'jsonrpc 2.0 please';
+
+            reqT = req;
+            reqT.Method = "POST";
+            reqT.Path = "/prime/mcp";
+            reqT.Headers = [reqT.Headers; ...
+                {MCPConstants.ContentLength, numel(body)}];
+            reqT.Body = unicode2native(body,"UTF-8");
+            response = test.handle(reqT);
+
+            test.verifyEqual(response.HttpCode, 415);
+        end
+
+        function requestWithoutIdIsInvalidRequest(test)
+        % Stage B': a non-notification method with no id is a malformed
+        % request. The carve-out above is what keeps this from catching
+        % notifications, which legitimately have none.
+            import prodserver.mcp.MCPConstants
+            import prodserver.mcp.internal.hasField
+
+            req = test.request;
+            req.Headers = [req.Headers; ...
+                {MCPConstants.ContentType, 'application/json'}];
+            body = '{ "jsonrpc": "2.0", "method": "tools/list" }';
+            [req, body] = test.applyProtocol(req, body);
+
+            reqT = req;
+            reqT.Method = "POST";
+            reqT.Path = "/prime/mcp";
+            reqT.Headers = [reqT.Headers; ...
+                {MCPConstants.ContentLength, numel(body)}];
+            reqT.Body = unicode2native(body,"UTF-8");
+            response = test.handle(reqT);
+
+            test.verifyEqual(response.HttpCode, 400);
+            decoded = prodserver.mcp.internal.decodeBody(response);
+            test.assertTrue(hasField(decoded,'error.code'));
+            test.verifyEqual(decoded.error.code, -32600);
+        end
+
+        function wrongJsonrpcVersionIsInvalidRequest(test)
+        % Stage B': 'jsonrpc' must be the string "2.0".
+            import prodserver.mcp.MCPConstants
+            import prodserver.mcp.internal.hasField
+
+            req = test.request;
+            req.Headers = [req.Headers; ...
+                {MCPConstants.ContentType, 'application/json'}];
+            body = '{ "jsonrpc": "1.0", "id": 1, "method": "tools/list" }';
+            [req, body] = test.applyProtocol(req, body);
+
+            reqT = req;
+            reqT.Method = "POST";
+            reqT.Path = "/prime/mcp";
+            reqT.Headers = [reqT.Headers; ...
+                {MCPConstants.ContentLength, numel(body)}];
+            reqT.Body = unicode2native(body,"UTF-8");
+            response = test.handle(reqT);
+
+            test.verifyEqual(response.HttpCode, 400);
+            decoded = prodserver.mcp.internal.decodeBody(response);
+            test.assertTrue(hasField(decoded,'error.code'));
+            test.verifyEqual(decoded.error.code, -32600);
+            test.verifyEqual(decoded.id, 1, ...
+                "The id parsed fine, so it must still be echoed");
+        end
+
+        function batchRequestIsInvalidRequest(test)
+        % Stage B': a JSON-RPC batch is not supported, and must be refused
+        % as a malformed request object rather than crashing the handler.
+        %
+        % tValidateEnvelope already covers the batch in isolation. This test
+        % exists because the rejection used to be undone on the way out: a
+        % batch decodes to a struct ARRAY, and responseId -- reached through
+        % handleError while reporting the -32600 -- read jrpc.id without an
+        % isscalar guard, so the field access expanded to a comma-separated
+        % list and raised MATLAB:maxrhs. That escaped mcpHandler's own catch
+        % and surfaced to Production Server as a raw MATLAB error instead of
+        % the 400 the envelope check had already decided on. Only an
+        % end-to-end POST can see that, which is why it lives here.
+        %
+        % No applyProtocol: the batch is refused before protocol detection,
+        % so there is no envelope to add -- and the 2026-07-28 branch would
+        % itself fail trying to graft _meta onto a struct array.
+            import prodserver.mcp.MCPConstants
+            import prodserver.mcp.internal.hasField
+
+            req = test.request;
+            req.Headers = [req.Headers; ...
+                {MCPConstants.ContentType, 'application/json'}];
+            body = ['[{"jsonrpc":"2.0","id":1,"method":"tools/list"},' ...
+                    '{"jsonrpc":"2.0","id":2,"method":"tools/list"}]'];
+
+            reqT = req;
+            reqT.Method = "POST";
+            reqT.Path = "/prime/mcp";
+            reqT.Headers = [reqT.Headers; ...
+                {MCPConstants.ContentLength, numel(body)}];
+            reqT.Body = unicode2native(body,"UTF-8");
+            response = test.handle(reqT);
+
+            test.verifyEqual(response.HttpCode, 400);
+            decoded = prodserver.mcp.internal.decodeBody(response);
+            test.assertTrue(hasField(decoded,'error.code'));
+            test.verifyEqual(decoded.error.code, -32600);
+            % No single request to answer, so JSON-RPC requires a null id.
+            test.verifyTrue(hasField(decoded,'id'), ...
+                "A response must carry an id member even when it is null");
+            test.verifyTrue(isempty(decoded.id) || all(isnan(decoded.id)), ...
+                "A batch has no one id to echo; it must come back null");
+        end
+
+        function singleElementBatchIsInvalidRequest(test)
+        % ND13: a one-element batch decodes to the same scalar struct as
+        % the bare request, so it got past the struct-array check above and
+        % its element was answered as a single request. Otherwise valid for
+        % the revision under test, so the array is the only thing wrong.
+            import prodserver.mcp.MCPConstants
+            import prodserver.mcp.internal.hasField
+
+            req = test.request;
+            req.Headers = [req.Headers; ...
+                {MCPConstants.ContentType, 'application/json'}];
+            inner = '{"jsonrpc":"2.0","id":3,"method":"tools/list"}';
+            [req, inner] = test.applyProtocol(req, inner);
+            body = [' [' char(inner) ']'];
+
+            reqT = req;
+            reqT.Method = "POST";
+            reqT.Path = "/prime/mcp";
+            reqT.Headers = [reqT.Headers; ...
+                {MCPConstants.ContentLength, numel(body)}];
+            reqT.Body = unicode2native(body,"UTF-8");
+            response = test.handle(reqT);
+
+            test.verifyEqual(response.HttpCode, 400, ...
+                native2unicode(response.Body,"UTF-8"));
+            decoded = prodserver.mcp.internal.decodeBody(response);
+            test.assertTrue(hasField(decoded,'error.code'));
+            test.verifyEqual(decoded.error.code, -32600);
+            test.verifyFalse(hasField(decoded,'result'));
+        end
+
+        function malformedCancelledIsStillAccepted(test)
+        % XD10: badly typed members used to throw inside cancelled, and the
+        % catch answered the notification with a 500 and a JSON body.
+            import prodserver.mcp.MCPConstants
+
+            req = test.request;
+            req.Headers = [req.Headers; ...
+                {MCPConstants.ContentType, 'application/json'}];
+            body = ['{ "jsonrpc": "2.0", "method": "notifications/cancelled",' ...
+                '"params": { "requestId": [1, 2], "reason": {"why": 1} } }'];
+
+            reqT = req;
+            reqT.Method = "POST";
+            reqT.Path = "/prime/mcp";
+            reqT.Headers = [reqT.Headers; ...
+                {MCPConstants.ContentLength, numel(body)}];
+            reqT.Body = unicode2native(body,"UTF-8");
+
+            [~, response] = evalc("prodserver.mcp.internal.mcpHandler(reqT)");
+            prodserver.mcp.test.verifyConformantResponse(test, response);
+
+            test.verifyEqual(response.HttpCode, 202, ...
+                native2unicode(response.Body,"UTF-8"));
+            test.verifyEmpty(response.Body);
         end
     end
 

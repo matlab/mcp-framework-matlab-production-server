@@ -1,0 +1,73 @@
+# A server that rejects every POST with HTTP 400 and a JSON-RPC error body,
+# the shape 2026-07-28 mandates for an unsupported protocol version. The
+# rejection is deterministic -- the server will answer identically every time
+# -- so the client must send the request exactly once and not burn its retry
+# budget (and the accompanying delay) on a verdict that cannot change.
+routes:
+  - path: /mcp
+    methods:
+      - POST
+      - DELETE
+    request:
+      - jrpc: initialize
+        response:
+          status: 400
+          headers:
+            Content-Type: application/json
+          body:
+            error:
+              code: -32022
+              message: "Unsupported protocol version"
+              data:
+                supported: ["2026-07-28"]
+      - jrpc: tools/list
+        response:
+          status: 400
+          headers:
+            Content-Type: application/json
+          body:
+            error:
+              code: -32022
+              message: "Unsupported protocol version"
+              data:
+                supported: ["2026-07-28"]
+      - jrpc: tools/call
+        call:
+          name: "primeSequence"
+          input:
+            n: 11
+            type: "Gaussian"
+        response:
+          status: 400
+          headers:
+            Content-Type: application/json
+          body:
+            error:
+              code: -32022
+              message: "Unsupported protocol version"
+              data:
+                supported: ["2026-07-28"]
+  # The same 400, but with no JSON-RPC error body. Still a verdict on the
+  # request, so still sent once: only 404, 408 and 429 are retried.
+  - path: /opaque
+    methods:
+      - POST
+    request:
+      - jrpc: tools/list
+        response:
+          status: 400
+          headers:
+            Content-Type: text/plain
+          body: "no idea what went wrong"
+  # Throttled: the one kind of 4xx that can change while the request does
+  # not, so it is retried.
+  - path: /throttled
+    methods:
+      - POST
+    request:
+      - jrpc: tools/list
+        response:
+          status: 429
+          headers:
+            Content-Type: text/plain
+          body: "slow down"

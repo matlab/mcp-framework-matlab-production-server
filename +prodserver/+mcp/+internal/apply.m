@@ -18,7 +18,7 @@ function result = apply(fcn,list,varargin)
     elseif iscell(list)
         result = cellfun(fcn,list,UniformOutput=ip.Results.Uniform);      
     else
-        result = arrayfcn(fcn,list,UniformOutput=ip.Results.Uniform);
+        result = arrayfun(fcn,list,UniformOutput=ip.Results.Uniform);
     end
     if ip.Results.Flatten
         result = [ result{:} ];

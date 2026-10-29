@@ -1,12 +1,5 @@
-function data = contents(uri)
+function data = contents(url)
 % contents Read a named resource from the MCP tool definition file.
-%   Returns [] when no resource matches, which every caller must handle:
-%   "absent" is not the same answer as "present and empty".
-%
-%   The parameter is a URI, not a URL. It is matched against the resource's
-%   own uri field and copied into the uri field of the result, and MCP names
-%   that field uri throughout; calling it url here left one concept with two
-%   names inside a single ten-line function.
 
 % Copyright 2026 The MathWorks, Inc.
 
@@ -23,20 +16,23 @@ function data = contents(uri)
     % structures are not all required to have the same fields.
     rList = svc.(MCPConstants.ResourceVariable);
     u = cellfun(@(r)string(r.uri),rList);
-    rI = strcmp(u,uri);
+    rI = strcmp(u,url);
 
-    % Allow zero or one resource with the given URI.
+    % Allow zero or one resource with the given url.
     if nnz(rI) == 1
-        data.uri = uri;
+        data.uri = url;
         data.mimeType = rList{rI}.mimeType;
         if prodserver.mcp.jsonrpc.isMIMETypeText(data.mimeType)
             data.text = rList{rI}.contents;
         else
-            data.blob = rList{rI}.contents;
+            % MCP requires blob to be Base64. The definition keeps the raw
+            % bytes; encode them here.
+            data.blob = prodserver.mcp.internal.base64encode( ...
+                rList{rI}.contents);
         end
     elseif nnz(rI) ~= 0
         error("prodserver:mcp:AmbiguousResourceURL", "Expecting zero " + ...
-            "or one resource with URI %s but found %d.", uri, nnz(rI));
+            "or one resource with URL %s but found %d.", url, nnz(rI));
     end
     
 end

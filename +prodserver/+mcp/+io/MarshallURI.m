@@ -72,12 +72,12 @@ classdef MarshallURI
             header = sprintf("schema:\n  type: ""marshalling""\n" + ...
               "  version: 0.9\ndefaults:\n  scheme: %s\nmarshalling:", ...
               scheme);
-            writelines(header,file);
+            prodserver.mcp.internal.writeUTF8(file,header);
             schemes = keys(cfg);
             for n = 1:numel(schemes)
                 sCfg = struct2yaml(cfg{schemes(n)}.template,4);
                 sCfg = "  " + schemes(n) + ": " + sCfg;
-                writelines(sCfg,file,WriteMode="append");
+                prodserver.mcp.internal.writeUTF8(file,sCfg,Append=true);
             end
         end
     end
@@ -149,8 +149,14 @@ classdef MarshallURI
 
         function tf = conforms(mu,uri)
         %conforms Does the URI conform to the rules for its scheme?
+
+            % string: a char URI is one URI, not an array of characters.
+            arguments
+                mu
+                uri string
+            end
+
             import prodserver.mcp.internal.Constants
-               
 
             if isempty(uri)
                 tf = false;
@@ -176,8 +182,14 @@ classdef MarshallURI
 
         function tf = exist(mu,uri)
         %exist Does the URI exist in its scheme?
+
+            % string: a char URI is one URI, not an array of characters.
+            arguments
+                mu
+                uri string
+            end
+
             import prodserver.mcp.internal.Constants
-            
 
             if isempty(uri)
                 tf = false;
@@ -247,6 +259,9 @@ classdef MarshallURI
                 update = location;
                 location = prodserver.mcp.io.parseURI( ...
                     location);
+            else
+                % Already parsed: return the URIs it was parsed from.
+                update = reshape(string({location.uri}),size(location));
             end
             writeFcn = writer(mu,location);
             for n = 1:numel(location)
@@ -415,7 +430,7 @@ classdef MarshallURI
                         mu.schemePreset = cfg.defaults.scheme;
                     end
                 else
-                    [mu.config,mw.scheme] = MarshallURI.ImportConfiguration(cfg);
+                    [mu.config,mu.schemePreset] = MarshallURI.ImportConfiguration(cfg);
                 end
             else
                 mu.config = assembleConfiguration();

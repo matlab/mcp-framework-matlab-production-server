@@ -45,10 +45,10 @@ result = prodserver.mcp.call(endpoint, "calculateBeamStress", ...
 result = 
   struct with fields:
        max_stress_Pa: 6.0000e+07
-    max_deflection_m: 1.7125e-03
+    max_deflection_m: 0.0058
        safety_factor: 4.6000
               status: "PASS"
-             summary: "Beam stress 60 MPa (yield 276 MPa, SF=4.60). Max deflection 1.71 mm."
+             summary: "Beam stress 60 MPa (yield 276 MPa, SF=4.60). Max deflection 5.81 mm."
 ```
 
 ```MATLAB
@@ -67,7 +67,7 @@ result =
 
 ## Build and Deploy
 
-The function `buildMaterialsServer` builds and optionally deploys the server. Supply `host` or `port` to trigger deployment to a running MATLAB Production Server instance.
+The function `buildMaterialsServer` builds and optionally deploys the server. Supply `host` to trigger deployment to a running MATLAB Production Server instance.
 
 ```MATLAB
 % Build only (no deployment)
@@ -76,9 +76,11 @@ ctf = buildMaterialsServer();
 % Build and deploy to localhost:9910
 [ctf, endpoint] = buildMaterialsServer(host="localhost");
 
-% Build and deploy to a specific host and port
-[ctf, endpoint] = buildMaterialsServer(host="myserver", port=9920);
+% Build and deploy to a specific server and port
+[ctf, endpoint] = buildMaterialsServer(host="http://myserver:9920");
 ```
+
+On a shared server, give the archive a name of your own with `buildMaterialsServer`'s `archive` option: `deploy` replaces an archive with the same name, even one someone else deployed. `buildMaterialsServer` writes the archive to `./deploy`, in the current folder, unless you give it `folder`.
 
 Or build step-by-step:
 

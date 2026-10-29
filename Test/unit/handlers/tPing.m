@@ -1,5 +1,5 @@
 classdef tPing < matlab.unittest.TestCase
-% Test prodserver.mcp.handler.ping (handle the MCP ping request: echo the id
+% Test prodserver.mcp.protocol.v20250618.ping (handle the MCP ping request: echo the id
 % with an empty result and 200 OK).
 
 % Copyright 2026 The MathWorks, Inc.
@@ -10,7 +10,7 @@ classdef tPing < matlab.unittest.TestCase
             jrpc.jsonrpc = "2.0";
             jrpc.id = 42;
             [result, httpCode, httpMsg, msgHeaders] = ...
-                prodserver.mcp.handler.ping(jrpc);
+                prodserver.mcp.protocol.v20250618.ping(jrpc);
             test.verifyEqual(httpCode, 200);
             test.verifyEqual(httpMsg, 'OK');
             test.verifyEqual(result.id, 42);

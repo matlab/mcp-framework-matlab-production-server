@@ -15,6 +15,14 @@ classdef tPingHandler < matlab.unittest.TestCase
                 prodserver.mcp.MCPConstants.Pong);
         end
 
+        function tNoBuildWhenNotDeployed(test)
+            % Only a deployed archive has a build to name. The deployed
+            % header is checked by tDeployOverwrite.
+            response = prodserver.mcp.internal.pingHandler(struct());
+            test.verifyFalse(any(strcmpi(response.Headers(:,1), ...
+                prodserver.mcp.internal.Constants.ArchiveUUIDHeader)));
+        end
+
     end
 
 end

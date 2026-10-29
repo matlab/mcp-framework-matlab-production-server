@@ -10,7 +10,7 @@ A tool with no required inputs takes an empty `varargin`.
 | Argument | Type | Description | Example
 | :---     | :--- | :---        | :---    |
 | endpoint | string | Network endpoint of MCP server. | "http://localhost:9910/primeSequence/mcp" |
-| tool | string | Name of the MCP tool to invoke | "primeSequenceMCP" |
+| tool | string | Name of the MCP tool to invoke | "primeSequence" |
 | varargin | comma-separated list | Input arguments | 9, "Gaussian" |
 | varargout | comma-separated list | Output arguments | x,y,z |
 
@@ -27,32 +27,19 @@ Asking for more outputs than the tool declares raises `prodserver:mcp:TooFewOutp
 
 A call with no output arguments, written as a statement, returns the first output in `ans`.
 
-### Errors
+### Invalid Arguments
 
-| Identifier | Raised when |
-| :--- | :--- |
-| `prodserver:mcp:NonUniqueTool` | The server has no tool named `tool`, or more than one |
-| `prodserver:mcp:NoInputSchema` | The tool's description has no input schema |
-| `prodserver:mcp:TooManyInputs` | `varargin` has more arguments than the tool's input schema allows |
-| `prodserver:mcp:TooFewInputs` | `varargin` has fewer arguments than the tool's input schema requires |
-| `prodserver:mcp:MissingSignature` | The server returned no signature for the tool |
-| `prodserver:mcp:MissingRequiredArguments` | `varargin` has fewer arguments than the tool has required inputs |
-| `prodserver:mcp:UnevenOptionalArguments` | The name/value arguments after the positional ones don't form pairs |
-| `prodserver:mcp:NoStructuredContent` | The tool declares required outputs, but the response has no `structuredContent` |
-| `prodserver:mcp:TooFewOutputs` | You asked for more outputs than the tool declares, or for any output from a tool that declares none |
-| `prodserver:mcp:MissingOutputs` | The response lacks an output the tool declares |
+The server checks the arguments against the tool's input schema before it runs the tool. If they don't fit, the tool doesn't run. Under `2025-06-18`, `call` raises `prodserver:mcp:JsonRpcError` (JSON-RPC error `-32602`). Under `2026-07-28`, it raises `prodserver:mcp:ToolError`, and the tool's error text begins "Input validation error:". The server counts such a call in the `MCP_<tool>_Rejected` metric, not `MCP_<tool>_Call`.
 
-Errors from the server arrive as one of three identifiers:
+### Protocol Revision
 
-| Identifier | Raised when |
-| :--- | :--- |
-| `prodserver:mcp:ToolError` | The tool ran and raised an error. The message includes the tool's error text. |
-| `prodserver:mcp:RemoteError` | The server rejected the request with a JSON-RPC error. The message includes the server's text and error code. |
-| `prodserver:mcp:HttpError` | The server answered with an HTTP error status and no JSON-RPC error |
+`call` picks the MCP revision for you. It sends `server/discover` first and uses `2026-07-28` if the server answers. Otherwise it falls back to `initialize` and `2025-06-18`. It remembers the answer for each endpoint, so later calls skip the probe.
 
-See [Protocol Conformance](../concepts/protocol-conformance.md#json-rpc-error-codes) for what each JSON-RPC error code means.
+If a call fails in a way that can mean the remembered revision is stale, `call` forgets it, probes again and retries the call once. Those failures are JSON-RPC error `-32020`, `-32022` or `-32601`, and a 4xx status with no JSON-RPC error. `call` never retries after the tool may have run: a tool error, any other JSON-RPC error or a 5xx status is raised at once.
 
-`call` opens an MCP session to reach the tool and closes it however the call ends, including when it raises. If closing fails, `call` issues the warning `prodserver:mcp:TerminateFailed` and still returns the tool's outputs.
+Production Server answers 404 while an archive is being unpacked, so `call` resends a request that gets 404 for a while first. An endpoint with no archive behind it takes about two minutes to raise an error.
+
+Under `2025-06-18`, `call` opens an MCP session to reach the tool and closes it however the call ends, including when it raises. If closing fails, `call` issues the warning `prodserver:mcp:TerminateFailed` and still returns the tool's outputs. `2026-07-28` has no sessions.
 
 ### Examples
 
@@ -71,9 +58,10 @@ Invoke the `cleanSignal` tool with two required inputs and an optional output lo
 ```MATLAB
 noisy = "file:/input/data/noisySignal.csv";
 clean = "file:/output/data/cleanSignal.csv";
-frequency = 60;
-prodserver.mcp.call("http://localhost:9910/cleanSignal/mcp", "cleanSignal", noisy, frequency, cleanURL=clean)
+period = 60;
+prodserver.mcp.call("http://localhost:9910/cleanSignal/mcp", "cleanSignal", noisy, period, cleanURL=clean)
 ```
+The `file:/` form and the `file:///` form (`file:///input/data/noisySignal.csv`, or `file:///C:/data/noisySignal.csv` on Windows) both work. See [URL Scheme](../concepts/wrapper-functions.md#url-scheme).
 
 ***
 
@@ -84,4 +72,5 @@ edges = "file:/image/data/circuit_edges.jpg";
 prodserver.mcp.call("http://localhost:9910/edges/mcp","detectEdge",image,edges,...
           algorithm="Canny", aperture=7)
 ```
+
 --- Copyright 2025-2026 The MathWorks, Inc. ---

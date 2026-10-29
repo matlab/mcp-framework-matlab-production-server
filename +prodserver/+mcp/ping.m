@@ -7,8 +7,14 @@ function tf = ping(endpoint,opts)
 %   Assume the MCP Tool cleanSignal is deployed to
 %   http://localhost:9910/cleanSignal/mcp.
 %
-%   tf = prodsever.mcp.ping("http://localhost:9910/cleanSignal/mcp")
+%   tf = prodserver.mcp.ping("http://localhost:9910/cleanSignal/mcp")
 %     tf = true
+%
+% This is the framework's own GET /<archive>/ping, not the MCP "ping"
+% method. A refused connection, a timeout or a 404 (an archive still being
+% unpacked) is retried up to RETRY times, DELAY seconds apart, so a dead
+% endpoint takes about RETRY*DELAY seconds to report false. Any other
+% failure is final at once.
 
 % Copyright 2022-2026 The MathWorks, Inc.
 
@@ -20,34 +26,33 @@ function tf = ping(endpoint,opts)
     end
 
     import prodserver.mcp.MCPConstants
-    tf = false;
     try
         if endsWith(endpoint,MCPConstants.MCP)
             endpoint = replace(endpoint, ...
                 MCPConstants.MCP+textBoundary("end"),...
                 "/"+MCPConstants.Ping);
         end
-        tries = 0;
-        while tf == false && tries <= opts.retry
-            try 
-                opts = weboptions(Timeout=opts.timeout);
-                response = webread(endpoint,opts);
-                tf = strcmpi(response,MCPConstants.Pong);
-            catch me
-                % Allow retry on HTTP / web service errors. All others are
-                % immediately fatal.
-                if contains(me.identifier,"MATLAB:webservices") == false
-                    tries = opts.retry + 1;
-                    tf = false;
-                end
-            end
-            tries = tries + 1;
-            if tf == false && tries <= opts.retry
-                pause(opts.delay);
-            end
-        end
+        % webOpts, not opts: overwriting opts with the weboptions made the
+        % first opts.retry below throw, and the outer catch turned that into
+        % false, so ping never retried at all (ND2).
+        webOpts = weboptions(Timeout=opts.timeout);
+        % RETRY counts retries, so the first attempt is extra. Any answer
+        % ends the loop, pong or not. A retried failure that never stops
+        % leaves an empty response: false, like every other failure.
+        response = prodserver.mcp.internal.webreadWithRetry(endpoint, ...
+            webOpts, attempts=opts.retry+1, delay=opts.delay, ...
+            retryable=@worthRetrying);
+        tf = ~isempty(response) && strcmpi(response,MCPConstants.Pong);
 
     catch me
         tf = false;
     end
+end
+
+
+function tf = worthRetrying(me)
+%worthRetrying Could the ping succeed if sent again? Only when the server
+%   isn't listening yet, didn't answer in time, or hasn't finished unpacking
+%   the archive.
+    tf = prodserver.mcp.internal.isTransientError(me, status=404);
 end

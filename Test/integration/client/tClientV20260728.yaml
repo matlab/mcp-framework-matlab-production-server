@@ -1,0 +1,103 @@
+routes:
+  - path: /mcp
+    methods:
+      - POST
+    request:
+      - jrpc: server/discover
+        response:
+          status: 200
+          headers:
+            Content-Type: application/json
+            MCP-Protocol-Version: "2026-07-28"
+          body:
+            jsonrpc: "2.0"
+            id: 1
+            result:
+              supportedVersions:
+                - "2026-07-28"
+                - "2025-06-18"
+              capabilities:
+                tools:
+                  listChanged: false
+                resources:
+                  listChanged: false
+              instructions: "Mock MCP 2026-07-28 server for testing."
+      - jrpc: tools/list
+        response:
+          status: 200
+          headers:
+            Content-Type: application/json
+            MCP-Protocol-Version: "2026-07-28"
+          body:
+            jsonrpc: "2.0"
+            id: 2
+            result:
+              resultType: complete
+              tools:
+                - name: "addNumbers"
+                  description: "Add two numbers together"
+                  inputSchema:
+                    type: object
+                    properties:
+                      a:
+                        type: number
+                        description: "First number"
+                      b:
+                        type: number
+                        description: "Second number"
+                    required:
+                      - a
+                      - b
+                    minProperties: 2
+                    maxProperties: 2
+                    additionalProperties: false
+                  outputSchema:
+                    type: object
+                    properties:
+                      sum:
+                        type: number
+                        description: "The sum of a and b"
+                    required:
+                      - sum
+                    additionalProperties: false
+      - jrpc: resources/list
+        response:
+          status: 200
+          headers:
+            Content-Type: application/json
+            MCP-Protocol-Version: "2026-07-28"
+          body:
+            jsonrpc: "2.0"
+            id: 3
+            result:
+              resultType: complete
+              resources:
+                - uri: "mcp://test/hello"
+                  name: "hello"
+                  mimeType: "text/plain"
+      - jrpc: resources/read
+        response:
+          status: 200
+          headers:
+            Content-Type: application/json
+            MCP-Protocol-Version: "2026-07-28"
+          body:
+            jsonrpc: "2.0"
+            id: 4
+            result:
+              resultType: complete
+              contents:
+                uri: "mcp://test/hello"
+                mimeType: "text/plain"
+                text: "Hello from MCP 2026-07-28!"
+  - path: /mcp
+    methods:
+      - DELETE
+    request:
+      - jrpc: null
+        response:
+          status: 405
+          headers:
+            Content-Type: application/json
+          body:
+            error: "Method Not Allowed"

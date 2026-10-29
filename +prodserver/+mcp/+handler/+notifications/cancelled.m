@@ -5,19 +5,33 @@ function [result, httpCode, httpMsg, msgHeaders] = cancelled(jrpc)
 
 % Copyright 2025-2026 The MathWorks, Inc.
 
-    httpCode = 202;
-    httpMsg = 'Accepted';
+    [httpCode, httpMsg] = prodserver.mcp.handler.internal.httpStatus(202);
     msgHeaders = {};
 
-    % Log the reason -- if jrpc.params.reason exists.
-    if isfield(jrpc,"params") && isfield(jrpc.params,"reason")
-        if isfield(jrpc.params,"requestId")
-            id = string(jrpc.params.requestId);
-        else
-            id = "(unknown)";
+    import prodserver.mcp.internal.hasField
+
+    % Log the reason -- if jrpc.params.reason exists. Either member may be
+    % of any type a sender cares to put there (XD10); only scalar text or a
+    % scalar number is printed as itself.
+    if hasField(jrpc, "params.reason")
+        id = "(unknown)";
+        if hasField(jrpc, "params.requestId")
+            id = scalarText(jrpc.params.requestId, id);
         end
-        fprintf(1,"Request %s cancelled: %s\n",id, jrpc.params.reason);
+        reason = scalarText(jrpc.params.reason, "(unreadable reason)");
+        fprintf(1,"Request %s cancelled: %s\n", id, reason);
     end
 
     result = [];
+end
+
+function t = scalarText(v, fallback)
+%scalarText V as a single string if it is scalar text or a real scalar
+%   number, else FALLBACK.
+    t = fallback;
+    if (ischar(v) && (isrow(v) || isempty(v))) || ...
+            (isstring(v) && isscalar(v) && ~ismissing(v)) || ...
+            (isnumeric(v) && isreal(v) && isscalar(v))
+        t = string(v);
+    end
 end

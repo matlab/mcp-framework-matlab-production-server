@@ -1,4 +1,41 @@
-# 1.5.0: Oct. 2026
+# 1.6: Oct. 2026
+Servers support two MCP revisions: `2025-06-18`, which uses sessions, and `2026-07-28`, which is stateless and adds `server/discover`. Each request is served by the revision it is written for. Under `2026-07-28`, list results carry `ttlMs` and `cacheScope` cache hints. See [Protocol Conformance](./docs/concepts/protocol-conformance.md) and, for the cache hints, [Security](./docs/concepts/security.md#cached-list-results).
+
+Changes from 1.5.0 behavior:
+* **`MCP-Protocol-Version`, if sent, may be `2025-06-18` or `2026-07-28`**, or `2025-03-26` or `2024-11-05`, which are served as `2025-06-18`. Any other value gets HTTP 400 with error `-32022`, which lists the supported versions. `2026-07-28` requests must send the header, and it must match the version in the request's `_meta`.
+* **`2026-07-28` requests have no session.** Instead of `Mcp-Session-Id` they carry `_meta` and the `Mcp-Method` header, plus `Mcp-Name` for methods that name a tool, resource or prompt. A missing or mismatched header gets HTTP 400. `Mcp-Session-Id`, `initialize`, and `prodserver.mcp.call` ending its session on error apply to `2025-06-18` only.
+* **`build` with `example` builds no wrapper**, so large arguments are passed by value. In 1.5.0 the wrapper was built into the archive but never called. Combining `example` with a `wrapper` other than `"Auto"` or `"None"` raises `prodserver:mcp:ExampleWrapperConflict`. See [Wrapper Functions](./docs/concepts/wrapper-functions.md).
+* **`listChanged` is `false`.** The tool and resource lists are fixed when the archive is built, and a JSON-only server has no stream to send change notifications on.
+* **Not every error is HTTP 200.** Internal errors are still HTTP 500 with `-32603`. Malformed JSON (`-32700`) and invalid requests (`-32600`), including batches and bodies that aren't JSON objects, return HTTP 400. Under `2026-07-28`, an unknown method returns HTTP 404.
+* **`DELETE` without a session returns HTTP 405**, not 400, with `Allow: POST, DELETE`. Under `2026-07-28` every `DELETE` returns 405 with `Allow: POST`.
+* **`resources/read` of an unknown URI returns `-32602` under `2026-07-28`**, which may not use `-32002`. `2025-06-18` still returns `-32002`.
+* **`resources/templates/list` returns an empty `resourceTemplates` list** instead of error `-32601`. `prompts/list` still returns `-32601`.
+* **A request body with no `Content-Type` returns HTTP 415.** 1.5.0 read it as `application/json`. An empty body returns `-32600`.
+* **Tool-error text no longer starts with a MATLAB source location.** A tool that raises returns its error message alone in the `isError` result, without the `file:line : ` prefix 1.5.0 added. JSON-RPC error messages still have the prefix.
+* **`serverInfo.title` is the archive name**, not `MATLAB Production Server`. It is left out for clients that request `2024-11-05`.
+* **The server checks `tools/call` arguments against the tool's `inputSchema`** before running the tool. Under `2025-06-18` an invalid argument gets error `-32602`; under `2026-07-28` it gets a tool result with `isError` and the text `Input validation error: ...`.
+* **The `Hybrid` wire encoding is removed.** `WireEncoding` has only `JSON` and `Invertible`, and `encoding="Hybrid"` raises an error.
+* **Under `encoding="Invertible"`, a parameter that may be a scalar is published as an `anyOf`** of its bare forms and the wrapper. The wrapper's `type` is an `enum` of the classes the parameter accepts. The wrapper's `data` is always an array: a string scalar is sent with `data` `["hello"]`, though the old form is still accepted. See [Wire Encoding](./docs/concepts/wire-encoding.md#published-schemas).
+* **Plain JSON encoding decodes `datetime` and `duration` arguments.** ISO 8601 text that the schema marks `date-time` becomes a `datetime`, and seconds that it marks `duration` become a `duration`. Text that isn't a date-time is rejected as an invalid argument. `prodserver.mcp.call` decodes outputs the same way.
+
+Other changes:
+* `prodserver.mcp.call`, `list`, `read` and `exist` detect the server's revision, remember it for each endpoint, and retry once after a protocol error. `list`, `read` and `exist` take a `protocol` option that names the revision instead. See [`call`](./docs/reference/call.md#protocol-revision).
+* New metric `MCP_<tool>_Call_<revision>` counts tool calls under each revision. See [Server Metrics](./docs/guides/server-metrics.md).
+* New metrics `MCP_<tool>_Rejected` and `MCP_<tool>_Rejected_<revision>` count tool calls the server refuses before running the tool. A call rejected for invalid arguments counts as `_Rejected`, not `_Call`.
+* `deploy`, and `build` with `server`, wait until the archive answering `ping` is the build they uploaded, named by the `MATLAB-MCP-Archive-UUID` header from the `.ctf` file's UUID. If the old build is still answering when verification runs out, they raise `prodserver:mcp:DeployedArchiveStale`. For archives built earlier, they ask `/api/discovery` (for at most 10 seconds) or accept any `pong`. See [`deploy`](./docs/reference/deploy.md).
+* The `/api/discovery` description of an MCP archive ends with `MCP-Versions:` and the revisions it supports. See [Discovery](./docs/concepts/discovery.md).
+* The `build` option `maxLiteralSize` sets the largest argument a generated wrapper passes by value. It used to be ignored in favor of a fixed 64. `typemap` now applies to every generated description. See [`build`](./docs/reference/build.md).
+* `build` accepts one `wrapper` keyword (`"Auto"`, `"None"` or `""`) for several functions. A `wrapper` list of the wrong length raises `prodserver:mcp:SizeMismatch` instead of an index error.
+* `exist` accepts an array of identifiers, with one `type` or one per identifier.
+* `metrics` accepts a plain server address, such as `http://localhost:9910`, for every scope except `Scope.Server`.
+* `serverInfo.version` now reports the framework release (1.6.0). 
+* Binary resources: `blob` is now Base64-encoded on the wire, as MCP requires; before, the bytes were sent as a JSON array of numbers. `prodserver.mcp.read` returns binary resources as a `uint8` row vector. Clients from 1.5 or earlier, and any client that relied on the number array, receive Base64 text instead. Give binary resource contents as raw `uint8` bytes, not Base64. Raw bytes with no `mimeType` get `application/octet-stream`; before, reading them raised an error.
+* File resources whose `mimeType` is `application/json` or another text type are read as UTF-8 text, not bytes.
+* Under `encoding="Invertible"`, a missing string or undefined categorical element is sent as `null` in `data`, not `[null]`. The old form is still accepted. An undefined categorical scalar, which failed to decode, now decodes.
+* Externalized arguments accept `file:///` URIs (`file:///tmp/x.mat`, `file:///C:/x.mat`), the form the tool descriptions advertise, and arrays of file URIs. `json:` locations work through `prodserver.mcp.io.MarshallURI`. Server addresses with an empty host, such as `http:///mcp`, are rejected.
+* The `read_mcp_resource` tool takes `uri` and raises an error for an unknown URI, as in 1.5.0. In 1.4 it took `url` and returned empty text.
+
+# 1.5: Oct. 2026
 Servers now conform to MCP revision `2025-06-18`. See [Protocol Conformance](./docs/concepts/protocol-conformance.md).
 
 Breaking changes for clients other than `prodserver.mcp.call`:
@@ -46,7 +83,7 @@ Other changes:
 * Support for optional positional arguments
 * Allow external and literal arguments in the same parameter list
 
-# 1.1: Dec. 2, 2025
+# 1.1: Dec. 2025
 * Build multiple tools into a single MCP server
 * Automatic generation of MCP tool description from function comments and argument blocks
 * Automatically externalize non-scalar inputs and outputs
@@ -54,7 +91,7 @@ Other changes:
 * Support for optional inputs and outputs in automatically generated wrapper functions
 * Handwritten wrapper functions still supported (and will remain supported for the foreseeable future)
 
-# 1.0: Nov 7, 2025
+# 1.0: Nov. 2025
 Initial release. Features:
 * Create MCP server containing one MCP tool
 * Handwritten MCP tool description required

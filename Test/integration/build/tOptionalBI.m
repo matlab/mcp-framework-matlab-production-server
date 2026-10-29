@@ -10,6 +10,11 @@ classdef tOptionalBI < matlab.unittest.TestCase & ...
         toolFolder  % Root tools folder
         tempFolder  % Build artifacts generated into this folder
         server
+        protocol
+    end
+
+    properties (MethodSetupParameter)
+        protocolParam = {"2025-06-18", "2026-07-28"}
     end
 
     methods(TestClassSetup)
@@ -64,6 +69,10 @@ classdef tOptionalBI < matlab.unittest.TestCase & ...
             % Clear tool definition cache.
             prodserver.mcp.handler.toolServices(action="clear");
         end
+
+        function setupProtocol(test, protocolParam)
+            test.protocol = protocolParam;
+        end
     end
 
     methods(Test)
@@ -98,7 +107,7 @@ classdef tOptionalBI < matlab.unittest.TestCase & ...
     
                 body = jsonToolCall(test,fcn,2,t,s,args{1:n});
     
-                req = mcpRequest(test,test.server,body=body);
+                req = mcpRequest(test,test.server,body=body,protocol=test.protocol);
                 resp = handleRequest(test,req);
     
                 % Test for call success
@@ -149,7 +158,7 @@ classdef tOptionalBI < matlab.unittest.TestCase & ...
 
                 body = jsonToolCall(test,fcn,2,t,s,args{1:n});
 
-                req = mcpRequest(test,test.server,body=body);
+                req = mcpRequest(test,test.server,body=body,protocol=test.protocol);
                 resp = handleRequest(test,req);
 
                 % Test for call success

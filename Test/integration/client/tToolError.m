@@ -63,22 +63,36 @@ classdef tToolError < MockCaller
                 contains(err.message,"second part"), ...
                 "Every text part must reach the caller: " + err.message);
         end
-    end
 
-end
+        function serverCrashIsNotRetried(test)
+        % A bare 500 after tools/call used to look like a stale protocol, so
+        % call cleared the cache and ran the whole call -- tools/call
+        % included -- a second time. The server may have failed after the
+        % tool ran, so the call must be made once. The mock counts requests
+        % per path, not per method, so the crashing call is compared with
+        % an identical call that fails in band (ToolError, never retried).
+            endpoint = startMcpServer(test,"tToolError.yaml");
+            posts = @()test.requestCount("POST","/mcp");
 
-function err = captureError(fcn,n)
-%captureError Invoke FCN asking for N outputs; return the MException it raised.
-%   Empty if it raised none. N may be 0, for a call made as a statement.
+            % Warm up: the first call also probes for the protocol.
+            captureError(@()prodserver.mcp.call(endpoint,"mockDeclared",1),1);
 
-    err = MException.empty;
-    try
-        if n == 0
-            fcn();
-        else
-            out = cell(1,n);
-            [out{1:n}] = fcn(); %#ok<NASGU> the outputs are not what is under test
+            before = posts();
+            captureError(@()prodserver.mcp.call(endpoint,"mockDeclared",1),1);
+            once = posts() - before;
+
+            before = posts();
+            err = captureError(@()prodserver.mcp.call(endpoint, ...
+                "mockCrash",4),0);
+            crashed = posts() - before;
+
+            test.assertNotEmpty(err,"A 500 must make call raise");
+            test.verifyEqual(string(err.identifier), ...
+                "prodserver:mcp:ServerError",err.message);
+            test.verifyEqual(crashed,once,sprintf("A bare 500 must not " + ...
+                "repeat the call: %d POSTs against %d for one call", ...
+                crashed,once));
         end
-    catch err
     end
+
 end

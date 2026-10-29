@@ -1,6 +1,8 @@
 # Repo-wide ignorables
 *.asv
 **/deploy/
+**/output/
 reviews/
 *.claims.md
 
+node_modules/

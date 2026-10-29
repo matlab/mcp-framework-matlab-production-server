@@ -1,4 +1,13 @@
 classdef tTerminateFailed < MockCaller
+% Ensure that termination errors don't prevent a tools/call from returning
+% valid output. Only applies to 2025-06-18, as 2026-07-28 has no notion of a
+% session to terminate.
+%
+% The failure is the mock's. Against this framework's own server a terminate
+% cannot fail this way: sessions are minted but not tracked, so the DELETE
+% has nothing to end and always succeeds (G12, documented won't-fix). These
+% tests exercise the client's handling of a failed terminate, not real session
+% termination.
 
 % Copyright 2026 The MathWorks, Inc.
 
@@ -8,7 +17,7 @@ classdef tTerminateFailed < MockCaller
 
      methods(Test)
 
-        function terminateFailureWarns(test)
+         function terminateFailureWarns(test)
             % Negative test: the server fails the terminate (DELETE) request
             % with HTTP 500. prodserver.mcp.call must still return the tool
             % result, emitting prodserver:mcp:TerminateFailed. When the
@@ -24,6 +33,12 @@ classdef tTerminateFailed < MockCaller
 
             % Start the mock server configured to fail termination.
             endpoint = startMcpServer(test,"tTerminateFailed.yaml");
+
+            % Clear the protocol adapter cache
+            prodserver.mcp.client.Adapter.create(endpoint,action="clearAll");
+
+            % Set the adapter for the 2025-06-18 protocol
+            prodserver.mcp.client.Adapter.create(endpoint, protocol="2025-06-18");
 
             % First call: terminate fails, so we expect both the prime
             % sequence AND the TerminateFailed warning.
@@ -52,19 +67,22 @@ classdef tTerminateFailed < MockCaller
                 "A disabled warning must not be displayed: " + output);
         end
 
-        function terminateRunsOnTheErrorPath(test)
-            % The session is terminated from an onCleanup, so it is terminated
-            % however prodserver.mcp.call exits. It used to be a statement at
-            % the end of the function body, which any error after initialize
-            % skipped -- leaking the session, silently, on exactly the calls
-            % most likely to be repeated.
-            %
-            % The fixture answers DELETE with HTTP 500, so the TerminateFailed
-            % warning is the evidence that the DELETE was attempted at all.
-            % verifyWarning cannot be used here because the call under test
-            % must also raise, so lastwarn is the only way to see both.
-            endpoint = startMcpServer(test,"tTerminateFailed.yaml");
+        function terminateFailureWarnsOnToolError(test)
+            % The terminate runs in an onCleanup, so it must also run, and
+            % warn, when the call itself fails: the tool error propagates and
+            % the warning is emitted on the way out.
+            warnId = "prodserver:mcp:TerminateFailed";
 
+            endpoint = startMcpServer(test,"tTerminateFailed.yaml");
+            prodserver.mcp.client.Adapter.create(endpoint,action="clearAll");
+            prodserver.mcp.client.Adapter.create(endpoint, protocol="2025-06-18");
+
+            test.verifyWarning(@() test.verifyError( ...
+                @()prodserver.mcp.call(endpoint,"primeSequence",13,"Gaussian"), ...
+                "prodserver:mcp:ToolError"), warnId);
+            test.verifyEqual(test.requestCount("DELETE","/mcp"), 1, ...
+                "The session must be terminated after a tool error");
+                
             % A tool that is not in tools/list. This fails immediately after
             % initialize, well before the tool is ever invoked, so there is a
             % session open and nothing else going on.
@@ -84,7 +102,12 @@ classdef tTerminateFailed < MockCaller
             test.verifyEqual(string(err.identifier), ...
                 "prodserver:mcp:NonUniqueTool",err.message);
 
-            % warning('query','last') returns the ID of the last warning
+            % Tool error should have sent another DELETE to terminate
+            % session.
+            test.verifyEqual(test.requestCount("DELETE","/mcp"), 2, ...
+                "The session must be terminated after a tool error");
+
+            % warning('query','last') returns the ID of the last warning 
             % setting, regardless of display state, so we can't use it here.
             [w,id] = lastwarn;
             test.verifyTrue(strlength(w) > 0, "Empty warning");

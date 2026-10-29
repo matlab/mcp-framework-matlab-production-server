@@ -3,7 +3,8 @@ function u = parseURI(uri)
 %
 %   scheme, userinfo, host, port, path, query
 %
-%And a copy of the original URI in the 'uri' field. 
+%And a copy of the original URI in the 'uri' field. The fragment, if any,
+%is not part of the path or the query.
 %
 %Assumes that URI is well-formatted. Does minimal checking for
 %syntax errors. 
@@ -38,7 +39,8 @@ function u = parseURI(uri)
         % Always lower case: schemes are case-insensitive by standard.
         u(n).scheme = lower(extract(uri(n), Constants.SchemeNamePattern));
         if isempty(u(n).scheme)
-            error("Scheme missing from URI %s.", uri(n));
+            error("prodserver:mcp:URIMissingScheme", ...
+                "Scheme missing from URI %s.", uri(n));
         end
 
         % RFC 3986 says: (And here ALPHA is strictly letters.)
@@ -76,12 +78,14 @@ function u = parseURI(uri)
             uri(n) = strrep(uri(n),usr,""); 
         end
     
-        % Address is everything left between :/ and /. No ambiguity with
-        % path components, because authority starts with // and path may
-        % not.
+        % Address is everything left between :// and the path, query or
+        % fragment -- or the end, for an address with none of them, like
+        % http://host:9910. No ambiguity with path components, because
+        % authority starts with // and path may not.
         addressPattern = lookBehindBoundary("://") + ...
             asManyOfPattern(alphanumericsPattern | "." | "+" | "-" ) + ...
-            optionalPattern(":" + digitsPattern(1,inf)) + lookAheadBoundary("/");
+            optionalPattern(":" + digitsPattern(1,inf)) + ...
+            (lookAheadBoundary(characterListPattern("/?#")) | textBoundary("end"));
             
         % Network address (host:port)
         address = extract(uri(n),addressPattern);
@@ -111,6 +115,9 @@ function u = parseURI(uri)
             uri(n) = extractAfter(uri(n),":"); 
         end    
 
+        % Drop the fragment: everything from the first #.
+        uri(n) = extractBefore(uri(n),textBoundary("end") | "#");
+
         % The actual path is everything up to the first ? 
         u(n).path = extractBefore(uri(n),textBoundary("end") | "?");
     
@@ -121,14 +128,14 @@ function u = parseURI(uri)
         queryPattern = lookBehindBoundary("?") + wildcardPattern + ...
             lineBoundary("end");
         u(n).query = split(extract(uri(n),queryPattern),"&");
-
-        % Decode path, authority and query -- encoding preserved in
-        % u(n).uri.
-        u(n) = prodserver.mcp.io.percentDecode(u(n));
     end
     
     % Foward slashes only, and no empty segments. And other rules as
-    % warranted...
+    % warranted... Before decoding, so that only a literal \ is a
+    % separator: an encoded one, %5C, is data.
     u = normalizeURI(u);
+
+    % Decode path, authority and query -- encoding preserved in u.uri.
+    u = prodserver.mcp.io.percentDecode(u);
 
 end

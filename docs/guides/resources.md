@@ -49,18 +49,20 @@ resource = struct( ...
 | Field | Type | Description |
 | :--- | :--- | :--- |
 | `uri` | string | Unique identifier for the resource within this server |
-| `contents` | string | Literal text, or a path to a file containing the content |
+| `contents` | string or uint8 | Literal text, raw bytes (uint8) for binary content, or a path to a file containing the content |
 
-If `contents` is a file path, `build` reads the file and embeds its content in the archive. The file is read once at build time.
+If `contents` is a file path, `build` reads the file and embeds its content in the archive. The file is read once at build time. A file with a text `mimeType` (`text/*`, `application/json` and similar), or with no `mimeType`, is read as UTF-8 text; with no `mimeType` it is labelled `text/plain`. A file with any other `mimeType` is read as bytes.
+
+The server Base64-encodes binary content when it sends it, as MCP requires, so give binary content as raw `uint8` bytes. Don't Base64-encode it yourself: it would be encoded twice.
 
 ### Optional Fields
 
 | Field | Type | Description |
 | :--- | :--- | :--- |
-| `name` | string | Machine-readable name. Auto-generated from filename if omitted. |
+| `name` | string | Machine-readable name. If omitted: for a file, the file name with its extension appended without the dot (`aluminum_6061.json` gives `aluminum_6061json`); for a function handle, the function's name; for literal contents, `resourceN`, where N is the resource's position in the list. |
 | `title` | string | Human-readable display title |
 | `description` | string | Helps the LLM decide whether to read this resource |
-| `mimeType` | string | MIME type of the content. Defaults to `text/plain`. |
+| `mimeType` | string | MIME type of the content. Defaults to `text/plain` for text and `application/octet-stream` for raw bytes (`uint8`). An empty `mimeType` (`''`) means the default. |
 
 ### Content Sources
 
@@ -90,6 +92,8 @@ materials = [aluminum, steel, titanium];
 ctf = prodserver.mcp.build("thermalAnalysis", resource=materials);
 ```
 
+MATLAB joins structs into an array only if they have the same fields. To combine `r1` and `r2` above, give `r1` an empty `mimeType`: `r1.mimeType = '';`.
+
 Build and deploy in one step:
 
 ```MATLAB
@@ -110,6 +114,8 @@ MCP clients discover resources via the `resources/list` protocol method. You can
 resources = prodserver.mcp.list(endpoint, "Resource")
 ```
 
+Every resource has a fixed URI. Resource templates, URIs with parameters, aren't supported: `resources/templates/list` returns an empty list.
+
 ### Reading
 
 The LLM reads a resource by URI. MCP Framework includes a built-in `read_mcp_resource` tool on every server, so resources work regardless of whether the client natively supports resource reads:
@@ -119,7 +125,7 @@ Tool: read_mcp_resource
 Input: {"uri": "mcp://materials/aluminum_6061"}
 ```
 
-A URI that matches no resource is a failed read, not an empty one: the tool reports an error rather than returning blank content, so an LLM that mistypes a URI is told so instead of concluding the resource exists and is empty. `resources/read` answers the same case with JSON-RPC error `-32002`.
+A URI that matches no resource is a failed read, not an empty one: the tool reports an error rather than returning blank content, so an LLM that mistypes a URI is told so instead of concluding the resource exists and is empty. `resources/read` answers the same case with a JSON-RPC error: `-32002` under `2025-06-18`, and `-32602` under `2026-07-28`, which doesn't allow `-32002`.
 
 From MATLAB, use `prodserver.mcp.read` to fetch a resource by URI:
 
@@ -157,6 +163,8 @@ Resource URIs can use any scheme. Choose one that conveys the domain:
 | `config://` | Configuration | `config://filter/butterworth` |
 
 The URI must be unique within a server. The scheme is for readability — the framework does not route based on it.
+
+`build` doesn't check uniqueness; reading does. If two resources share a URI, the server builds and lists both, but `resources/read` of that URI fails with error `-32602`, and `prodserver.mcp.read` raises `prodserver:mcp:NonUniqueResource`.
 
 ---
 

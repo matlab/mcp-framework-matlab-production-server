@@ -92,19 +92,20 @@ classdef tDefinition < matlab.unittest.TestCase
             test.verifyTrue(iscell(td.tools),"Tool description must be cell array");
             test.verifyEqual(numel(td.tools),1,"Tool description numel");
 
-            % Must contain the MCPConstants.DefsField
-            test.verifyTrue(isfield(td.tools{1},MCPConstants.DefsField), ...
-                "MCPConstants.DefsField missing");
-            test.verifyTrue(isfield(td.tools{1}.(MCPConstants.DefsField),"inputSchema"), ...
+            % Must contain the MCPConstants.DefsField inside inputSchema
+            test.verifyTrue(isfield(td.tools{1}.inputSchema, ...
+                MCPConstants.DefsField), "$defs missing from inputSchema");
+            d = td.tools{1}.inputSchema.(MCPConstants.DefsField);
+            test.verifyTrue(isfield(d,"inputSchema"), ...
                 "inputSchema field missing");
-            test.verifyTrue(isfield(td.tools{1}.(MCPConstants.DefsField),"outputSchema"), ...
+            test.verifyTrue(isfield(d,"outputSchema"), ...
                 "outputSchema field missing");
 
             % The value of MCPConstants.DefsField must contain the
             % definitions returned in defs.
-            test.verifyEqual(td.tools{1}.(MCPConstants.DefsField).inputSchema,...
+            test.verifyEqual(d.inputSchema,...
                 defs{1}.inputSchema,"Input schema mismatch");
-            test.verifyEqual(td.tools{1}.(MCPConstants.DefsField).outputSchema,...
+            test.verifyEqual(d.outputSchema,...
                 defs{1}.outputSchema,"Output schema mismatch");
         end
 
@@ -119,7 +120,7 @@ classdef tDefinition < matlab.unittest.TestCase
             % Generate definitions for  tools
             tool = "toyToolOne";
             wrapper = "toyToolOneMCP";
-            % Vanilla argument list -- tools only, no GenAI.
+            % Vanilla argument list.
             td = prodserver.mcp.internal.defineForMCP(tool,wrapper);
           
             test.verifyEqual(td.tools{1}.name,tool)
@@ -135,7 +136,7 @@ classdef tDefinition < matlab.unittest.TestCase
 
             % Generate definitions for three tools
             tools = ["toyToolOne", "toyToolTwo", "toyToolThree"];
-            % Vanilla argument list -- tools only, no GenAI.
+            % Vanilla argument list.
             types.geom = "double";
             td = prodserver.mcp.internal.defineForMCP(tools,tools, ...
                 typemap=types, encoding="Invertible");
@@ -186,15 +187,15 @@ classdef tDefinition < matlab.unittest.TestCase
             tool = "toyToolOne";
             wrapper = "toyToolOneMCP";
             baseline = prodserver.mcp.internal.defineForMCP(tool, wrapper, ...
-                encoding="Hybrid");
+                encoding="Invertible");
 
-            test.verifyEqual(baseline.signatures.(tool).encoding, "Hybrid");
+            test.verifyEqual(baseline.signatures.(tool).encoding, "Invertible");
 
-            % Pass it as a pre-built definition, but request "Invertible"
+            % Pass it as a pre-built definition, but request "JSON"
             td = prodserver.mcp.internal.defineForMCP(tool, wrapper, ...
-                definitions={baseline}, encoding="Invertible");
+                definitions={baseline}, encoding="JSON");
 
-            test.verifyEqual(td.signatures.(tool).encoding, "Hybrid", ...
+            test.verifyEqual(td.signatures.(tool).encoding, "Invertible", ...
                 "pre-existing encoding in definition must not be overwritten");
         end
 

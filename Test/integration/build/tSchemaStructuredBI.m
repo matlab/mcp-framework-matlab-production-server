@@ -10,6 +10,11 @@ classdef tSchemaStructuredBI < matlab.unittest.TestCase & ...
         tempFolder
         server
         fcns
+        protocol
+    end
+
+    properties (MethodSetupParameter)
+        protocolParam = {"2025-06-18", "2026-07-28"}
     end
 
     methods(TestClassSetup)
@@ -58,6 +63,10 @@ classdef tSchemaStructuredBI < matlab.unittest.TestCase & ...
             % Clear tool definition cache.
             prodserver.mcp.handler.toolServices(action="clear");
         end
+
+        function setupProtocol(test, protocolParam)
+            test.protocol = protocolParam;
+        end
     end
 
     methods(Test)
@@ -101,7 +110,7 @@ classdef tSchemaStructuredBI < matlab.unittest.TestCase & ...
             s = def.signatures;
 
             body = jsonToolCall(test, fcn, 2, t, s, realPart, imagPart);
-            req = mcpRequest(test, test.server, body=body);
+            req = mcpRequest(test, test.server, body=body, protocol=test.protocol);
             resp = handleRequest(test, req);
 
             test.verifyFalse(isfield(resp, 'error'), "Error field present");
@@ -127,7 +136,7 @@ classdef tSchemaStructuredBI < matlab.unittest.TestCase & ...
             s = def.signatures;
 
             body = jsonToolCall(test, fcn, 2, t, s, year, month, day);
-            req = mcpRequest(test, test.server, body=body);
+            req = mcpRequest(test, test.server, body=body, protocol=test.protocol);
             resp = handleRequest(test, req);
 
             test.verifyFalse(isfield(resp, 'error'), "Error field present");
@@ -153,7 +162,7 @@ classdef tSchemaStructuredBI < matlab.unittest.TestCase & ...
             sig = def.signatures;
 
             body = jsonToolCall(test, fcn, 2, t, sig, h, m, s);
-            req = mcpRequest(test, test.server, body=body);
+            req = mcpRequest(test, test.server, body=body, protocol=test.protocol);
             resp = handleRequest(test, req);
 
             test.verifyFalse(isfield(resp, 'error'), "Error field present");
@@ -178,7 +187,7 @@ classdef tSchemaStructuredBI < matlab.unittest.TestCase & ...
             s = def.signatures;
 
             body = jsonToolCall(test, fcn, 2, t, s, names, ages, city);
-            req = mcpRequest(test, test.server, body=body);
+            req = mcpRequest(test, test.server, body=body, protocol=test.protocol);
             resp = handleRequest(test, req);
 
             test.verifyFalse(isfield(resp, 'error'), "Error field present");
@@ -205,7 +214,7 @@ classdef tSchemaStructuredBI < matlab.unittest.TestCase & ...
 
             body = jsonToolCall(test, fcn, 2, t, s, ...
                 values, startHour, intervalMin);
-            req = mcpRequest(test, test.server, body=body);
+            req = mcpRequest(test, test.server, body=body, protocol=test.protocol);
             resp = handleRequest(test, req);
 
             test.verifyFalse(isfield(resp, 'error'), "Error field present");

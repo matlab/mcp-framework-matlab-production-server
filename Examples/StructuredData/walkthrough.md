@@ -10,9 +10,14 @@ Tests whether any circles in two lists overlap. Schema describes an array of obj
 
 ```MATLAB
 function tf = circlesIntersect(c1, c2)
-    arguments
-        c1 (1,:) struct  %#schema =circle.json
-        c2 (1,:) struct  %#schema =circle.json
+    arguments (Input)
+        % A vector of circles
+        %#schema =circle.json
+        c1 (1,:) struct
+
+        % A vector of circles
+        %#schema =circle.json
+        c2 (1,:) struct
     end
 ```
 
@@ -22,9 +27,14 @@ Analyzes a simply-supported beam under load. Schema describes two levels of nest
 
 ```MATLAB
 function result = analyzeBeam(beam_spec, load_case)
-    arguments
-        beam_spec (1,:) struct  %#schema =beam_spec.json
-        load_case (1,:) struct  %#schema =load_case.json
+    arguments (Input)
+        % Beam specification: material properties, cross-section geometry and span length.
+        %#schema =beam_spec.json
+        beam_spec (1,:) struct
+
+        % Applied load: type (point or distributed), magnitude and position.
+        %#schema =load_case.json
+        load_case (1,:) struct
     end
 ```
 
@@ -40,6 +50,8 @@ ctf2 = prodserver.mcp.build("analyzeBeam", ...
 endpoint1 = prodserver.mcp.deploy(ctf1, "localhost", 9910);
 endpoint2 = prodserver.mcp.deploy(ctf2, "localhost", 9910);
 ```
+
+On a shared server, give the archive a name of your own with `build`'s `archive` option, for example by adding your user name: `deploy` replaces an archive with the same name, even one someone else deployed.
 
 ## Verify
 
@@ -72,9 +84,12 @@ load = struct('type', 'point', 'magnitude', 5000, 'position', 1.5);
 result = prodserver.mcp.call(endpoint2, "analyzeBeam", beam, load)
 result =
   struct with fields:
-          max_stress_Pa: 4.5000e+07
-       max_deflection_m: 2.1094e-04
-    natural_frequency_Hz: 57.34
+                 max_stress_Pa: 4.5000e+07
+            max_deflection_m: 0.0034
+        natural_frequency_Hz: 25.5126
+    second_moment_of_area_m4: 4.1667e-06
+       cross_section_area_m2: 0.0050
+                     summary: 'Max stress 45 MPa, max deflection 3.375 mm, natural frequency 25.51 Hz.'
 ```
 
 ## Connect an MCP Client

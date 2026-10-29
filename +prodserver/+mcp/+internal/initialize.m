@@ -13,12 +13,13 @@ function [session,id,capabilities] = initialize(endpoint, opts)
     end
 
     import prodserver.mcp.MCPConstants
+    import prodserver.mcp.protocol.v20250618.Constants
     import prodserver.mcp.internal.hasField
     import prodserver.mcp.internal.getHeaderValue
 
     data.jsonrpc = MCPConstants.jrpcVersion;
     data.method = "initialize";
-    data.params.protocolVersion = MCPConstants.protocolVersion;
+    data.params.protocolVersion = Constants.Version;
     data.params.clientInfo.name = "MATLAB";
     data.params.clientInfo.title = "MATLAB desktop";
     data.params.clientInfo.version = "1.0.0";
@@ -26,9 +27,7 @@ function [session,id,capabilities] = initialize(endpoint, opts)
     id = opts.id + 1;
     
     uri = matlab.net.URI(endpoint);
-    headers = [
-        matlab.net.http.HeaderField('Content-Type', 'application/json')
-        ];
+    headers = prodserver.mcp.internal.mcpPostHeaders();
     body = matlab.net.http.MessageBody(data);
     request = matlab.net.http.RequestMessage('POST', headers, body);
     
@@ -38,13 +37,36 @@ function [session,id,capabilities] = initialize(endpoint, opts)
         label=data.method);
   
     % Server should have created a session ID
-    session = getHeaderValue(MCPConstants.SessionId, response.Header);
+    session = getHeaderValue(Constants.SessionId, response.Header);
     if isempty(session) || strlength(session) < 1
         error("prodserver:mcp:NoSessionFromServer", ...
             "No session ID returned from initialization of server %s.", ...
             endpoint);
     end
     
+    % From here on the server holds a session for us. Any failure must end
+    % it before reporting, or every failed connect leaks one (ND9).
+    try
+        capabilities = finishHandshake(response, endpoint, uri, session, opts);
+    catch ex
+        try
+            prodserver.mcp.internal.terminate(endpoint, session);
+        catch
+            % The original failure is the one worth reporting.
+        end
+        rethrow(ex);
+    end
+end
+
+
+function capabilities = finishHandshake(response, endpoint, uri, session, opts)
+%finishHandshake Check the required capabilities, then send
+%   notifications/initialized.
+
+    import prodserver.mcp.MCPConstants
+    import prodserver.mcp.protocol.v20250618.Constants
+    import prodserver.mcp.internal.hasField
+
     % Expect server to respond with the required capabilities.
     capabilities = [];
     if ~isempty(opts.require)
@@ -65,12 +87,15 @@ function [session,id,capabilities] = initialize(endpoint, opts)
     data.jsonrpc = MCPConstants.jrpcVersion;
     data.method = "notifications/initialized";
     headers = [
-        matlab.net.http.HeaderField('Content-Type', 'application/json'), ...
-        matlab.net.http.HeaderField(MCPConstants.SessionId, char(session))
+        prodserver.mcp.internal.mcpPostHeaders(), ...
+        matlab.net.http.HeaderField(Constants.SessionId, char(session))
         ];
     body = matlab.net.http.MessageBody(data);
     request = matlab.net.http.RequestMessage('POST', headers, body);
-    response = send(request,uri);
+    % Bounded, like every other request here (XD29).
+    httpOpts = matlab.net.http.HTTPOptions(ConnectTimeout=opts.timeout, ...
+        ResponseTimeout=opts.timeout);
+    response = send(request,uri,httpOpts);
     % Expect 200-class HTTP response, no data.
     prodserver.mcp.internal.requireSuccess(response,endpoint, ...
         request=data.method);

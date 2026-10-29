@@ -58,7 +58,7 @@ function parameters = argumentSchema(parameters)
 
                     if exist(file,"file") == 2
                         % Read all the data
-                        schema = readlines(file);
+                        schema = prodserver.mcp.internal.readUTF8(file, Lines=true);
                         % Trim leading and trailing whitespace.
                         schema = strtrim(schema);
                         % Join lines into a single string.

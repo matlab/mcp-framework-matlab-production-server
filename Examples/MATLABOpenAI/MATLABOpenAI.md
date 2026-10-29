@@ -8,12 +8,12 @@ Note that this example uses the publicly available OpenAI servers and therefore 
 ## Setup
 This example uses the `cleanSignal` tool from the Periodic Noise example. `cleanSignal` must be deployed to an active MATLAB Production Server instance.
 
-1. Build and deploy the [cleanSignal](../Examples/Periodic%20Noise/PeriodicNoise.md) MCP tool as shown.
+1. Build and deploy the [cleanSignal](../Periodic%20Noise/walkthrough.md) MCP tool as shown.
 2. Install the [LLMs with MATLAB](https://www.mathworks.com/matlabcentral/fileexchange/163796-large-language-models-llms-with-matlab) if necessary.
 3. Copy openloopVoltage.csv from the Periodic Noise example into your working directory.
 
 # Periodic Noise Example
-MCP hosts orchestrate the interaction of multiple MCP tools in response to a user prompt. Configure LLMs with MATLAB to use the [cleanSignal](../Examples/Periodic%20Noise/PeriodicNoise.md), which removes periodic noise of a given frequency from an observed signal. 
+MCP hosts orchestrate the interaction of multiple MCP tools in response to a user prompt. Configure LLMs with MATLAB to use the [cleanSignal](../Periodic%20Noise/walkthrough.md), which removes periodic noise of a given frequency from an observed signal. 
 
 ```MATLAB
 % Obtain the tool definition by querying the MCP server.

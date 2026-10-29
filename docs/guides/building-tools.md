@@ -61,7 +61,7 @@ Your role in the process is as follows:
 
 ### Function Comments
 
-The comment block after your `function` line is always required. It becomes the tool description — the text the LLM reads to decide whether and how to call the tool.
+The comment block after your `function` line becomes the tool description — the text the LLM reads to decide whether and how to call the tool. Without `example`, it's required: `build` raises `prodserver:mcp:EmptyToolDescription` if it's missing. With `example`, a function without one gets its name as its description, which tells the LLM almost nothing, so write the comment either way.
 
 ```MATLAB
 function sigma = principalStress(stressState, component)
@@ -117,6 +117,7 @@ When your function declares argument blocks, the framework extracts type and siz
 
 ```MATLAB
 function count = countExceedances(measurements, threshold)
+% Count the readings in a time series that exceed a threshold.
     arguments
         measurements (:,1) double  % Time series of sensor readings
         threshold (1,1) double     % Level above which a reading counts
@@ -135,6 +136,8 @@ For functions where argument blocks fully specify the types and sizes, no `examp
 ```MATLAB
 ctf = prodserver.mcp.build("countExceedances", server="http://localhost:9910");
 ```
+
+`measurements` has no fixed length, so the generated tool takes it as a `file:` URL. See [Automatic Wrapper Generation](#automatic-wrapper-generation).
 
 ### How the Sources Combine
 
@@ -161,7 +164,7 @@ When your function accepts or returns large arrays, passing them directly in the
 
 ### Automatic Wrapper Generation
 
-If you omit the `wrapper` argument (or set it to `"Auto"`), the framework examines parameter sizes and generates a wrapper function for any parameter that exceeds 64 elements. Auto requires argument blocks to determine parameter sizes. Functions without argument blocks are assumed to have small parameters and no wrapper is generated.
+If you omit the `wrapper` argument (or set it to `"Auto"`), the framework examines parameter sizes and generates a wrapper function for any parameter that exceeds 64 elements (set the threshold with `maxLiteralSize`). Auto reads the sizes from argument blocks. Functions without argument blocks are assumed to have small parameters and no wrapper is generated.
 
 The wrapper:
 
@@ -169,21 +172,22 @@ The wrapper:
 - Replaces large output arrays with URL parameters (the result is written to a file; the LLM gets the URI)
 
 ```MATLAB
-% filterSignal has a large input array — the framework generates a wrapper automatically
-ctf = prodserver.mcp.build("filterSignal", ...
-    example=@() filterSignal(noisySignal, 60), ...
-    server="http://localhost:9910");
+% cleanSignal declares noisy without a size, so it is assumed large and
+% the framework generates a wrapper automatically
+ctf = prodserver.mcp.build("cleanSignal", server="http://localhost:9910");
 ```
 
-The generated wrapper (`filterSignalMCP.m`) becomes the tool entry point. Your original function is unchanged.
+The generated wrapper (`cleanSignalMCP.m`) becomes the tool entry point. Your original function is unchanged.
+
+**`example` builds no wrapper.** A tool description generated from example calls describes your original function, and the tool calls that function directly. Every argument, however large, travels by value in the JSON request. To pass large data by reference, describe the function with argument blocks and omit `example`, or write a custom wrapper. `build` raises `prodserver:mcp:ExampleWrapperConflict` if you combine `example` with a `wrapper` other than `"Auto"` or `"None"`.
 
 ### Custom Wrappers
 
 For complex data flows (for example, reading CSV with custom import options or writing multiple output files), write your own wrapper and pass its path:
 
 ```MATLAB
-ctf = prodserver.mcp.build("earthquakeAnalysis", ...
-    wrapper="earthquakeAnalysisMCP.m", ...
+ctf = prodserver.mcp.build("plotTrajectories", ...
+    wrapper="plotTrajectoriesMCP.m", ...
     server="http://localhost:9910");
 ```
 
@@ -248,7 +252,8 @@ prodserver.mcp.ping(endpoint)
 ```
 ```
 ans =
-    true
+  logical
+   1
 ```
 
 Call the tool directly to verify it returns the expected result:
@@ -267,13 +272,13 @@ List the tools available at the endpoint:
 tools = prodserver.mcp.list(endpoint, "Tool")
 ```
 
-If `ping` returns `false`, the archive has not finished loading — MPS needs a few seconds after receiving a new archive. If `call` throws an error, check that your example inputs match what the function expects.
+`deploy` waits for the archive to load before it returns, unless you turn verification off with `verify=0`; only then can `ping` return `false` because the archive is still loading. If `ping` returns `false` after a verified deployment, something else is wrong: check the endpoint URL and the server logs. If `call` throws an error, check that your example inputs match what the function expects.
 
 ---
 
 ## Updating a Deployed Tool
 
-To update a deployed tool, rebuild and redeploy. MPS replaces the archive atomically — clients see either the old version or the new version, never a partial state.
+To update a deployed tool, rebuild and redeploy. For several seconds after an upload, the server goes on answering with the archive it replaces. `build` (with `server`) and `deploy` wait until the archive answering is the uploaded build, which they recognize by the `MATLAB-MCP-Archive-UUID` header of its `ping` answer. If the old build is still answering when verification runs out, they raise `prodserver:mcp:DeployedArchiveStale`. See the [`deploy` reference](../reference/deploy.md).
 
 ```MATLAB
 [ctf, endpoint] = prodserver.mcp.build("principalStress", ...

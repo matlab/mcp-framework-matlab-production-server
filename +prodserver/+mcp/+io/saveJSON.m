@@ -9,11 +9,11 @@ function saveJSON(file,x,opts)
         opts.format prodserver.mcp.WireEncoding = "Invertible"
     end
 
-    if opts.format == prodserver.mcp.WireEncoding.Invertible
-        jsonData = prodserver.mcp.jsonrpc.mcpWireEncode(x);
-    else
-        jsonData = jsonencode(x);
-    end
+    % The same encoding a tool's output gets.
+    encoded = prodserver.mcp.jsonrpc.mcpEncode(opts.format, x);
+    jsonData = jsonencode(encoded{1});
 
-    writelines(jsonData,file);
+    % writeUTF8, not writelines, which loses characters outside the Basic
+    % Multilingual Plane.
+    prodserver.mcp.internal.writeUTF8(file, jsonData);
 end

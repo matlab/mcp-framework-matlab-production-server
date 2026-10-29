@@ -9,6 +9,9 @@ classdef SchemaObserver < handle
     properties(Access = private)
         Store dictionary = dictionary(string.empty, cell.empty)
         ArgCounts dictionary = dictionary(string.empty, cell.empty)
+        % The MATLAB classes observed for each parameter, for the wrapper's
+        % type tag: schemaFromValue keeps only the JSON type.
+        Classes dictionary = dictionary(string.empty, cell.empty)
         TypeMap struct
     end
 
@@ -42,7 +45,7 @@ classdef SchemaObserver < handle
             for i = 1:nArgs
                 key = fcnName + "." + io + "." + argNames(i);
                 fragment = schemaFromValue(args{i}, obj.TypeMap);
-                obj.append(key, fragment);
+                obj.append(key, fragment, class(args{i}));
             end
 
             % Record observed positional arg count
@@ -69,7 +72,7 @@ classdef SchemaObserver < handle
                 end
                 key = fcnName + "." + io + "." + nvpName;
                 fragment = schemaFromValue(args{idx}, obj.TypeMap);
-                obj.append(key, fragment);
+                obj.append(key, fragment, class(args{idx}));
                 idx = idx + 1;
             end
         end
@@ -77,7 +80,9 @@ classdef SchemaObserver < handle
         function definitions = harvest(obj, fcns, encoding)
         %harvest Deduplicate and merge fragments into definition structs.
         %   fcns     - String vector of function names that were observed.
-        %   encoding - prodserver.mcp.WireEncoding value.
+        %   encoding - prodserver.mcp.WireEncoding value: one for every
+        %              function, or one per function. The examples ran
+        %              once; only the schemas built from them differ.
         %   Returns a struct array compatible with build(fcn, definition=X).
 
             import prodserver.mcp.MCPConstants
@@ -91,15 +96,8 @@ classdef SchemaObserver < handle
             if nargin < 3
                 encoding = prodserver.mcp.WireEncoding.Invertible;
             end
-
-            % Load wire encoding wrapper template if needed
-            wrapper = struct.empty;
-            if encoding == prodserver.mcp.WireEncoding.Invertible
-                wrapper = fileread(fullfile( ...
-                    prodserver.mcp.internal.packageFolder(), ...
-                    "+prodserver","+mcp","+jsonrpc", ...
-                    "wireEncodingArgTemplate.json"));
-                wrapper = jsondecode(wrapper);
+            if isscalar(encoding)
+                encoding = repmat(encoding, size(fcns));
             end
 
             definitions = struct([]);
@@ -120,12 +118,11 @@ classdef SchemaObserver < handle
                 def = struct();
                 def.tools.name = fcnName;
 
-                % Tool description
-                desc = toolDescription(mf);
-                if encoding == prodserver.mcp.WireEncoding.Invertible
-                    desc = desc + " " + MCPConstants.WireEncodingRequiredMsg;
-                end
-                def.tools.description = desc;
+                % The tool description comes after the schemas: it leaves
+                % out the help-text lines that became parameter
+                % descriptions. Assign it here to keep the field order.
+                def.tools.description = "";
+                helpParams = prodserver.mcp.internal.helpParameters(mf);
 
                 % Extract parameter descriptions (lenient)
                 [inDesc, outDesc, ~] = parameterDescription(mf, strict=false);
@@ -139,14 +136,35 @@ classdef SchemaObserver < handle
                 end
 
                 % Build input schema and signatures
-                [def.tools.inputSchema, inSig] = obj.buildSchema( ...
+                [def.tools.inputSchema, inSig, inUsed, inUnknown] = obj.buildSchema( ...
                     fcnName, "input", mf.Signature.Inputs, inDesc, ...
-                    encoding, wrapper);
+                    encoding(fi), helpParams);
 
                 % Build output schema and signatures
-                [def.tools.outputSchema, outSig] = obj.buildSchema( ...
+                [def.tools.outputSchema, outSig, outUsed, outUnknown] = obj.buildSchema( ...
                     fcnName, "output", mf.Signature.Outputs, outDesc, ...
-                    encoding, wrapper);
+                    encoding(fi), helpParams);
+
+                % Say which parameters the schema can't describe, so the
+                % author can exercise or declare them.
+                unknown = [inUnknown, outUnknown];
+                if ~isempty(unknown)
+                    warning("prodserver:mcp:UnobservedParameters", ...
+                        "No example call exercised %s of '%s', and " + ...
+                        "%s no declared class, so %s a value of any " + ...
+                        "type. Add an example that passes or requests " + ...
+                        "%s, or declare %s class in an arguments block.", ...
+                        "'" + strjoin(unknown, "', '") + "'", fcnName, ...
+                        pick(unknown, "it has", "they have"), ...
+                        pick(unknown, "its schema allows", "their schemas allow"), ...
+                        pick(unknown, "it", "them"), ...
+                        pick(unknown, "its", "each one's"));
+                end
+
+                % Tool description
+                desc = toolDescription(mf, exclude=[inUsed, outUsed]);
+                def.tools.description = ...
+                    prodserver.mcp.internal.encodingDescription(desc, encoding(fi));
 
                 % Build signatures
                 def.signatures.(fcnName).function = mf.Name;
@@ -169,27 +187,37 @@ classdef SchemaObserver < handle
 
     methods(Access = private)
 
-        function append(obj, key, fragment)
+        function append(obj, key, fragment, matlabClass)
             if isKey(obj.Store, key)
                 existing = obj.Store(key);
                 obj.Store(key) = {[existing{1}, {fragment}]};
             else
                 obj.Store(key) = {{fragment}};
             end
+            if isKey(obj.Classes, key)
+                seen = obj.Classes(key);
+                obj.Classes(key) = {unique([seen{1}, string(matlabClass)], "stable")};
+            else
+                obj.Classes(key) = {string(matlabClass)};
+            end
         end
 
-        function [schema, sig] = buildSchema(obj, fcnName, io, signature, ...
-                descriptions, encoding, wrapper)
+        function [schema, sig, helpUsed, unknown] = buildSchema(obj, ...
+                fcnName, io, signature, descriptions, encoding, helpParams)
+        %buildSchema helpUsed names the parameters whose description came
+        %from a help-text line in helpParams. unknown names those whose
+        %type nothing determined: no example exercised them, and they have
+        %no declared class. Their schemas don't constrain the type.
 
             import prodserver.mcp.MCPConstants
             import prodserver.mcp.internal.ParameterKind
-            import prodserver.mcp.internal.Constants
-            import prodserver.mcp.internal.SchemaInjection
             import prodserver.mcp.internal.SchemaOrigin
-            import prodserver.mcp.internal.nestedFieldValues
+            import prodserver.mcp.internal.hasField
             import prodserver.mcp.jsonrpc.jsonParameterType
 
-            schema.type = "object";
+            helpUsed = string.empty;
+            unknown = string.empty;
+            props = struct();
             isReqVec = false(1, numel(signature));
             kind = repmat(ParameterKind.Unknown, 1, numel(signature));
             names = cell(1, numel(signature));
@@ -197,12 +225,6 @@ classdef SchemaObserver < handle
             group = [];
             validation = cell(1, numel(signature));
             default = [];
-
-            if io == "input"
-                wireMsg = MCPConstants.WireEncodingInputMsg;
-            else
-                wireMsg = MCPConstants.WireEncodingOutputMsg;
-            end
 
             % Determine if function has an argument block by checking
             % whether any parameter has validation metadata.
@@ -227,71 +249,83 @@ classdef SchemaObserver < handle
                 key = fcnName + "." + io + "." + argName;
 
                 % Determine type from observation or metadata
-                if isKey(obj.Store, key)
+                observed = isKey(obj.Store, key);
+                if observed
                     stored = obj.Store(key);
                     fragments = stored{1};
                     merged = obj.mergeFragments(fragments);
-                else
-                    merged.type = "object";
                 end
 
                 % Determine MATLAB type name for signatures
                 matlabType = MCPConstants.DefaultArgType;
-                if isfield(signature(i), 'Validation') && ...
-                        ~isempty(signature(i).Validation) && ...
-                        isfield(signature(i).Validation, 'Class') && ...
-                        ~isempty(signature(i).Validation.Class)
+                declaredClass = hasField(signature(i), "Validation.Class") && ...
+                    ~isempty(signature(i).Validation.Class);
+                if declaredClass
                     matlabType = string(signature(i).Validation.Class.Name);
                 end
                 types(i) = matlabType;
 
-                % Apply size constraints from argument block validation.
-                if isfield(signature(i), 'Validation') && ...
-                        ~isempty(signature(i).Validation) && ...
-                        isfield(signature(i).Validation, 'Size') && ...
-                        ~isempty(signature(i).Validation.Size)
-                    maxItems = prodserver.mcp.jsonrpc.sizeFromValidation( ...
-                        signature(i).Validation.Size);
-                    if maxItems == 1
-                        merged = rmfield(merged, intersect( ...
-                            fieldnames(merged), {'items','maxItems'}));
-                        if ~isfield(merged, 'type') || strcmpi(merged.type,"array")
-                            merged.type = matlabType;
+                declaredSize = [];
+                if hasField(signature(i), "Validation.Size")
+                    declaredSize = signature(i).Validation.Size;
+                end
+
+                % Never observed: an input no example passed, or an output
+                % none asked for. A declared class says what it is, as on
+                % the declared path; otherwise nothing does, and the schema
+                % must not claim a type. Always a fresh schema, never the
+                % previous parameter's.
+                if ~observed
+                    merged = struct();
+                    if declaredClass
+                        jsonType = jsonParameterType(matlabType, obj.TypeMap);
+                        if strlength(jsonType) > 0
+                            merged.type = jsonType;
+                            if isempty(declaredSize) && ...
+                                    ~isTextScalar(matlabType, merged, declaredSize)
+                                % No size: MATLAB's default, an array.
+                                merged = struct('type', "array", 'items', merged);
+                            end
                         end
-                    elseif ~isinf(maxItems) && maxItems > 1
-                        merged.maxItems = maxItems;
+                    else
+                        unknown(end+1) = argName; %#ok<AGROW>
                     end
+                end
+
+                % A class JSON can't describe has a schema of its own, if
+                % the encoding can carry it at all. complete means merged
+                % is then a whole encoded value, not a wrapper's data.
+                if declaredClass && prodserver.mcp.jsonrpc.WireSupport.of( ...
+                        matlabType, obj.TypeMap) ~= prodserver.mcp.jsonrpc.WireSupport.JSON
+                    merged = prodserver.mcp.jsonrpc.classSchema(argName, ...
+                        matlabType, encoding, typemap=obj.TypeMap, ...
+                        size=declaredSize);
+                    complete = true;
+                else
+                    [merged, complete] = resolveWireTypes(merged, argName, ...
+                        encoding, obj.TypeMap, declaredSize);
+                end
+
+                % Apply size constraints from argument block validation,
+                % with the JSON type, never the MATLAB class name: the
+                % example path has no later step to convert it.
+                if ~complete && ~isTextScalar(matlabType, merged, declaredSize)
+                    scalarType = "";
+                    if observed || declaredClass
+                        scalarType = jsonParameterType(matlabType, obj.TypeMap);
+                    end
+                    merged = prodserver.mcp.jsonrpc.declaredSizeSchema( ...
+                        merged, declaredSize, scalarType);
                 end
 
                 % Apply %#schema injection from argument block comments.
                 if ~isempty(descriptions) && isKey(descriptions, argName) ...
                         && isfield(descriptions(argName), 'schema') ...
                         && descriptions(argName).schema.origin ~= SchemaOrigin.Introspection
-                    userSchema = descriptions(argName).schema;
-                    if userSchema.inject == SchemaInjection.Replace
-                        merged = struct();
-                    end
-                    propertyNames = string(fieldnames(userSchema.schema))';
-                    for p = propertyNames
-                        [pth,val] = nestedFieldValues(userSchema.schema, p);
-                        for f = 1:numel(pth)
-                            merged = setfield(merged, pth{f}{:}, val{f}); %#ok<SFLD>
-                        end
-                    end
-                    % Validate consistency after injection
-                    if isfield(merged, 'type') && strcmpi(merged.type,"array") == false
-                        if isfield(merged, 'maxItems')
-                            error("prodserver:mcp:SchemaConflict", ...
-                                "Parameter '%s': %%#schema declares " + ...
-                                "maxItems but argument block declares " + ...
-                                "scalar. These are incompatible.", argName);
-                        end
-                        if isfield(merged, 'items')
-                            error("prodserver:mcp:SchemaConflict", ...
-                                "Parameter '%s': %%#schema declares " + ...
-                                "items but argument block declares " + ...
-                                "scalar. These are incompatible.", argName);
-                        end
+                    [merged, replaced] = prodserver.mcp.jsonrpc.injectSchema( ...
+                        merged, descriptions(argName).schema, argName);
+                    if replaced
+                        complete = false;
                     end
                 end
 
@@ -321,53 +355,87 @@ classdef SchemaObserver < handle
                 if hasComment
                     paramDesc = descriptions(argName).description;
                     if ~isempty(paramDesc) && any(strlength(paramDesc) > 0)
-                        % Sanitize: remove %#schema lines
-                        keep = ~startsWith(paramDesc, Constants.Schema);
-                        paramDesc = paramDesc(keep);
-                        descStr = strjoin(paramDesc, newline);
+                        descStr = prodserver.mcp.internal.descriptionText( ...
+                            paramDesc, prodserver.mcp.BuildStage.Definition);
                         hasComment = strlength(descStr) > 0;
                     else
                         hasComment = false;
                     end
                 end
-                if ~hasComment
-                    descStr = prodserver.mcp.internal.generateDescription(signature(i));
+                % No comment in an arguments block: a help-text line, else
+                % a description generated from the name and declaration.
+                helpI = [];
+                if ~hasComment && ~isempty(helpParams)
+                    helpI = find([helpParams.name] == argName, 1);
+                end
+                if ~isempty(helpI)
+                    descStr = helpParams(helpI).text;
+                    helpUsed(end+1) = argName; %#ok<AGROW>
+                elseif ~hasComment
+                    descStr = prodserver.mcp.internal.generateDescription( ...
+                        signature(i), io);
                 end
 
                 % Add wire encoding explanation to description
                 if encoding == prodserver.mcp.WireEncoding.Invertible
-                    descStr = descStr + newline + wireMsg;
+                    descStr = strjoin(prodserver.mcp.jsonrpc.withWireEncodingMsg( ...
+                        split(string(descStr), newline), io), newline);
                 end
                 merged.description = descStr;
 
-                % Apply wire encoding wrapper
-                if ~isempty(wrapper) && encoding == prodserver.mcp.WireEncoding.Invertible
-                    thisWrapper = wrapper;
-                    thisWrapper.description = merged.description;
-                    merged = rmfield(merged, "description");
-                    thisWrapper.properties.data = merged;
-                    merged = thisWrapper;
+                % Externalized examples, then the invertible envelope or
+                % annotation. A complete schema already describes the whole
+                % encoded value. The envelope's type tag is the declared
+                % class, else what the validators admit, else the observed
+                % classes (see wrapperTypeSchema).
+                if declaredClass
+                    tagClasses = matlabType;
+                elseif isKey(obj.Classes, key)
+                    tagClasses = obj.Classes(key);
+                    tagClasses = tagClasses{1};
+                else
+                    tagClasses = string.empty;
+                end
+                if any(isfield(obj.TypeMap, cellstr(tagClasses)))
+                    tagClasses = string.empty;
+                end
+                admitted = string.empty;
+                if ~declaredClass && ~isempty(descriptions) && ...
+                        isKey(descriptions, argName) && ...
+                        isfield(descriptions(argName), 'validation')
+                    admitted = prodserver.mcp.jsonrpc.validatorClasses( ...
+                        descriptions(argName).validation);
+                end
+                % Validators say what the parameter admits; examples only
+                % what it was given.
+                if ~isempty(admitted)
+                    tagClasses = string.empty;
+                end
+                merged = prodserver.mcp.jsonrpc.finishParameterSchema( ...
+                    merged, encoding, complete, ...
+                    prodserver.mcp.jsonrpc.wrapperTypeSchema(tagClasses, io, admitted));
+                % And the bare forms, unless the declared size says it's
+                % never a scalar. Only the invertible encoding has a
+                % wrapper; under JSON, a struct with a data field is just
+                % a struct.
+                if encoding == prodserver.mcp.WireEncoding.Invertible
+                    merged = prodserver.mcp.jsonrpc.allowBareForms(merged, ...
+                        prodserver.mcp.jsonrpc.WireShape.fromSize(declaredSize));
                 end
 
-                schema.properties.(char(argName)) = merged;
+                props.(char(argName)) = merged;
                 isReqVec(i) = isRequired;
             end
 
-            if ~isempty(signature)
-                schema.required = names(isReqVec);
-                [minArgs, maxArgs] = ParameterKind.NargRange(kind);
-                schema.minProperties = minArgs;
-                schema.maxProperties = maxArgs;
-            end
+            schema = prodserver.mcp.internal.parameterObject(props, ...
+                names(isReqVec), kind);
 
             % Build signature struct
             if ~isempty(signature)
                 sig.name = string(names(:));
                 sig.type = types(:);
                 sig.kind = kind;
-                count = ParameterKind.CountType(kind);
-                pN = count(ParameterKind.Required) + count(ParameterKind.Optional);
-                sig.order = string(names(1:pN));
+                sig.order = ParameterKind.PositionalOrder(names, kind);
                 sig.group = group;
                 sig.validation = validation;
                 sig.default = default;
@@ -377,27 +445,116 @@ classdef SchemaObserver < handle
         end
 
         function merged = mergeFragments(~, fragments)
-            % Deduplicate: remove identical fragments
-            unique = fragments(1);
-            for i = 2:numel(fragments)
-                isDup = false;
-                for j = 1:numel(unique)
-                    if isequal(fragments{i}, unique{j})
-                        isDup = true;
-                        break;
-                    end
-                end
-                if ~isDup
-                    unique{end+1} = fragments{i}; %#ok<AGROW>
-                end
-            end
-
-            if numel(unique) == 1
-                merged = unique{1};
-            else
-                merged.anyOf = unique;
-            end
+            % The distinct fragments: one schema, or an anyOf of them.
+            merged = prodserver.mcp.jsonrpc.anyOfSchema(fragments);
         end
 
+    end
+end
+
+function word = pick(names, one, many)
+% The word that agrees with how many NAMES there are.
+    if isscalar(names)
+        word = one;
+    else
+        word = many;
+    end
+end
+
+function tf = isTextScalar(matlabType, schema, declaredSize)
+% A char row vector is one JSON string, not an array (see isCharText). A
+% string-typed observation with no declared class is ambiguous; treat it
+% as char.
+    if nargin < 3
+        declaredSize = [];
+    end
+    tf = prodserver.mcp.jsonrpc.isCharText(matlabType, declaredSize) || ...
+        (~ismember(matlabType, ["char" "string"]) && isfield(schema, 'type') && ...
+         strcmpi(schema.type, "string"));
+end
+
+function [node, complete] = resolveWireTypes(node, path, encoding, typemap, declaredSize)
+% Resolve the class tags schemaFromValue leaves for values JSON can't
+% describe. Error if the encoding can't carry the class; otherwise use the
+% invertible encoding's schema for it. path names the node in messages.
+% complete is true when the node is now a whole encoded value rather than
+% the data of a wrapper. declaredSize, if given, overrides the observed
+% shape of a tag at the top level.
+    if nargin < 5
+        declaredSize = [];
+    end
+    C = prodserver.mcp.internal.Constants;
+    complete = false;
+    if ~isstruct(node)
+        return
+    end
+
+    if isfield(node, C.ClassTag)
+        node = prodserver.mcp.jsonrpc.classSchema(path, node.(C.ClassTag), ...
+            encoding, typemap=typemap, size=declaredSize, shape=tagShape(node));
+        complete = true;
+        return
+    end
+
+    if isfield(node, 'anyOf')
+        branches = prodserver.mcp.jsonrpc.schemaAlternatives(node);
+        classes = strings(size(branches));
+        for k = 1:numel(branches)
+            classes(k) = tagClass(branches{k});
+        end
+        % Examples of one class in both shapes: one schema covers both.
+        if all(classes ~= "") && all(classes == classes(1))
+            node = prodserver.mcp.jsonrpc.classSchema(path, classes(1), ...
+                encoding, typemap=typemap, size=declaredSize);
+            complete = true;
+            return
+        end
+        % Mixed classes across examples. If only some branches are
+        % complete, the wrapper around the rest is approximate.
+        done = false(size(branches));
+        for k = 1:numel(branches)
+            [branches{k}, done(k)] = resolveWireTypes(branches{k}, path, ...
+                encoding, typemap);
+        end
+        node.anyOf = branches;
+        complete = all(done);
+        return
+    end
+
+    if isfield(node, 'properties') && isstruct(node.properties)
+        f = string(fieldnames(node.properties))';
+        for k = f
+            node.properties.(k) = resolveWireTypes(node.properties.(k), ...
+                path + "." + k, encoding, typemap);
+        end
+    end
+    if isfield(node, 'items')
+        node.items = resolveWireTypes(node.items, path + "(:)", ...
+            encoding, typemap);
+    end
+    if isfield(node, C.ElementsTag)
+        % Check the tagged cell elements; the cell schema doesn't list them.
+        for k = 1:numel(node.(C.ElementsTag))
+            resolveWireTypes(node.(C.ElementsTag){k}, path + "{:}", ...
+                encoding, typemap);
+        end
+        node = rmfield(node, C.ElementsTag);
+    end
+end
+
+function c = tagClass(node)
+    C = prodserver.mcp.internal.Constants;
+    c = "";
+    if isstruct(node) && isfield(node, C.ClassTag)
+        c = string(node.(C.ClassTag));
+    end
+end
+
+function shape = tagShape(node)
+% The observed shape. A declared size, if any, overrides it in classSchema.
+    if node.(prodserver.mcp.internal.Constants.ScalarTag)
+        shape = prodserver.mcp.jsonrpc.WireShape.Scalar;
+    else
+        shape = prodserver.mcp.jsonrpc.WireShape.Array;
     end
 end

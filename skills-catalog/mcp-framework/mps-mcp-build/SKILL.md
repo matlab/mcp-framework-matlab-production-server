@@ -3,7 +3,7 @@ name: mps-mcp-build
 description: Create and deploy MCP tools from MATLAB functions to MATLAB Production Server using the MCP Framework for MATLAB Production Server support package
 argument-hint: <function path(s), server address, optional files/resources>
 disable-model-invocation: true
-allowed-tools: Read Bash(matlab *) Bash(which matlab) Bash(ls *) Bash(grep *) Bash(sha256sum *) Bash(cat *) Bash(curl *) Bash(mkdir *) Bash(rm *) Bash(cp *)
+allowed-tools: Read Bash(matlab *) Bash(which matlab) Bash(ls *) Bash(grep *) Bash(sha256sum *) Bash(cat *) Bash(curl *) Bash(mkdir *) Bash(rm *) Bash(cd *) Bash(find *) Bash(sort *) Bash(xargs *) Bash(cut *)
 ---
 
 # Create MCP Tool from MATLAB Function
@@ -27,6 +27,7 @@ Extract the following from the user's request:
 
 - **Function path(s)**: One or more paths to `.m` files (required)
 - **Server address**: Host and port of the MATLAB Production Server (required), e.g. `localhost:9910`
+- **Archive name**: The name of the archive on the server (optional). It is part of the endpoint URL, `<scheme>://<host>:<port>/<archiveName>/mcp`. If the user doesn't give one, use the name of the first function. A server holds one archive per name, so Step 5.0 checks that the name is free before deploying.
 - **Scheme**: `http` (default) or `https` if the user specifies it
 - **Additional files**: Extra files to include in the CTF archive (optional)
 - **Resources**: MCP resources to include (optional), specified in flexible formats such as:
@@ -64,6 +65,16 @@ For each path:
 
 Only continue to Step 4 once all file paths have been validated.
 
+### Folders
+
+The steps below use these absolute paths:
+
+- `<project-root>`: the directory containing the `+prodserver` package (the root of this repository).
+- `<source-dir>`: the directory containing the function's `.m` file. With several functions, the directory of the first one.
+- `<deploy-folder>`: `<source-dir>/deploy`. The build writes everything it generates here: the CTF, wrappers and signature files, and the build manifest.
+
+**Never put the function's `.m` file in `<deploy-folder>`.** The build copies the function into its output folder, so a function already there fails the build with `Source and destination locations must be unique.`
+
 ## Step 4: Incremental Build Check
 
 Skip this step if the user requested a force rebuild.
@@ -72,7 +83,7 @@ Before preparing the working directory, check whether a rebuild is necessary by 
 
 ### 4.1: Read the manifest
 
-Check for an existing manifest in the deployment folder:
+Check for an existing manifest in `<deploy-folder>`:
 ```bash
 cat "<deploy-folder>/.mcp-build-manifest.json" 2>/dev/null
 ```
@@ -86,12 +97,14 @@ Compute SHA-256 hashes for all source files and additional files:
 sha256sum "<source.m>" | cut -d' ' -f1
 ```
 
-For the framework fingerprint, compute it dynamically from the current state of all framework `.m` files. The manifest stores the framework root path from the previous build:
+For the framework fingerprint, hash all the framework `.m` files in the framework this build will use. Run this command in `<project-root>` (the directory containing the `+prodserver` package):
 ```bash
-cd "<manifest.framework_root>" && find +prodserver -name "*.m" -print0 | sort -z | xargs -0 sha256sum | sort -k2 | sha256sum | cut -d' ' -f1
+cd "<project-root>" && find +prodserver -name "*.m" -print0 | sort -z | xargs -0 sha256sum | sort -k2 | sha256sum | cut -d' ' -f1
 ```
 
-If the command fails (e.g. the framework root no longer exists), treat as "framework changed" and proceed to full build.
+If the command fails (e.g. the framework root no longer exists), treat as "framework changed" and proceed to full build. Compare the result with `framework_fingerprint` in the manifest. Step 5 records the value from this same command, so the two match whenever the framework is unchanged. The value depends on the platform and line endings, so it is compared only with manifests written on the same machine.
+
+If you go straight to Step 5 (no manifest, or a forced rebuild), run this command anyway: Step 5 records its value.
 
 ### 4.3: Compare and decide
 
@@ -99,28 +112,24 @@ Compare current values against the manifest:
 
 | Current vs Manifest | Action |
 |:---|:---|
-| All source hashes match AND framework fingerprint matches AND server address matches | **Skip** — report "Build is up to date. No changes detected." and jump to Step 7 (register/verify only) |
-| All source hashes match AND framework fingerprint matches AND server address changed | **Deploy only** — upload existing CTF to new server (Step 5b) |
+| All source hashes match AND framework fingerprint matches AND server address and archive name match | **Skip** — report "Build is up to date. No changes detected." and jump to Step 7 (register/verify only) |
+| All source hashes match AND framework fingerprint matches AND server address or archive name changed | **Deploy only** — upload existing CTF to the server (Step 5b) |
 | Any source hash differs OR framework fingerprint differs | **Full rebuild** — proceed to Step 5 |
 
 ### 4.4: Verify outputs still exist
 
 Even when all hashes match, verify that the CTF file still exists:
 ```bash
-ls "<deploy-folder>/<archive>.ctf" &>/dev/null
+ls "<deploy-folder>/<archiveName>.ctf" &>/dev/null
 ```
 
 If the CTF is missing, proceed to full build regardless of hash match.
 
 ### 4.5: Verify server is responding (skip path only)
 
-For the "skip" path, verify the archive is actually deployed and responding. MCP endpoints only accept POST requests (GET returns 405), so use a JSON-RPC ping:
+For the "skip" path, verify the archive is actually deployed and responding. Every archive has a `/ping` route that answers a plain GET with `pong`, whatever MCP protocol revision the client uses. Do not send a JSON-RPC `ping` to the `/mcp` endpoint: without a session or `_meta` the server rejects it with 400.
 ```bash
-curl -s -o /dev/null -w "%{http_code}" -X POST \
-  -H "Content-Type: application/json" \
-  -H "Accept: application/json, text/event-stream" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"ping"}' \
-  "<scheme>://<host>:<port>/<archiveName>/mcp"
+curl -s -o /dev/null -w "%{http_code}" "<scheme>://<host>:<port>/<archiveName>/ping"
 ```
 
 If the server returns a non-2xx status, switch to the **deploy only** path (Step 5b).
@@ -129,35 +138,47 @@ If `curl` fails entirely (connection refused), report that the build is up to da
 
 ## Step 5: Build and Deploy
 
+### 5.0: Check that the archive name is free
+
+A MATLAB Production Server holds one archive per name, and deploying replaces an archive of the same name without warning, even one that someone else deployed. Before any deploy (a full build here, or Step 5b), check whether the server already has an archive with this name:
+```bash
+curl -s -o /dev/null -w "%{http_code}" "<scheme>://<host>:<port>/<archiveName>/ping"
+```
+
+- **Not 200** (usually 404): the name is free. Continue.
+- **200**: the server has an archive with this name. It is this project's own only if the manifest from Step 4.1 exists and records both this server (`manifest.server`) and this archive name (`manifest.archive`). If it does, continue: this deploy updates it. Otherwise, **stop and ask the user**: "The server already has an archive named `<archiveName>`, which this project didn't deploy. Deploying would replace it. Replace it, or use another name, such as `<user>_<archiveName>`?" If they choose another name, use it as `<archiveName>` from here on, and run this check again.
+
+If `curl` can't connect at all, continue: the build reports the unreachable server.
+
 Construct and execute a **single** `matlab -batch` call that combines the prerequisite check with the build, deploy, and manifest generation. This avoids paying the MATLAB startup cost multiple times.
 
 Arguments to `prodserver.mcp.build`:
 
 - `fcn`: Function name(s) derived from the file path(s) (filename without `.m` extension)
+- `archive`: `<archiveName>`, always, even when it is the function name
 - `server`: Full server URL as `"<scheme>://<host>:<port>"` (default scheme is `http`)
 - `files`: String array of additional file paths (only if user specified them)
 - `resource`: Struct array of resources (only if user specified them)
-- `folder`: The deployment folder (same directory the function was copied into)
+- `folder`: `<deploy-folder>`, never `<source-dir>` itself
 
 **Important:**
 - Do NOT specify the `wrapper` argument — accept the framework's default behavior
 - Do NOT read the MATLAB function or make any judgements about wrappers
-- Always `cd` into the deployment folder before calling `build` so generated wrappers are co-located with the source function
-- **Always use a `deploy` subfolder** for build output. The `folder` argument to `prodserver.mcp.build` should be `<project-dir>/deploy`. This keeps generated artifacts (CTF, wrappers, signatures) separate from the source `.m` files.
+- Always `cd` into `<source-dir>` before calling `build`, so that MATLAB finds the function. With several functions in different directories, also `addpath` each of the other directories. Don't copy or move the function files.
+- **Always use the `deploy` subfolder** for build output: pass `folder='<deploy-folder>'`. The build writes the generated wrappers there too, wherever MATLAB's current folder is. This keeps generated artifacts (CTF, wrappers, signatures) separate from the source `.m` files.
 - **All paths in `matlab -batch` scripts MUST be absolute paths** — after `cd` changes the working directory, relative paths will resolve incorrectly. This applies to the `cd` target, the `folder` argument, file paths, and any other path references.
-- **Always `addpath` the project root** (the directory containing the `+prodserver` package folder) before `cd`-ing into the deployment folder. Without this, `cd` moves away from the package and MATLAB can no longer resolve `prodserver.mcp.*` functions.
+- **Always `addpath` the project root** (the directory containing the `+prodserver` package folder) before `cd`-ing into `<source-dir>`. Without this, `cd` moves away from the package and MATLAB can no longer resolve `prodserver.mcp.*` functions.
 - **Use a script file for complex builds** — when passing string arrays or complex MATLAB expressions, write the command to a temporary `.m` file and run it with `matlab -batch "run('<path>')"`. This avoids shell quoting issues that silently corrupt double-quoted MATLAB strings in `-batch` mode on Windows.
 
-### Prepare working directory
+### Prepare the deployment folder
 
-Before running the MATLAB build command, prepare the deployment folder:
+Before running the MATLAB build command, prepare `<deploy-folder>`:
 
-1. Create the deployment folder if it does not exist.
-2. **Delete any pre-existing MCP wrapper files** from the deployment folder. For each function `foo`, remove `fooMCP.m` if it exists. The wrapper name is case-sensitive: for function `foo` the wrapper is `fooMCP.m`, for `Foo` it is `FooMCP.m`. Remove only the exact match.
-3. **Delete any existing copy of the function file** in the deployment folder before copying. On Windows (case-insensitive filesystem), `cp` will silently keep the case of an existing file rather than using the source's case. Always `rm -f <folder>/<filename>` first, then copy. This ensures the destination file has the exact case of the source.
-4. Copy the specified `.m` function file(s) into the deployment folder.
+1. Create `<deploy-folder>` if it does not exist.
+2. **Delete any pre-existing MCP wrapper files** from `<deploy-folder>`. For each function `foo`, remove `<deploy-folder>/fooMCP.m` if it exists. The wrapper name is case-sensitive: for function `foo` the wrapper is `fooMCP.m`, for `Foo` it is `FooMCP.m`. Remove only the exact match.
+3. **Delete any copy of a function file** in `<deploy-folder>`, such as `<deploy-folder>/foo.m`. A build copies a function that needs no wrapper there, and the next build copies it again.
 
-This ensures the framework generates fresh wrappers without conflicts from stale cached files.
+This ensures the framework generates fresh wrappers without conflicts from stale cached files. Don't copy the function files anywhere: the build reads them from `<source-dir>`.
 
 ### Combined script structure
 
@@ -177,8 +198,8 @@ end
 
 fprintf('===STEP:build===\n');
 try
-    cd('<absolute-folder-path>');
-    [ctf, endpoint] = prodserver.mcp.build('<fcnName>', server='<scheme>://<host>:<port>', folder='<absolute-folder-path>');
+    cd('<source-dir>');
+    [ctf, endpoint] = prodserver.mcp.build('<fcnName>', archive='<archiveName>', server='<scheme>://<host>:<port>', folder='<deploy-folder>');
     fprintf('===OK:build===\n');
     fprintf('CTF: %s\nEndpoint: %s\n', ctf, endpoint);
 catch e
@@ -189,12 +210,7 @@ end
 fprintf('===STEP:manifest===\n');
 try
     fw_root = prodserver.mcp.internal.packageFolder();
-    fp_file = fullfile(fw_root, '+prodserver', '+mcp', '+internal', 'frameworkFingerprint.txt');
-    if isfile(fp_file)
-        fw_fp = strtrim(fileread(fp_file));
-    else
-        fw_fp = 'unavailable';
-    end
+    fw_fp = '<framework-fingerprint>';
     manifest = struct();
     manifest.version = 1;
     manifest.timestamp = string(datetime('now', 'TimeZone', 'UTC', 'Format', 'yyyy-MM-dd''T''HH:mm:ss''Z'''));
@@ -207,7 +223,7 @@ try
     manifest.outputs = struct('ctf', ctf, 'endpoint', endpoint);
     manifest.deployed = true;
     json = jsonencode(manifest, PrettyPrint=true);
-    writelines(json, fullfile('<absolute-folder-path>', '.mcp-build-manifest.json'));
+    writelines(json, fullfile('<deploy-folder>', '.mcp-build-manifest.json'));
     fprintf('===OK:manifest===\n');
 catch e
     fprintf('===FAIL:manifest===\n%s\n', e.message);
@@ -215,7 +231,7 @@ end
 "
 ```
 
-Where `<project-root>` is the absolute path to the directory containing the `+prodserver` package (i.e. the root of this repository), `<absolute-folder-path>` is the absolute path to the deployment folder, and `<source-hash>` is the SHA-256 hash computed in Step 4 (or computed fresh if this is the first build).
+Where `<project-root>`, `<source-dir>` and `<deploy-folder>` are the absolute paths described in [Folders](#folders), `<archiveName>` is the archive name checked in Step 5.0, `<source-hash>` is the SHA-256 hash computed in Step 4 (or computed fresh if this is the first build), and `<framework-fingerprint>` is the framework fingerprint computed with the Step 4.2 command.
 
 **Manifest notes:**
 - The `sources` struct uses function names as field names and their SHA-256 hashes as values. Function names are always valid MATLAB identifiers, so this is safe.
@@ -250,7 +266,7 @@ If the build succeeds but the deploy step within `build` fails (e.g., cannot fin
 ```matlab
 fprintf('===STEP:deploy===\n');
 try
-    endpoint = prodserver.mcp.deploy('<absolute-folder-path>/<fcnName>.ctf', '<host>', <port>, scheme='<scheme>');
+    endpoint = prodserver.mcp.deploy('<deploy-folder>/<archiveName>.ctf', '<host>', <port>, scheme='<scheme>');
     fprintf('===OK:deploy===\n');
     fprintf('Endpoint: %s\n', endpoint);
 catch e
@@ -261,14 +277,14 @@ end
 
 ### Step 5b: Deploy Only (existing CTF, new server)
 
-When the incremental check determines only the server address changed, skip the full build and deploy the existing CTF directly:
+When the incremental check determines only the server address or archive name changed, skip the full build and deploy the existing CTF directly. First run the check in Step 5.0: the server may already have an archive by that name.
 
 ```matlab
 matlab -batch "
 addpath('<project-root>');
 fprintf('===STEP:deploy===\n');
 try
-    endpoint = prodserver.mcp.deploy('<absolute-folder-path>/<archiveName>.ctf', '<host>', <port>, scheme='<scheme>');
+    endpoint = prodserver.mcp.deploy('<deploy-folder>/<archiveName>.ctf', '<host>', <port>, scheme='<scheme>');
     fprintf('===OK:deploy===\n');
     fprintf('Endpoint: %s\n', endpoint);
 catch e
@@ -279,12 +295,7 @@ end
 fprintf('===STEP:manifest===\n');
 try
     fw_root = prodserver.mcp.internal.packageFolder();
-    fp_file = fullfile(fw_root, '+prodserver', '+mcp', '+internal', 'frameworkFingerprint.txt');
-    if isfile(fp_file)
-        fw_fp = strtrim(fileread(fp_file));
-    else
-        fw_fp = 'unavailable';
-    end
+    fw_fp = '<framework-fingerprint>';
     manifest = struct();
     manifest.version = 1;
     manifest.timestamp = string(datetime('now', 'TimeZone', 'UTC', 'Format', 'yyyy-MM-dd''T''HH:mm:ss''Z'''));
@@ -294,10 +305,10 @@ try
     manifest.framework_fingerprint = fw_fp;
     manifest.sources = struct('<fcnName>', '<source-hash>');
     manifest.additional_files = struct('file', {}, 'hash', {});
-    manifest.outputs = struct('ctf', '<absolute-folder-path>/<archiveName>.ctf', 'endpoint', endpoint);
+    manifest.outputs = struct('ctf', '<deploy-folder>/<archiveName>.ctf', 'endpoint', endpoint);
     manifest.deployed = true;
     json = jsonencode(manifest, PrettyPrint=true);
-    writelines(json, fullfile('<absolute-folder-path>', '.mcp-build-manifest.json'));
+    writelines(json, fullfile('<deploy-folder>', '.mcp-build-manifest.json'));
     fprintf('===OK:manifest===\n');
 catch e
     fprintf('===FAIL:manifest===\n%s\n', e.message);
@@ -307,26 +318,26 @@ end
 
 ### Example MATLAB commands:
 
-In all examples below, `<project-root>` is the absolute path to the directory containing the `+prodserver` package, and `<folder>` is the absolute path to the deployment folder.
+In all examples below, `<project-root>`, `<source-dir>` and `<deploy-folder>` are the absolute paths described in [Folders](#folders), and `<archiveName>` is the archive name.
 
 Single function, no extras:
 ```matlab
-matlab -batch "addpath('<project-root>'); fprintf('===STEP:prerequisite===\n'); try, help prodserver.mcp.build; fprintf('===OK:prerequisite===\n'); catch e, fprintf('===FAIL:prerequisite===\n%s\n', e.message); exit(1); end; fprintf('===STEP:build===\n'); try, cd('<folder>'); [ctf, endpoint] = prodserver.mcp.build('fcnName', server='http://localhost:9910', folder='<folder>'); fprintf('===OK:build===\n'); fprintf('CTF: %s\nEndpoint: %s\n', ctf, endpoint); catch e, fprintf('===FAIL:build===\n%s\n', e.message); exit(1); end; fprintf('===STEP:manifest===\n'); try, fw_root = prodserver.mcp.internal.packageFolder(); fp_file = fullfile(fw_root, '+prodserver', '+mcp', '+internal', 'frameworkFingerprint.txt'); if isfile(fp_file), fw_fp = strtrim(fileread(fp_file)); else, fw_fp = 'unavailable'; end; manifest = struct(); manifest.version = 1; manifest.timestamp = string(datetime('now', 'TimeZone', 'UTC', 'Format', 'yyyy-MM-dd''T''HH:mm:ss''Z''')); manifest.server = 'http://localhost:9910'; manifest.archive = 'fcnName'; manifest.framework_root = fw_root; manifest.framework_fingerprint = fw_fp; manifest.sources = struct('fcnName', '<hash>'); manifest.additional_files = struct('file', {}, 'hash', {}); manifest.outputs = struct('ctf', ctf, 'endpoint', endpoint); manifest.deployed = true; json = jsonencode(manifest, PrettyPrint=true); writelines(json, fullfile('<folder>', '.mcp-build-manifest.json')); fprintf('===OK:manifest===\n'); catch e, fprintf('===FAIL:manifest===\n%s\n', e.message); end"
+matlab -batch "addpath('<project-root>'); fprintf('===STEP:prerequisite===\n'); try, help prodserver.mcp.build; fprintf('===OK:prerequisite===\n'); catch e, fprintf('===FAIL:prerequisite===\n%s\n', e.message); exit(1); end; fprintf('===STEP:build===\n'); try, cd('<source-dir>'); [ctf, endpoint] = prodserver.mcp.build('fcnName', archive='<archiveName>', server='http://localhost:9910', folder='<deploy-folder>'); fprintf('===OK:build===\n'); fprintf('CTF: %s\nEndpoint: %s\n', ctf, endpoint); catch e, fprintf('===FAIL:build===\n%s\n', e.message); exit(1); end; fprintf('===STEP:manifest===\n'); try, fw_root = prodserver.mcp.internal.packageFolder(); fw_fp = '<framework-fingerprint>'; manifest = struct(); manifest.version = 1; manifest.timestamp = string(datetime('now', 'TimeZone', 'UTC', 'Format', 'yyyy-MM-dd''T''HH:mm:ss''Z''')); manifest.server = 'http://localhost:9910'; manifest.archive = '<archiveName>'; manifest.framework_root = fw_root; manifest.framework_fingerprint = fw_fp; manifest.sources = struct('fcnName', '<hash>'); manifest.additional_files = struct('file', {}, 'hash', {}); manifest.outputs = struct('ctf', ctf, 'endpoint', endpoint); manifest.deployed = true; json = jsonencode(manifest, PrettyPrint=true); writelines(json, fullfile('<deploy-folder>', '.mcp-build-manifest.json')); fprintf('===OK:manifest===\n'); catch e, fprintf('===FAIL:manifest===\n%s\n', e.message); end"
 ```
 
 With additional files:
 ```matlab
-matlab -batch "addpath('<project-root>'); fprintf('===STEP:prerequisite===\n'); try, help prodserver.mcp.build; fprintf('===OK:prerequisite===\n'); catch e, fprintf('===FAIL:prerequisite===\n%s\n', e.message); exit(1); end; fprintf('===STEP:build===\n'); try, cd('<folder>'); [ctf, endpoint] = prodserver.mcp.build('fcnName', server='http://localhost:9910', folder='<folder>', files=[""data.mat"", ""config.json""]); fprintf('===OK:build===\n'); fprintf('CTF: %s\nEndpoint: %s\n', ctf, endpoint); catch e, fprintf('===FAIL:build===\n%s\n', e.message); exit(1); end; fprintf('===STEP:manifest===\n'); try, fw_root = prodserver.mcp.internal.packageFolder(); fp_file = fullfile(fw_root, '+prodserver', '+mcp', '+internal', 'frameworkFingerprint.txt'); if isfile(fp_file), fw_fp = strtrim(fileread(fp_file)); else, fw_fp = 'unavailable'; end; manifest = struct(); manifest.version = 1; manifest.timestamp = string(datetime('now', 'TimeZone', 'UTC', 'Format', 'yyyy-MM-dd''T''HH:mm:ss''Z''')); manifest.server = 'http://localhost:9910'; manifest.archive = 'fcnName'; manifest.framework_root = fw_root; manifest.framework_fingerprint = fw_fp; manifest.sources = struct('fcnName', '<hash>'); manifest.additional_files(1).file = 'data.mat'; manifest.additional_files(1).hash = '<hash1>'; manifest.additional_files(2).file = 'config.json'; manifest.additional_files(2).hash = '<hash2>'; manifest.outputs = struct('ctf', ctf, 'endpoint', endpoint); manifest.deployed = true; json = jsonencode(manifest, PrettyPrint=true); writelines(json, fullfile('<folder>', '.mcp-build-manifest.json')); fprintf('===OK:manifest===\n'); catch e, fprintf('===FAIL:manifest===\n%s\n', e.message); end"
+matlab -batch "addpath('<project-root>'); fprintf('===STEP:prerequisite===\n'); try, help prodserver.mcp.build; fprintf('===OK:prerequisite===\n'); catch e, fprintf('===FAIL:prerequisite===\n%s\n', e.message); exit(1); end; fprintf('===STEP:build===\n'); try, cd('<source-dir>'); [ctf, endpoint] = prodserver.mcp.build('fcnName', archive='<archiveName>', server='http://localhost:9910', folder='<deploy-folder>', files=[""data.mat"", ""config.json""]); fprintf('===OK:build===\n'); fprintf('CTF: %s\nEndpoint: %s\n', ctf, endpoint); catch e, fprintf('===FAIL:build===\n%s\n', e.message); exit(1); end; fprintf('===STEP:manifest===\n'); try, fw_root = prodserver.mcp.internal.packageFolder(); fw_fp = '<framework-fingerprint>'; manifest = struct(); manifest.version = 1; manifest.timestamp = string(datetime('now', 'TimeZone', 'UTC', 'Format', 'yyyy-MM-dd''T''HH:mm:ss''Z''')); manifest.server = 'http://localhost:9910'; manifest.archive = '<archiveName>'; manifest.framework_root = fw_root; manifest.framework_fingerprint = fw_fp; manifest.sources = struct('fcnName', '<hash>'); manifest.additional_files(1).file = 'data.mat'; manifest.additional_files(1).hash = '<hash1>'; manifest.additional_files(2).file = 'config.json'; manifest.additional_files(2).hash = '<hash2>'; manifest.outputs = struct('ctf', ctf, 'endpoint', endpoint); manifest.deployed = true; json = jsonencode(manifest, PrettyPrint=true); writelines(json, fullfile('<deploy-folder>', '.mcp-build-manifest.json')); fprintf('===OK:manifest===\n'); catch e, fprintf('===FAIL:manifest===\n%s\n', e.message); end"
 ```
 
 With resources:
 ```matlab
-matlab -batch "addpath('<project-root>'); fprintf('===STEP:prerequisite===\n'); try, help prodserver.mcp.build; fprintf('===OK:prerequisite===\n'); catch e, fprintf('===FAIL:prerequisite===\n%s\n', e.message); exit(1); end; fprintf('===STEP:build===\n'); try, cd('<folder>'); r(1).uri='config://settings'; r(1).contents='settings.json'; [ctf, endpoint] = prodserver.mcp.build('fcnName', server='http://localhost:9910', folder='<folder>', resource=r); fprintf('===OK:build===\n'); fprintf('CTF: %s\nEndpoint: %s\n', ctf, endpoint); catch e, fprintf('===FAIL:build===\n%s\n', e.message); exit(1); end; fprintf('===STEP:manifest===\n'); try, fw_root = prodserver.mcp.internal.packageFolder(); fp_file = fullfile(fw_root, '+prodserver', '+mcp', '+internal', 'frameworkFingerprint.txt'); if isfile(fp_file), fw_fp = strtrim(fileread(fp_file)); else, fw_fp = 'unavailable'; end; manifest = struct(); manifest.version = 1; manifest.timestamp = string(datetime('now', 'TimeZone', 'UTC', 'Format', 'yyyy-MM-dd''T''HH:mm:ss''Z''')); manifest.server = 'http://localhost:9910'; manifest.archive = 'fcnName'; manifest.framework_root = fw_root; manifest.framework_fingerprint = fw_fp; manifest.sources = struct('fcnName', '<hash>'); manifest.additional_files = struct('file', {}, 'hash', {}); manifest.outputs = struct('ctf', ctf, 'endpoint', endpoint); manifest.deployed = true; json = jsonencode(manifest, PrettyPrint=true); writelines(json, fullfile('<folder>', '.mcp-build-manifest.json')); fprintf('===OK:manifest===\n'); catch e, fprintf('===FAIL:manifest===\n%s\n', e.message); end"
+matlab -batch "addpath('<project-root>'); fprintf('===STEP:prerequisite===\n'); try, help prodserver.mcp.build; fprintf('===OK:prerequisite===\n'); catch e, fprintf('===FAIL:prerequisite===\n%s\n', e.message); exit(1); end; fprintf('===STEP:build===\n'); try, cd('<source-dir>'); r(1).uri='config://settings'; r(1).contents='settings.json'; [ctf, endpoint] = prodserver.mcp.build('fcnName', archive='<archiveName>', server='http://localhost:9910', folder='<deploy-folder>', resource=r); fprintf('===OK:build===\n'); fprintf('CTF: %s\nEndpoint: %s\n', ctf, endpoint); catch e, fprintf('===FAIL:build===\n%s\n', e.message); exit(1); end; fprintf('===STEP:manifest===\n'); try, fw_root = prodserver.mcp.internal.packageFolder(); fw_fp = '<framework-fingerprint>'; manifest = struct(); manifest.version = 1; manifest.timestamp = string(datetime('now', 'TimeZone', 'UTC', 'Format', 'yyyy-MM-dd''T''HH:mm:ss''Z''')); manifest.server = 'http://localhost:9910'; manifest.archive = '<archiveName>'; manifest.framework_root = fw_root; manifest.framework_fingerprint = fw_fp; manifest.sources = struct('fcnName', '<hash>'); manifest.additional_files = struct('file', {}, 'hash', {}); manifest.outputs = struct('ctf', ctf, 'endpoint', endpoint); manifest.deployed = true; json = jsonencode(manifest, PrettyPrint=true); writelines(json, fullfile('<deploy-folder>', '.mcp-build-manifest.json')); fprintf('===OK:manifest===\n'); catch e, fprintf('===FAIL:manifest===\n%s\n', e.message); end"
 ```
 
 Multiple functions:
 ```matlab
-matlab -batch "addpath('<project-root>'); fprintf('===STEP:prerequisite===\n'); try, help prodserver.mcp.build; fprintf('===OK:prerequisite===\n'); catch e, fprintf('===FAIL:prerequisite===\n%s\n', e.message); exit(1); end; fprintf('===STEP:build===\n'); try, cd('<folder>'); [ctf, endpoint] = prodserver.mcp.build([""fcn1"", ""fcn2""], server='http://localhost:9910', folder='<folder>'); fprintf('===OK:build===\n'); fprintf('CTF: %s\nEndpoint: %s\n', ctf, endpoint); catch e, fprintf('===FAIL:build===\n%s\n', e.message); exit(1); end; fprintf('===STEP:manifest===\n'); try, fw_root = prodserver.mcp.internal.packageFolder(); fp_file = fullfile(fw_root, '+prodserver', '+mcp', '+internal', 'frameworkFingerprint.txt'); if isfile(fp_file), fw_fp = strtrim(fileread(fp_file)); else, fw_fp = 'unavailable'; end; manifest = struct(); manifest.version = 1; manifest.timestamp = string(datetime('now', 'TimeZone', 'UTC', 'Format', 'yyyy-MM-dd''T''HH:mm:ss''Z''')); manifest.server = 'http://localhost:9910'; manifest.archive = 'fcn1'; manifest.framework_root = fw_root; manifest.framework_fingerprint = fw_fp; manifest.sources = struct('fcn1', '<hash1>', 'fcn2', '<hash2>'); manifest.additional_files = struct('file', {}, 'hash', {}); manifest.outputs = struct('ctf', ctf, 'endpoint', endpoint); manifest.deployed = true; json = jsonencode(manifest, PrettyPrint=true); writelines(json, fullfile('<folder>', '.mcp-build-manifest.json')); fprintf('===OK:manifest===\n'); catch e, fprintf('===FAIL:manifest===\n%s\n', e.message); end"
+matlab -batch "addpath('<project-root>'); fprintf('===STEP:prerequisite===\n'); try, help prodserver.mcp.build; fprintf('===OK:prerequisite===\n'); catch e, fprintf('===FAIL:prerequisite===\n%s\n', e.message); exit(1); end; fprintf('===STEP:build===\n'); try, cd('<source-dir>'); [ctf, endpoint] = prodserver.mcp.build([""fcn1"", ""fcn2""], archive='<archiveName>', server='http://localhost:9910', folder='<deploy-folder>'); fprintf('===OK:build===\n'); fprintf('CTF: %s\nEndpoint: %s\n', ctf, endpoint); catch e, fprintf('===FAIL:build===\n%s\n', e.message); exit(1); end; fprintf('===STEP:manifest===\n'); try, fw_root = prodserver.mcp.internal.packageFolder(); fw_fp = '<framework-fingerprint>'; manifest = struct(); manifest.version = 1; manifest.timestamp = string(datetime('now', 'TimeZone', 'UTC', 'Format', 'yyyy-MM-dd''T''HH:mm:ss''Z''')); manifest.server = 'http://localhost:9910'; manifest.archive = '<archiveName>'; manifest.framework_root = fw_root; manifest.framework_fingerprint = fw_fp; manifest.sources = struct('fcn1', '<hash1>', 'fcn2', '<hash2>'); manifest.additional_files = struct('file', {}, 'hash', {}); manifest.outputs = struct('ctf', ctf, 'endpoint', endpoint); manifest.deployed = true; json = jsonencode(manifest, PrettyPrint=true); writelines(json, fullfile('<deploy-folder>', '.mcp-build-manifest.json')); fprintf('===OK:manifest===\n'); catch e, fprintf('===FAIL:manifest===\n%s\n', e.message); end"
 ```
 
 ## Step 6: Verify Deployment

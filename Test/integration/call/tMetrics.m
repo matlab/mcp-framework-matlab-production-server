@@ -1,4 +1,4 @@
-classdef tMetrics < MCPCaller
+classdef tMetrics < prodserver.mcp.test.base.MCPCaller
 % Integration test for prodserver.mcp.metrics against a live MPS instance.
 % Requires MW_MCP_MPS_TEST_SERVER to point to a running server.
 
@@ -100,44 +100,51 @@ classdef tMetrics < MCPCaller
             toolMetric = MCPConstants.MCPMetricPrefix + ...
                 test.toolName + MCPConstants.MCPToolCallSuffix;
 
-            % Baseline -- must test against the most recent archive. Use
-            % archive suffix to determine which was deployed most recently
-            % -- highest number is most recent. If no suffix, there was
-            % only one ever deployed.
-            catalog = prodserver.mcp.metrics(test.endpoint);
-            entry = catalog.filter(name=toolMetric,archive=test.archive);
-            latest = [];
-            if isempty(entry)
-                before = 0;
-            else
-                sfx = arrayfun(@(e)str2double(e.suffix),entry);
-                if any(~isnan(sfx))
-                    latest = max(sfx);
-                    entry = entry(sfx == latest);
-                end
-                before = entry.value;
-            end
-
-            % Make one tool call
-            prodserver.mcp.call(test.endpoint, test.toolName, 7);
-
-            % After — poll until the metric increments (CI can be slow)
-            after = before;
-            for attempt = 1:10
+            for p = test.Protocols
+                prodserver.mcp.client.Adapter.create(test.endpoint, ...
+                    action="clear");
+                prodserver.mcp.client.Adapter.create(test.endpoint, ...
+                    protocol=p);
+                    
+                % Baseline -- must test against the most recent archive. Use archive
+                % suffix to determine which was deployed most recently --
+                % highest number is most recent. If no suffix, there was
+                % only one ever deployed.
                 catalog = prodserver.mcp.metrics(test.endpoint);
-                entry = catalog.filter(name=toolMetric,archive=test.archive,...
-                    suffix=latest);
-                test.assertNotEmpty(entry, ...
-                    "Tool call metric should exist after call");
-                after = entry(1).value;
-                if after > before
-                    break
+                entry = catalog.filter(name=toolMetric,archive=test.archive);
+                latest = [];
+                if isempty(entry)
+                    before = 0;
+                else
+                    sfx = arrayfun(@(e)str2double(e.suffix),entry);
+                    if any(~isnan(sfx))
+                        latest = max(sfx);
+                        entry = entry(sfx == latest);
+                    end
+                    before = entry.value;
                 end
-                pause(0.5);
-            end
 
-            test.verifyEqual(after, before + 1, ...
-                "Tool call metric should increment by 1");
+                % Make one tool call
+                prodserver.mcp.call(test.endpoint, test.toolName, 7);
+
+                % After — poll until the metric increments (CI can be slow)
+                after = before;
+                for attempt = 1:10
+                    catalog = prodserver.mcp.metrics(test.endpoint);
+                    entry = catalog.filter(name=toolMetric, ...
+                        archive=test.archive,suffix=latest);
+                    test.assertNotEmpty(entry, ...
+                        "Tool call metric should exist after call [" + p + "]");
+                    after = entry(1).value;
+                    if after > before
+                        break
+                    end
+                    pause(0.5);
+                end
+
+                test.verifyEqual(after, before + 1, ...
+                    "Tool call metric should increment by 1 [" + p + "]");
+            end
         end
 
         function duplicateToolNameAcrossArchivesRetainsCorrectValue(test)
@@ -166,12 +173,25 @@ classdef tMetrics < MCPCaller
                 folder=tfolderZ.Folder, archive=archiveZ);
             endpointZ = prodserver.mcp.deploy(ctfZ, test.host, test.port);
 
-            % Call tool on archive A three times, archive Z once
-            prodserver.mcp.call(endpointA, test.toolName, 1);
-            prodserver.mcp.call(endpointA, test.toolName, 2);
-            prodserver.mcp.call(endpointA, test.toolName, 3);
-            prodserver.mcp.call(endpointZ, test.toolName, 4);
+            % Call tool on archive A three times, archive Z once, for each
+            % protocol.
+            for p = test.Protocols
+                prodserver.mcp.client.Adapter.create(endpointA, ...
+                    action="clear");
+                prodserver.mcp.client.Adapter.create(endpointA, ...
+                    protocol=p);
+                prodserver.mcp.client.Adapter.create(endpointZ, ...
+                    action="clear");
+                prodserver.mcp.client.Adapter.create(endpointZ, ...
+                    protocol=p);
 
+                prodserver.mcp.call(endpointA, test.toolName, 1);
+                prodserver.mcp.call(endpointA, test.toolName, 2);
+                prodserver.mcp.call(endpointA, test.toolName, 3);
+                prodserver.mcp.call(endpointZ, test.toolName, 4);
+            end
+
+            nProtocols = numel(test.Protocols);
             toolMetric = MCPConstants.MCPMetricPrefix + ...
                 test.toolName + MCPConstants.MCPToolCallSuffix;
 
@@ -180,9 +200,31 @@ classdef tMetrics < MCPCaller
             entry = entry([entry.archive] == archiveA);
             test.verifyNotEmpty(entry, ...
                 "Tool call metric should exist for archive A");
-            test.verifyEqual(entry(1).value, 3, ...
-                "Tool call metric should reflect calls to archive A (3), " + ...
-                "not be overwritten by archive Z (1)");
+            test.verifyEqual(entry(1).value, 3 * nProtocols, ...
+                "Tool call metric should reflect calls to archive A (" + ...
+                string(3 * nProtocols) + "), not be overwritten by " + ...
+                "archive Z (" + string(1 * nProtocols) + ")");
+        end
+
+        function unknownArchiveThrowsError(test)
+        % The catalog holds every metric on the instance, so an endpoint
+        % naming an archive the server doesn't have must be an error, not
+        % an answer.
+            missing = test.archive + "NoSuchArchive";
+            test.verifyError( ...
+                @() prodserver.mcp.metrics(test.server + "/" + missing + "/mcp"), ...
+                "prodserver:mcp:UnknownArchive");
+        end
+
+        function bareServerAddress(test)
+        % A server address names no archive: no check, the whole catalog.
+        % With or without a trailing slash.
+            for s = [strip(test.server, "right", "/"), ...
+                    strip(test.server, "right", "/") + "/"]
+                catalog = prodserver.mcp.metrics(s);
+                test.verifyClass(catalog, "prodserver.mcp.metrics.Catalog", s);
+                test.verifyNotEmpty(catalog.scope("All"), s);
+            end
         end
 
         function unreachableServerThrowsError(test)

@@ -43,7 +43,7 @@ Publish `plotTrajectories` as an MCP tool by building it into a deployable archi
 ctf = prodserver.mcp.build("plotTrajectories",wrapper="plotTrajectoriesMCP.m")
 endpoint = prodserver.mcp.deploy(ctf,"localhost",9910)
 ```
-The MCP tool definition is automatically generated from the handwritten wrapper function. The file `plotTrajectories.json` in the example folder contains the automatically generated MCP tool definition.
+The MCP tool definition is automatically generated from the handwritten wrapper function. The file `plotTrajectories.json` in the example folder contains the definition this build generates: the tool `plotTrajectories`, with the wrapper's inputs and outputs, in the default JSON encoding. The file `plotTrajectoriesMCP.json` is the wrapper's definition under `encoding="Invertible"`, used as a test reference.
 
 # Verify Deployment
 To quickly verify that the MCP tool is available, use the `ping` or `exist` functions.
@@ -64,12 +64,16 @@ Use `prodserver.mcp.call` to call the deployed MCP Tool using the JSONRPC 2.0 pr
 
 ```MATLAB
 % Construct paths (and URLs) for input and output files.
-quakeData = "file:" + fullfile(dataFolder,"quakeData.csv");
-plotFile = fullfile(dataFolder,"qTrajectories.jpg");
+quakeURL = "file:" + fullfile(pwd,"quakeData.csv");
+out = fullfile(pwd, "output");
+if ~isfolder(out), mkdir(out); end
+plotFile = fullfile(out,"qTrajectories.jpg");
 plotURL = "file:" + plotFile;
 
 % Call the tool on the server using MCP protocol
-[status,msg] = prodserver.mcp.call(endpoint, "plotTrajectories", quakeData, 200,0.098,8,15, ...
+[status,msg] = prodserver.mcp.call(endpoint, "plotTrajectories", quakeURL, 200,0.098,8,15, ...
     plotURL)
 ```
+
+These `file:` URLs name files on the server's machine: MATLAB Production Server reads and writes them itself. Building them from your own folder works when the server runs on your machine, or can reach that folder at the same path. For a remote server, see [URL Scheme](../../docs/concepts/wrapper-functions.md#url-scheme).
 --- Copyright 2025-2026 The MathWorks, Inc. ---

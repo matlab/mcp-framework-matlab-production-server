@@ -22,16 +22,24 @@ MATLAB JSON Encoding — v1.1
 
 | MATLAB value         | JSON                        |
 |----------------------|-----------------------------|
-| double scalar        | 3.14                        |
+| real numeric scalar  | 3.14                        |
+|  (any numeric class) |                             |
 | logical scalar       | true / false                |
-| char/string scalar   | "hello"                     |
 | char row vector      | "hello"  (most common case) |
 | NaN                  | "NaN"                       |
 | +Inf                 | "Inf"                       |
 | -Inf                 | "-Inf"                      |
+| NaT                  | "NaT"                       |
 | complex scalar       | {"re":3.0,"im":-1.5}        |
 | scalar struct        | {"field":value,...}         |
-| scalar datetime      | "2024-03-15T09:30:00Z"      |
+| scalar datetime      | "2024-03-15T09:30:00.000Z"  |
+|   (UTC or unzoned)   |                             |
+
+A string scalar is NOT bare: it is sent wrapped, size [1,1]:
+  {"type":"string","size":[1,1],"data":["hello"]}
+A bare "hello" is also accepted for a string input.
+Empty char '' is wrapped: {"type":"char","size":[0,0],"data":[]}
+Encoded datetimes always carry at least milliseconds (09:30:00.000).
 
 ## Wrapped values — schema
 
@@ -41,15 +49,31 @@ MATLAB JSON Encoding — v1.1
   "data":  [...]               // flat, row-major
 }
 
+A parameter's schema may limit "type". For an input it lists the classes
+the parameter accepts: any numeric class or "logical" for a number, "char"
+or "string" for a string. For an output it is the class the tool returns.
+Use the parameter's own class when you know it; for ordinary numbers that
+is "double".
+
 Additional rules by type:
   complex arrays  : add "im": [...]  (parallel to "data", same length)
   string arrays   : set null in "data" for missing values
-  char matrix     : "data" contains individual characters
-  categorical     : "categories": ["a","b","c"], "ordinal": true or false
+  char matrix     : "data" contains individual characters. A char row that
+                    would read as a date-time, "NaN", "Inf", "-Inf" or
+                    "NaT" is wrapped the same way, so it stays text
+  categorical     : "categories": ["a","b","c"]; "ordinal": true only when
+                    ordinal (omitted when false); null in "data" for undefined
   datetime array  : add "tz": "America/New_York"  (omit for UTC or unzoned)
+                    A scalar in a named zone is wrapped too, size [1,1]
+                    UTC strings end in "Z"; unzoned strings have no suffix
+                    NaT elements are "NaT"
   duration scalar : {"type":"duration","seconds":5400}  (no "size" or "data")
+  duration array  : "data" contains seconds, row-major
   struct array    : "data" contains scalar-struct objects, row-major
   empty struct    : add "fields":["name","age"] to preserve schema
+  table           : may add "rowNames": ["r1","r2"]
+  timetable       : "rowTimes" (an encoded datetime or duration) and
+                    "variables" are required; "timeName" names the time column
 
 ## Examples
 
@@ -84,15 +108,31 @@ Additional rules by type:
 {"type":"categorical","size":[1,3],"categories":["low","medium","high"],
  "ordinal":true,"data":["low","high","low"]}
 
-// datetime array
-{"type":"datetime","size":[1,2],"tz":"UTC",
- "data":["2024-01-01T00:00:00Z","2024-06-01T00:00:00Z"]}
+// datetime array, UTC (no "tz")
+{"type":"datetime","size":[1,2],
+ "data":["2024-01-01T00:00:00.000Z","2024-06-01T00:00:00.000Z"]}
+
+// datetime array, zoned
+{"type":"datetime","size":[1,2],"tz":"America/New_York",
+ "data":["2024-01-01T00:00:00.000-05:00","2024-06-01T00:00:00.000-04:00"]}
+
+// 1×2 duration [hours(1.5) minutes(2)]
+{"type":"duration","size":[1,2],"data":[5400,120]}
 
 // table
 {"type":"table","rows":2,
  "variables":[
    {"name":"Name","value":{"type":"string","size":[2,1],"data":["Alice","Bob"]}},
    {"name":"Age", "value":{"type":"double","size":[2,1],"data":[30,25]}}
+ ]}
+
+// timetable
+{"type":"timetable","rows":2,
+ "rowTimes":{"type":"datetime","size":[2,1],
+   "data":["2024-01-01T00:00:00.000","2024-01-02T00:00:00.000"]},
+ "timeName":"Time",
+ "variables":[
+   {"name":"Temp","value":{"type":"double","size":[2,1],"data":[20.5,21]}}
  ]}
 
 ## Type discriminator table
@@ -104,11 +144,11 @@ Additional rules by type:
 "int32"     int32      "uint32"    uint32
 "int64"     int64      "uint64"    uint64
 "logical"   logical
-"char"      char matrix (M>1 rows)
+"char"      char matrix (M>1 rows), or text that reads as another value
 "string"    string array
 "struct"    struct array
 "cell"      cell array
-"datetime"  datetime array
+"datetime"  datetime array, or zoned scalar
 "duration"  duration / array
 "categorical" categorical
 "table"     table
@@ -119,8 +159,9 @@ Additional rules by type:
 1. null generates error (only valid inside string/categorical data)
 2. boolean becomes logical scalar
 3. number becomes double scalar
-4. "NaN"/"Inf"/"-Inf" become double special value
-5. string in ISO 8601 format becomes datetime scalar : char row vector
+4. "NaN"/"Inf"/"-Inf" become double special value; "NaT" becomes NaT
+5. string in ISO 8601 format (date or date-time) becomes datetime scalar;
+   any other string becomes char row vector
 6. object with "type" dispatch on type table
 7. object with "re","im" becomes complex double scalar
 8. object without "type" becomes scalar struct

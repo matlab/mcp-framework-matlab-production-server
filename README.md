@@ -5,8 +5,9 @@ Publish MATLAB&reg; functions as [Model Context Protocol](https://modelcontextpr
 ## Prerequisites
 
 - [MATLAB](https://www.mathworks.com/products/matlab.html) R2025b or later
+- [MATLAB Compiler&trade;](https://www.mathworks.com/products/compiler.html), which MATLAB Compiler SDK requires
 - [MATLAB Compiler SDK&trade;](https://www.mathworks.com/products/matlab-compiler-sdk.html)
-- [MATLAB Production Server](https://www.mathworks.com/products/matlab-production-server.html) R2022a or later
+- [MATLAB Production Server](https://www.mathworks.com/products/matlab-production-server.html) R2025b or later. Archives built in R2025b need the R2025b MATLAB Runtime, and a server can host runtimes from its own release or earlier.
 - An [MCP client](https://modelcontextprotocol.io/clients) (Claude Desktop, Claude Code, VS Code with Copilot, or any HTTP-capable client)
 
 ## Install
@@ -46,8 +47,9 @@ Your function is now available to any MCP client connected to that server. See t
 - **[Server metrics](./docs/guides/server-metrics.md)** — Monitor deployed tools with built-in counters at framework, server, and tool level.
 - **[AI agent skills](./docs/guides/agent-skills.md)** — Let Claude Code build and deploy tools on your behalf from natural language.
 - **[Discovery](./docs/concepts/discovery.md)** — Deployed tools register with the MPS discovery endpoint so clients can find them automatically.
+- **[Protocol conformance](./docs/concepts/protocol-conformance.md)** — Servers support MCP 2025-06-18, which uses sessions, and 2026-07-28, which is stateless. The server selects the revision from each request.
 
-**Documentation:** [Getting Started](./docs/getting-started.md) | [Examples](./Examples/) | [Guides](./docs/guides/) | [Concepts](./docs/concepts/) | [Reference](./docs/reference/)
+**Documentation:** [Getting Started](./docs/getting-started.md) | [Cheat Sheet](./docs/cheat-sheet.md) | [Examples](./Examples/) | [Guides](./docs/guides/) | [Concepts](./docs/concepts/) | [Reference](./docs/reference/) | [Release Notes](./ReleaseNotes.md) | [Security](./SECURITY.md)
 
 ## License
 

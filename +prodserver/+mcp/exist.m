@@ -4,7 +4,9 @@ function tf = exist(endpoint, identifier, type, opts)
 %   tf = exist(endpoint, identifier, type) returns TRUE if IDENTIFIER
 %       exists as a TYPE on the MCP server at ENDPOINT. For tools,
 %       IDENTIFIER is the tool name. For resources, IDENTIFIER is the
-%       resource URI. IDENTIFIER may be a list. TYPE must be a scalar.
+%       resource URI. IDENTIFIER may be a list; TF is the same size. TYPE
+%       is either a scalar, which applies to every IDENTIFIER, or the same
+%       size as IDENTIFIER.
 %
 % See also: prodserver.mcp.Primitive
 
@@ -13,72 +15,70 @@ function tf = exist(endpoint, identifier, type, opts)
 
     arguments
         endpoint string { prodserver.mcp.validation.mustBeMCPServer }
-        identifier string { mustBeTextScalar }
-        type prodserver.mcp.Primitive { prodserver.mcp.validation.mustBeSameSize(2,identifier,type) }
+        identifier string { mustBeNonempty }
+        type prodserver.mcp.Primitive { mustBeNonempty }
+        opts.protocol string = "discover"
         opts.timeout double {mustBePositive} = 30
         opts.retry double {mustBePositive} = 10
         opts.delay double {mustBePositive} = 2
     end
 
-    import prodserver.mcp.internal.hasField
+    if isscalar(type)
+        type = repmat(type, size(identifier));
+    elseif ~isequal(size(type), size(identifier))
+        error("prodserver:mcp:SizeMismatch", ...
+            "TYPE must be a scalar or the same size as IDENTIFIER " + ...
+            "(%s), not %s.", mat2str(size(identifier)), mat2str(size(type)));
+    end
 
+    try
+        tf = doExist(endpoint, identifier, type, opts);
+    catch me
+        if opts.protocol == "discover" && prodserver.mcp.protocol.isProtocolError(me)
+            prodserver.mcp.client.Adapter.create(endpoint, action="clear");
+            tf = doExist(endpoint, identifier, type, opts);
+        else
+            rethrow(me);
+        end
+    end
+end
+
+function tf = doExist(endpoint, identifier, type, opts)
     tf = false(size(identifier));
 
-    %
-    % Initialize connection via JSON-RPC "initialize" message.
-    %
+    % Each kind of primitive is listed once, however many identifiers
+    % refer to it.
+    kinds = unique(type);
 
-    % Require that the server publish the resources we're inquiring about.
-    [session,id] = prodserver.mcp.internal.initialize(endpoint, ...
-        require=type, timeout=opts.timeout, retry=opts.retry, ...
-        delay=opts.delay);
+    client = prodserver.mcp.client.Adapter.create(endpoint, ...
+        protocol=opts.protocol);
+    client.connect(require=kinds, timeout=opts.timeout, ...
+        retry=opts.retry, delay=opts.delay);
+    cleanup = onCleanup(@()client.disconnect()); %#ok<NASGU>
 
-    %
-    % Check TYPE, to verify that IDENTIFIER exists at ENDPOINT
-    %
+    items = client.list(kinds, timeout=opts.timeout, ...
+        retry=opts.retry, delay=opts.delay);
 
-    % Get a list of all the elements of each requested primitive type
-    items = prodserver.mcp.internal.list(endpoint,session, ...
-        type,id=id,timeout=opts.timeout, retry=opts.retry, ...
-        delay=opts.delay);
+    for k = 1:numel(kinds)
+        ids = listedIds(items.(mcpName(kinds(k))), kinds(k));
+        mine = type == kinds(k);
+        tf(mine) = arrayfun(@(id)nnz(strcmp(id, ids)) == 1, identifier(mine));
+    end
+end
 
-        for n = 1:numel(items)
-    
-            % Name of the primitive type's field in items
-            t = mcpName(type(n));
-            p = items.(t);
+function ids = listedIds(p, kind)
+%listedIds The names (or, for resources, URIs) of the listed primitives.
+    if kind == prodserver.mcp.Primitive.Resource
+        field = "uri";
+    else
+        field = "name";
+    end
 
-            % Resources are identified by URI; other primitives by name.
-            if type(n) == prodserver.mcp.Primitive.Resource
-                field = "uri";
-            else
-                field = "name";
-            end
-
-            % Out, out, damn char!
-            if iscell(p)
-                ids = cellfun(@(r)string(r.(field)),p);
-            elseif isstruct(p)
-                if isempty(p) == false
-                    ids = string({p.(field)});
-                else
-                    ids = {};
-                end
-            end
-
-            % If we find exactly one primitive with the requested
-            % identifier, the primitive "exists".
-            found = strcmp(identifier(n),ids);
-            if nnz(found) == 1
-                tf(n) = true;
-            end
-        end
-
-    %
-    % Terminate session
-    %
-
-    % No response expected.
-    prodserver.mcp.internal.terminate(endpoint,session);
-
+    if iscell(p)
+        ids = cellfun(@(r)string(r.(field)), p);
+    elseif isstruct(p) && ~isempty(p)
+        ids = string({p.(field)});
+    else
+        ids = string.empty;
+    end
 end

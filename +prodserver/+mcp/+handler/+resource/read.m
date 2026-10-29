@@ -1,6 +1,9 @@
-function [result, httpCode, httpMsg, msgHeaders] = read(jrpc)
+function [result, httpCode, httpMsg, msgHeaders] = read(jrpc, ~)
 %read Handle MCP resources/read request. Returns the contents of the
 %   resource matching the requested URI (text or blob depending on MIME type).
+%
+%   Takes, and ignores, the serving protocol revision -- see
+%   ProtocolDispatcher.dispatch for why every handler receives it.
 
 % Copyright 2025-2026 The MathWorks, Inc.
 
@@ -10,20 +13,21 @@ function [result, httpCode, httpMsg, msgHeaders] = read(jrpc)
         prodserver.mcp.handler.internal.initResult(jrpc);
     result.id = jrpc.id;
 
-    if isfield(jrpc,"params") && isfield(jrpc.params,"uri")
+    if prodserver.mcp.internal.hasField(jrpc, "params.uri")
         c = prodserver.mcp.handler.resource.contents(jrpc.params.uri);
         if isempty(c)
-            % No matching URI. MCP defines a specific error code for this,
-            % and it is a protocol error with a body -- not a 204, which
-            % would promise no content while still carrying a result.
+            % No matching URI. A missing resource is a JSON-RPC error, not a
+            % silent empty success: the adapter maps it to the protocol's
+            % resource-not-found code (-32002 for 2025-06-18, -32602 for
+            % 2026-07-28).
             error("prodserver:mcp:ResourceNotFound", ...
-                "Resource '%s' not found on this MCP server.", ...
-                string(jrpc.params.uri));
+                "No resource matching URI '%s'.", jrpc.params.uri);
+        else
+            r.contents = {c};
         end
-        r.contents = {c};
     else
         error("prodserver:mcp:BadResourceRead", "Request to read " + ...
-            "resource lacks the required params.uri.");
+            "resource lacks URL.");
     end
     result.result = r;
 end

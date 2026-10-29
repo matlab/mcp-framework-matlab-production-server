@@ -71,6 +71,7 @@ function [cleanupMPS, cleanupDir, mps] = startMPS(options)
             fid = fopen(ghEnvFile, "a");
             fprintf(fid, "MW_MCP_MPS_TEST_SERVER=%s\n", serverUrl);
             fprintf(fid, "MW_MCP_MPS_TEST_DATA_FOLDER=%s\n", dataFolder);
+            fprintf(fid, "MW_MULTIMCOS_MODE=1\n");
             fclose(fid);
             fprintf("Wrote env vars to GITHUB_ENV\n");
         end

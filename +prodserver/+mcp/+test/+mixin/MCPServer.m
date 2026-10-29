@@ -35,23 +35,38 @@ classdef MCPServer < handle
                 server string
                 opts.body = []
                 opts.sessionID string = matlab.lang.internal.uuid
+                opts.protocol string = prodserver.mcp.protocol.v20250618.Constants.Version
             end
 
             import prodserver.mcp.MCPConstants
-            
+
             req = mcp.baseRequest;
-           
-            req.Headers = [req.Headers; ...
-                { MCPConstants.SessionId opts.sessionID} ];
+            body = opts.body;
 
-            req.Path = "/"+server+"/mcp";
+            if opts.protocol == prodserver.mcp.protocol.v20250618.Constants.Version
+                % The caller's session id, not protocolEnvelope's fresh one.
+                req.Headers = [req.Headers; ...
+                    { prodserver.mcp.protocol.v20250618.Constants.SessionId ...
+                      opts.sessionID} ];
+            elseif ~isempty(body)
+                [rows, s] = prodserver.mcp.test.protocolEnvelope( ...
+                    opts.protocol, jsondecode(body));
+                body = jsonencode(s);
+                req.Headers = [req.Headers; rows];
+            else
+                req.Headers = [req.Headers; ...
+                    {MCPConstants.ProtocolVersion, char(opts.protocol)}];
+            end
 
-            if ~isempty(opts.body)
+            req.Path = "/" + server + prodserver.mcp.MCPConstants.MCP;
+
+            if ~isempty(body)
                 req.Headers = [req.Headers; {MCPConstants.ContentType, ...
-                    'application/json'}];
+                    char(prodserver.mcp.internal.Constants.MIMETypeJSON)}];
                 req.Method = "POST";  % Because there's a body
-                req.Headers = [req.Headers; {MCPConstants.ContentLength, numel(opts.body)}];
-                req.Body = unicode2native(opts.body,"UTF-8");
+                % Content-Length counts bytes, not characters.
+                req.Body = unicode2native(body,"UTF-8");
+                req.Headers = [req.Headers; {MCPConstants.ContentLength, numel(req.Body)}];
             else
                 req.Method = "GET";
             end

@@ -25,6 +25,10 @@ classdef tSchemaInvertible < matlab.unittest.TestCase
     methods(Test)
 
         function singleToolScalarInputs(test)
+            % build warns if any input or output has no assigned type. But
+            % that's not what we're testing here, so turn off that warning.
+            test.applyFixture(matlab.unittest.fixtures.SuppressedWarningsFixture( ...
+                "prodserver:mcp:UnobservedParameters"));
             defs = prodserver.mcp.schema("toyToolOne", ...
                 @() callWithOutputs(@toyToolOne, 3, {1.0, uint64(5)}), ...
                 encoding="Invertible");
@@ -62,6 +66,11 @@ classdef tSchemaInvertible < matlab.unittest.TestCase
         end
 
         function anyOfInsideWrapper(test)
+            % build warns if any input or output has no assigned type. But
+            % that's not what we're testing here, so turn off that warning.
+            test.applyFixture(matlab.unittest.fixtures.SuppressedWarningsFixture( ...
+                "prodserver:mcp:UnobservedParameters"));
+
             obs = prodserver.mcp.internal.SchemaObserver();
             obs.record("toyToolOne", "input", ["a","b"], {1.0, uint64(5)}, 2);
             obs.record("toyToolOne", "input", ["a","b"], {"text", uint64(5)}, 2);
@@ -96,8 +105,8 @@ classdef tSchemaInvertible < matlab.unittest.TestCase
                 encoding="Invertible");
             test.verifyTrue(isempty(defs.tools.inputSchema.required));
             % All params present and wire-encoded
-            test.verifyEqual(string(defs.tools.inputSchema.properties.a.type), "object");
-            test.verifyEqual(string(defs.tools.inputSchema.properties.d.type), "object");
+            test.verifyEqual(string(prodserver.mcp.test.wrapperOf(defs.tools.inputSchema.properties.a).type), "object");
+            test.verifyEqual(string(prodserver.mcp.test.wrapperOf(defs.tools.inputSchema.properties.d).type), "object");
         end
 
         function mixedNVPWrapped(test)
@@ -118,16 +127,17 @@ classdef tSchemaInvertible < matlab.unittest.TestCase
                 @() callWithOutputs(@someInNVP, 3, {1, 2, 'c', 3}), ...
                 encoding="Invertible");
             % 'd' not exercised — should still be wrapped with fallback type
-            test.verifyEqual(string(defs.tools.inputSchema.properties.d.type), "object");
-            test.verifyTrue(isfield(defs.tools.inputSchema.properties.d, 'properties'));
-            test.verifyTrue(isfield(defs.tools.inputSchema.properties.d.properties, 'data'));
+            d = prodserver.mcp.test.wrapperOf(defs.tools.inputSchema.properties.d);
+            test.verifyEqual(string(d.type), "object");
+            test.verifyTrue(isfield(d, 'properties'));
+            test.verifyTrue(isfield(d.properties, 'data'));
         end
 
         function structuredTypeWrapped(test)
             defs = prodserver.mcp.schema("schemaComplexNoBlock", ...
                 @() callWithOutputs(@schemaComplexNoBlock, 3, ...
                     {[3,0], [4,1]}), encoding="Invertible");
-            param = defs.tools.inputSchema.properties.realPart;
+            param = prodserver.mcp.test.wrapperOf(defs.tools.inputSchema.properties.realPart);
             test.verifyEqual(string(param.type), "object");
             test.verifyTrue(isfield(param, 'properties'));
             test.verifyTrue(isfield(param.properties, 'data'));
@@ -142,10 +152,14 @@ classdef tSchemaInvertible < matlab.unittest.TestCase
             outSchema = defs.tools.outputSchema;
             test.verifyTrue(isfield(outSchema.properties, 'dt'));
             test.verifyTrue(isfield(outSchema.properties, 'serial'));
+            % A scalar datetime is a bare ISO 8601 string, or, in a named
+            % zone, the datetime wrapper with tz.
             dtParam = outSchema.properties.dt;
-            test.verifyEqual(string(dtParam.type), "object");
-            test.verifyTrue(isfield(dtParam, 'properties'));
-            test.verifyTrue(isfield(dtParam.properties, 'data'));
+            test.verifyEqual(dtParam.anyOf{1}.format, "date-time");
+            test.verifyEqual(string(dtParam.anyOf{3}.properties.type.enum), "datetime");
+            % A number is still wrapped.
+            serialParam = prodserver.mcp.test.wrapperOf(outSchema.properties.serial);
+            test.verifyTrue(isfield(serialParam.properties, 'data'));
         end
 
     end
@@ -153,12 +167,12 @@ end
 
 function data = unwrapData(param)
 %unwrapData Extract the data field from a wire-encoded parameter.
-    data = param.properties.data;
+    [~, data] = prodserver.mcp.test.wrapperOf(param);
 end
 
 function t = unwrapType(param)
 %unwrapType Extract the inner type from a wire-encoded parameter.
-    data = param.properties.data;
+    [~, data] = prodserver.mcp.test.wrapperOf(param);
     t = string(data.type);
 end
 

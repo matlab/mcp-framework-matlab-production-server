@@ -22,7 +22,7 @@ classdef tSchema < matlab.unittest.TestCase
             % Generate definitions for tools
             tool = "toyLiteralLimit";
 
-            % Vanilla argument list -- tools only, no GenAI.
+            % Vanilla argument list.
             td = prodserver.mcp.internal.defineForMCP(tool,tool, ...
                 encoding="Invertible");
 
@@ -53,7 +53,7 @@ classdef tSchema < matlab.unittest.TestCase
             td = prodserver.mcp.internal.defineForMCP(tool,tool,defs={defs});
     
             % Look for defs
-            test.verifyEqual(td.tools{1}.dollarDefs,defs,...
+            test.verifyEqual(td.tools{1}.inputSchema.dollarDefs,defs,...
                 "Defs unequal or missing");
         end
 
@@ -64,7 +64,7 @@ classdef tSchema < matlab.unittest.TestCase
             % Arguments that use files to specify their JSON schema.
             tool = "toyFileSchema";
 
-            % Vanilla argument list -- tools only, no GenAI.
+            % Vanilla argument list.
             td = prodserver.mcp.internal.defineForMCP(tool,tool, ...
                 encoding="Invertible");
     

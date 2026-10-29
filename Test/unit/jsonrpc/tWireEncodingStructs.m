@@ -42,8 +42,6 @@ classdef tWireEncodingStructs < prodserver.mcp.test.base.MCPHandlerBase
             req = test.request;
             req.Headers = [req.Headers; ...
                 {MCPConstants.ContentType, 'application/json'}];
-            req.Headers = [req.Headers; ...
-                {MCPConstants.SessionId, matlab.lang.internal.uuid}];
 
             body = jsonencode(struct( ...
                 'jsonrpc', "2.0", ...
@@ -52,6 +50,7 @@ classdef tWireEncodingStructs < prodserver.mcp.test.base.MCPHandlerBase
                 'params', struct( ...
                     'name', toolName, ...
                     'arguments', arguments)));
+            [req, body] = test.applyProtocol(req, body);
 
             reqT = req;
             reqT.Method = "POST";
@@ -153,10 +152,9 @@ classdef tWireEncodingStructs < prodserver.mcp.test.base.MCPHandlerBase
             req = test.request;
             req.Headers = [req.Headers; ...
                 {MCPConstants.ContentType, 'application/json'}];
-            req.Headers = [req.Headers; ...
-                {MCPConstants.SessionId, matlab.lang.internal.uuid}];
 
             body = '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}';
+            [req, body] = test.applyProtocol(req, body);
 
             reqT = req;
             reqT.Method = "POST";

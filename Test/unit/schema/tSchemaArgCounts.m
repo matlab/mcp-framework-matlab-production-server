@@ -8,6 +8,12 @@ classdef tSchemaArgCounts < matlab.unittest.TestCase
             test.applyFixture(...
                 prodserver.mcp.test.mixin.RequireSchemaTools());
         end
+        function quietUnobserved(test)
+            % build warns if any input or output has no assigned type. But
+            % that's not what we're testing here, so turn off that warning.
+            test.applyFixture(matlab.unittest.fixtures.SuppressedWarningsFixture( ...
+                "prodserver:mcp:UnobservedParameters"));
+        end
     end
 
     methods(Test)
@@ -103,9 +109,10 @@ classdef tSchemaArgCounts < matlab.unittest.TestCase
         end
 
         function structuredTypeAllRequired(test)
+            % The tool returns a table, which only Invertible carries.
             defs = prodserver.mcp.schema("schemaTableNoBlock", ...
                 @() schemaTableNoBlock(["A","B"], [1,2], "X"), ...
-                encoding="JSON");
+                encoding="Invertible");
             test.verifyEqual(numel(defs.tools.inputSchema.required), 3);
             test.verifyTrue(all(ismember(["names","ages","city"], ...
                 defs.tools.inputSchema.required)));

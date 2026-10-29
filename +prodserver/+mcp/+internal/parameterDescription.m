@@ -35,7 +35,7 @@ function [input,output,inHasNVP] = parameterDescription(mf,opts)
     end
 
     file = mf.FullPath;
-    text = readlines(file);
+    text = prodserver.mcp.internal.readUTF8(file, Lines=true);
     textLines = split(text,newline);
 
     % Assume no NVP in inputs until proven otherwise

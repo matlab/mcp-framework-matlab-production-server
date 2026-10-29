@@ -12,6 +12,12 @@ classdef tMcpWireDecodeValue < matlab.unittest.TestCase
             v = prodserver.mcp.jsonrpc.mcpWireDecodeValue(j);
         end
 
+        function v = roundTrip(test, x)
+            j = jsondecode(jsonencode( ...
+                prodserver.mcp.jsonrpc.mcpWireEncodeValue(x)));
+            v = test.decode(j);
+        end
+
     end
 
     methods (Test)
@@ -85,6 +91,59 @@ classdef tMcpWireDecodeValue < matlab.unittest.TestCase
             test.verifyClass(v, "string");
             test.verifyEqual(ismissing(v), [false true]);
             test.verifyEqual(v(1), "hi");
+        end
+
+        function tMissingElementsAreNull(test)
+            % A missing string or undefined categorical element is JSON
+            % null, not [null] -- which a client checking outputs against
+            % the schema's string items would reject.
+            enc = @(x) string(jsonencode(prodserver.mcp.jsonrpc.mcpWireEncodeValue(x)));
+            test.verifySubstring(enc(["a" missing]), """data"":[""a"",null]");
+            test.verifySubstring(enc(string(missing)), """data"":[null]");
+            test.verifySubstring(enc(categorical(["x" missing])), ...
+                """data"":[""x"",null]");
+        end
+
+        function tStringScalarDataIsArray(test)
+            % A wrapper's data is always an array, even of one string: so
+            % the rules say, and so the published schema describes it. A
+            % bare "data":"hello" would round-trip just the same, so only
+            % the encoding shows it.
+            e = string(jsonencode(prodserver.mcp.jsonrpc.mcpWireEncodeValue("hello")));
+            test.verifyEqual(e, ...
+                "{""type"":""string"",""size"":[1,1],""data"":[""hello""]}");
+            test.verifyEqual(test.roundTrip("hello"), "hello");
+            % The old form, from servers and clients before 1.6, still
+            % decodes.
+            test.verifyEqual(test.decode(jsondecode( ...
+                '{"type":"string","size":[1,1],"data":"hello"}')), "hello");
+        end
+
+        function tMissingElementsRoundTrip(test)
+            for x = {["a" missing], string(missing), ["a" "b"; missing "d"], ...
+                    categorical(["x" "y" missing]), categorical(missing), ...
+                    categorical(string([missing; missing])), ...
+                    categorical(["lo" missing "hi"], ["lo" "hi"], Ordinal=true)}
+                v = test.roundTrip(x{1});
+                test.verifyClass(v, class(x{1}));
+                test.verifySize(v, size(x{1}));
+                test.verifyEqual(ismissing(v), ismissing(x{1}));
+                test.verifyEqual(string(v(~ismissing(v))), ...
+                    string(x{1}(~ismissing(x{1}))));
+            end
+            % An undefined categorical has no categories, sent as []:
+            % decoding it used to raise.
+            test.verifyTrue(isundefined(test.roundTrip(categorical(missing))));
+        end
+
+        function tNestedNullStillDecodes(test)
+            % The form the encoder sent before: [null] for each missing
+            % element.
+            j = jsondecode('{"type":"string","size":[1,2],"data":["a",[null]]}');
+            test.verifyEqual(ismissing(test.decode(j)), [false true]);
+            j = jsondecode(['{"type":"categorical","size":[1,2],' ...
+                '"categories":["x"],"data":["x",[null]]}']);
+            test.verifyEqual(isundefined(test.decode(j)), [false true]);
         end
 
         % --- Error branches that already work ----------------------------
@@ -169,6 +228,68 @@ classdef tMcpWireDecodeValue < matlab.unittest.TestCase
             test.verifyError(@() test.decode(struct("type", "datetime", ...
                 "size", [1 1], "data", {{"not-a-date"}})), ...
                 "prodserver:mcp:invalidDatetimeString");
+        end
+
+        % --- Datetime round trips ----------------------------------------
+
+        function tZonedScalarDatetime(test)
+            % A scalar in a named zone goes out wrapped, with tz, and comes
+            % back in that zone, not just at its offset.
+            for z = ["America/New_York" "Europe/London" "+05:30"]
+                d = datetime(2026,1,2,3,4,5, TimeZone=z);
+                j = prodserver.mcp.jsonrpc.mcpWireEncodeValue(d);
+                test.verifyEqual(j.tz, char(z), z);
+                v = test.roundTrip(d);
+                test.verifyEqual(v.TimeZone, char(z), z);
+                test.verifyEqual(v, d, z);
+            end
+        end
+
+        function tTextThatReadsAsAnotherValue(test)
+            % A char row the decoder would read as a date-time, a special
+            % float or NaT is wrapped, so it comes back as the same text.
+            for t = {'2026-01-02', '2026-01-02T03:04', 'NaN', 'Inf', '-Inf', 'NaT'}
+                j = prodserver.mcp.jsonrpc.mcpWireEncodeValue(t{1});
+                test.verifyTrue(isstruct(j), t{1});
+                test.verifyEqual(test.roundTrip(t{1}), t{1}, t{1});
+            end
+            % Ordinary text is still bare.
+            test.verifyEqual(prodserver.mcp.jsonrpc.mcpWireEncodeValue('hello'), "hello");
+            test.verifyEqual(test.roundTrip({'2026-01-02', 'x'}), {'2026-01-02', 'x'});
+        end
+
+        function tUTCAndUnzonedScalarDatetime(test)
+            d = datetime(2026,1,2,3,4,5.25, TimeZone="UTC");
+            test.verifyEqual(test.roundTrip(d), d);
+            d.TimeZone = "";
+            v = test.roundTrip(d);
+            test.verifyEqual(v, d);
+            test.verifyEmpty(v.TimeZone);
+        end
+
+        function tZonedDatetimeArrayKeepsZone(test)
+            d = datetime(2026,1,2,3,4,5, TimeZone="America/New_York") ...
+                + days([0 1; 2 3]);
+            d(2,1) = NaT;
+            v = test.roundTrip(d);
+            test.verifyEqual(v.TimeZone, 'America/New_York');
+            test.verifyEqual(isnat(v), isnat(d));
+            test.verifyEqual(v(~isnat(v)), d(~isnat(d)));
+        end
+
+        function tSubMillisecondDatetime(test)
+            % The invertible encoding keeps every digit a datetime holds.
+            d = datetime(2026,1,2,3,4,5, TimeZone="UTC") + ...
+                seconds([0.000123456 0.5]);
+            % (A datetime comparison takes no tolerance.)
+            v = test.roundTrip(d);
+            test.verifyEqual(seconds(v - d), [0 0], AbsTol=1e-9);
+            test.verifyEqual(seconds(test.roundTrip(d(1)) - d(1)), 0, AbsTol=1e-9);
+        end
+
+        function tCalendarDurationErrors(test)
+            test.verifyError(@() prodserver.mcp.jsonrpc.mcpWireEncodeValue( ...
+                calmonths(1)), "prodserver:mcp:unsupportedDurationType");
         end
 
     end

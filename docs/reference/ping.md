@@ -2,7 +2,7 @@
 ```MATLAB
 tf = ping(endpoint)
 ```
-Determine whether the MCP tool at `endpoint` is active and accepting requests. The function returns true if the tool is available and false otherwise. It never throws an exception; it returns false if any error occurs.
+Determine whether the MCP tool at `endpoint` is active and accepting requests. `ping` sends `GET /<archive>/ping`, the framework's own liveness check, not the MCP `ping` method, so it works under either protocol revision. The function returns true if the tool is available and false otherwise. Once its arguments are valid it doesn't throw: any failure to reach the tool returns false. An `endpoint` that isn't a URI at all raises `prodserver:mcp:BadURI`.
   
 ### Inputs
 | Argument | Type | Description | Example
@@ -19,21 +19,21 @@ Pass optional arguments with *argument=value* syntax following required inputs. 
 | Argument | Type | Description | Default |
 | :---     | :--- | :---        | :---    |
 | delay | integer | Number of seconds to pause between retries | 2 |
-| retry | integer | Number of times to retry on HTTP protocol errors (404, for example) | 30 | 
-| timeout | integer | Number of seconds to wait for a reply | 60 |
+| retry | integer | Number of times to retry after a refused connection, a timeout or HTTP 404 (an archive still being unpacked). Any other failure returns false at once. A dead endpoint takes about `retry*delay` seconds to report false. | 30 |
+| timeout | integer | Number of seconds to wait for each reply | 60 |
 
 # Examples
 
 Determine whether the tool `primeSequence` is available at `http://localhost:9910/primeSequence/mcp`.
 ```MATLAB
-tf = ping("http://localhost:9910/primeSequence/mcp")
+tf = prodserver.mcp.ping("http://localhost:9910/primeSequence/mcp")
 ```
 The return value `tf` is a scalar logical true or false.
 ***
 
 Return false for a badly formed MCP tool URL.
 ```MATLAB
-tf = ping("WWW://localhost:9910/primeSequence/mcp")
+tf = prodserver.mcp.ping("WWW://localhost:9910/primeSequence/mcp")
 ```
 The return value `tf` is false, since WWW:// is an invalid MCP tool URL prefix.
 

@@ -3,7 +3,7 @@ function mustBeSessionID(x)
 
 % Copyright 2025-2026 The MathWorks, Inc.
 
-    import prodserver.mcp.internal.Constants
+    import prodserver.mcp.protocol.v20250618.Constants
 
     if prodserver.mcp.validation.istext(x) == false
         throwAsCaller(MException("prodserver:mcp:BadSessionIDType", ...

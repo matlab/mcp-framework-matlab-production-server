@@ -1,0 +1,108 @@
+routes:
+  - path: /mcp
+    methods:
+      - POST
+    request:
+      - jrpc: initialize
+        response:
+          status: 201
+          headers:
+            Content-Type: application/json
+            Mcp-Session-Id: mock-session-20250618
+          body:
+            result:
+              capabilities:
+                tools:
+                  listChanged: false
+                resources:
+                  listChanged: false
+      - jrpc: notifications/initialized
+        response:
+          status: 200
+          headers:
+            Mcp-Session-Id: mock-session-20250618
+      - jrpc: tools/list
+        response:
+          status: 200
+          headers:
+            Content-Type: application/json
+            Mcp-Session-Id: mock-session-20250618
+          body:
+            result:
+              tools:
+                - name: "addNumbers"
+                  description: "Add two numbers together"
+                  inputSchema:
+                    type: object
+                    properties:
+                      a:
+                        type: number
+                        description: "First number"
+                      b:
+                        type: number
+                        description: "Second number"
+                    required:
+                      - a
+                      - b
+                    minProperties: 2
+                    maxProperties: 2
+                    additionalProperties: false
+                  outputSchema:
+                    type: object
+                    properties:
+                      sum:
+                        type: number
+                        description: "The sum of a and b"
+                    required:
+                      - sum
+                    additionalProperties: false
+      - jrpc: resources/list
+        response:
+          status: 200
+          headers:
+            Content-Type: application/json
+            Mcp-Session-Id: mock-session-20250618
+          body:
+            result:
+              resources:
+                - uri: "mcp://test/hello"
+                  name: "hello"
+                  mimeType: "text/plain"
+                - uri: "mcp://test/bytes"
+                  name: "bytes"
+                  mimeType: "application/octet-stream"
+      - jrpc: resources/read
+        uri: "mcp://test/bytes"
+        response:
+          status: 200
+          headers:
+            Content-Type: application/json
+            Mcp-Session-Id: mock-session-20250618
+          body:
+            result:
+              contents:
+                uri: "mcp://test/bytes"
+                mimeType: "application/octet-stream"
+                blob: "AAECf4D+/w=="
+      - jrpc: resources/read
+        response:
+          status: 200
+          headers:
+            Content-Type: application/json
+            Mcp-Session-Id: mock-session-20250618
+          body:
+            result:
+              contents:
+                uri: "mcp://test/hello"
+                mimeType: "text/plain"
+                text: "Hello from MCP 2025-06-18!"
+  - path: /mcp
+    methods:
+      - DELETE
+    request:
+      - jrpc: null
+        response:
+          status: 200
+          headers:
+            Content-Type: application/json
+          body: {}

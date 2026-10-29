@@ -1,4 +1,4 @@
-function validateArgumentsWithSchema(schema, names, values)
+function detail = validateArgumentsWithSchema(schema, names, values)
 %VALIDATEARGUMENTSWITHSCHEMA Validate MATLAB arguments against a JSON-RPC schema
 %   validateArgumentsWithSchema(SCHEMA, NAMES, VALUES) validates each value
 %   in the cell array VALUES against the corresponding schema definition.
@@ -6,6 +6,10 @@ function validateArgumentsWithSchema(schema, names, values)
 %   VALUES{n}. An error is issued identifying the first argument that fails
 %   validation, including the argument name and a description of the type 
 %   mismatch.
+%
+%   detail = validateArgumentsWithSchema(...) returns that description of
+%   the mismatch instead of raising the error, or "" if every value is
+%   valid. Other errors, such as a name with no schema, are still raised.
 %
 %   SCHEMA can be either an input schema or output schema from a JSON-RPC
 %   method definition. The function handles nested types (structs, cell arrays)
@@ -38,6 +42,8 @@ function validateArgumentsWithSchema(schema, names, values)
             "No schema found for parameter(s) '%s'.", strjoin(names,","));
     end
 
+    detail = "";
+
     % Validate each argument
     for i = 1:numel(values)
         argName = names(i);
@@ -47,7 +53,10 @@ function validateArgumentsWithSchema(schema, names, values)
             paramSchema = paramSchemas{i};
             [isValid, errMsg] = validateValue(argValue, paramSchema, argName);
 
-            if ~isValid
+            if ~isValid && nargout > 0
+                detail = string(errMsg);
+                return
+            elseif ~isValid
                 error('prodserver:mcp:SchemaValidationFailed', ...
                     'Argument ''%s'' failed validation: %s', argName, errMsg);
             end
@@ -158,7 +167,10 @@ function [isValid, errMsg] = validateValue(value, schema, path)
     if isfield(schema, 'const')
         if ~isequal(value, schema.const)
             isValid = false;
-            errMsg = sprintf('expected const value, got ''%s''', summarizeValue(value));
+            % Double quotes: these are values, not the class names that
+            % toolArgumentError's jsonTerms rewrites in single quotes.
+            errMsg = sprintf('expected "%s", got "%s"', ...
+                summarizeValue(schema.const), summarizeValue(value));
         end
         return;
     end
@@ -180,7 +192,7 @@ function [isValid, errMsg] = validateValue(value, schema, path)
     % Validate based on type
     switch schemaType
         case 'string'
-            [isValid, errMsg] = validateString(value);
+            [isValid, errMsg] = validateString(value, schema);
 
         case 'number'
             [isValid, errMsg] = validateNumber(value);
@@ -209,13 +221,20 @@ function [isValid, errMsg] = validateValue(value, schema, path)
     end
 end
 
-function [isValid, errMsg] = validateString(value)
-%VALIDATESTRING Validate that value is a string or char array
+function [isValid, errMsg] = validateString(value, schema)
+%VALIDATESTRING Validate that value is a string or char array, and if the
+%schema says "format": "date-time", ISO 8601 date-time text as
+%parseISODateTime reads it. (Other formats are not checked.)
     isValid = ischar(value) || isstring(value);
+    errMsg = '';
     if ~isValid
         errMsg = sprintf('expected string, got ''%s''', class(value));
-    else
-        errMsg = '';
+    elseif nargin > 1 && prodserver.mcp.jsonrpc.isDateTimeSchema(schema)
+        [~, isValid] = prodserver.mcp.jsonrpc.parseISODateTime(value);
+        if ~isValid
+            errMsg = sprintf("%s, got '%s'", ...
+                prodserver.mcp.MCPConstants.DateTimeExpected, value);
+        end
     end
 end
 
@@ -280,6 +299,16 @@ function [isValid, errMsg] = validateArray(value, schema, path)
     isValid = true;
     errMsg = '';
 
+    % A MATLAB scalar is a 1x1 array, so a single element satisfies an array
+    % schema. A character row vector is one string, not an array of
+    % characters; a struct array (which is how jsondecode delivers a JSON
+    % array of objects with the same fields) is an array of its elements.
+    if ischar(value) && (isrow(value) || isempty(value))
+        value = {value};
+    elseif isstruct(value)
+        value = num2cell(value);
+    end
+
     % Accept cell arrays or numeric/logical arrays
     if ~iscell(value) && ~isnumeric(value) && ~islogical(value) && ~isstring(value)
         isValid = false;
@@ -334,7 +363,10 @@ function [isValid, errMsg] = validateArray(value, schema, path)
                 itemPath = sprintf('%s[%d]', path, i);
                 [isValid, errMsg] = validateValue(itemValue, itemSchema, itemPath);
                 if ~isValid
-                    errMsg = sprintf('at index %d: %s', i, errMsg);
+                    % A single value has no position worth naming.
+                    if numel(value) > 1
+                        errMsg = sprintf('at index %d: %s', i, errMsg);
+                    end
                     return;
                 end
             end
@@ -347,32 +379,30 @@ function [isValid, errMsg] = validateObject(value, schema, path)
     isValid = true;
     errMsg = '';
 
-    % Check if it's a struct
+    % Check if it's a struct. A JSON array of objects decodes to a struct
+    % array, which is not one object.
     if ~isstruct(value)
         isValid = false;
         errMsg = sprintf('expected object (struct), got ''%s''', class(value));
         return;
     end
+    if ~isscalar(value)
+        isValid = false;
+        errMsg = sprintf('expected object (struct), got an array of %d', ...
+            numel(value));
+        return;
+    end
 
-    % Validate required properties -- convert required to string array
-    if isfield(schema, 'required')
-        required = schema.required;
-        if ischar(required) || iscellstr(required) %#ok<ISCLSTR>
-            required = string(required);
-        end
-        if isstring(required) == false
-            error("prodserver:mcp:InvalidSchema", ...
-                "Property 'required' must be a string array or " + ...
-                "convertible to a string array. Instead it has " + ...
-                "incompatible type '%s'.", class(required));
-        end
-        for i = 1:numel(required)
-            propName = required(i);
-            if ~isfield(value, propName)
-                isValid = false;
-                errMsg = sprintf('missing required property ''%s''', propName);
-                return;
-            end
+    % Validate required properties. requiredNames treats "required":[]
+    % (a 0x0 double after jsondecode) as the empty list, not a type error
+    % (ND8), and raises InvalidSchema for anything else that is not text.
+    required = prodserver.mcp.internal.requiredNames(schema);
+    for i = 1:numel(required)
+        propName = required(i);
+        if ~isfield(value, propName)
+            isValid = false;
+            errMsg = sprintf('missing required property ''%s''', propName);
+            return;
         end
     end
 
@@ -432,6 +462,12 @@ function [isValid, errMsg] = validateUnionType(value, types, schema, path)
         [valid, msg] = validateValue(value, subSchema, path);
         if valid
             isValid = true;
+            return;
+        end
+        % A value of this type that fails the schema for another reason
+        % -- a string that isn't a date-time -- says why.
+        if validateValue(value, struct('type', typeName), path)
+            errMsg = msg;
             return;
         end
         errors{end+1} = msg; %#ok<AGROW>
@@ -526,7 +562,13 @@ function [isValid, errMsg] = validateEnum(value, enumValues)
         end
     end
 
-    errMsg = sprintf('value ''%s'' is not one of the allowed enum values', summarizeValue(value));
+    if iscell(enumValues)
+        allowed = strjoin(cellfun(@(e) string('"') + summarizeValue(e) + '"', ...
+            enumValues(:)'), ", ");
+    else
+        allowed = string('"') + summarizeValue(enumValues) + '"';
+    end
+    errMsg = sprintf('value "%s" is not one of %s', summarizeValue(value), allowed);
 end
 
 function className = extractClassName(refString)

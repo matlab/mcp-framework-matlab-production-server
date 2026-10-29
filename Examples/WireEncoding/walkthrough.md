@@ -34,13 +34,15 @@ The wire encoding solves this by wrapping values with type and shape metadata:
 [ctf, endpoint] = buildWireEncodingServer(host="localhost");
 ```
 
+On a shared server, give the archive a name of your own with `buildWireEncodingServer`'s `archive` option: `deploy` replaces an archive with the same name, even one someone else deployed. `buildWireEncodingServer` writes the archive to `./deploy`, in the current folder, unless you give it `folder`.
+
 Or manually:
 ```MATLAB
 fcn = ["matrixMultiply", "analyzeACCircuit", "interpolateWithMissing", ...
        "fuseSensors", "blendImages"];
 ctf = prodserver.mcp.build(fcn, archive="WireEncoding", ...
     wrapper=["None","None","None","None","None"], ...
-    resource=resources, folder="./deploy");
+    resource=resources, folder="./deploy", encoding="Invertible");
 endpoint = prodserver.mcp.deploy(ctf, "localhost", 9910);
 ```
 

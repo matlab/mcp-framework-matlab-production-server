@@ -51,6 +51,38 @@ classdef tPercentEncode < matlab.unittest.TestCase
             test.verifyEqual(out, ["a%20b", "c/d"]);
         end
 
+        function tNonASCIIIsUTF8Bytes(test)
+            import prodserver.mcp.io.percentEncode
+            test.verifyEqual(percentEncode("é"), "%C3%A9");
+            test.verifyEqual(percentEncode("日本"), "%E6%97%A5%E6%9C%AC");
+        end
+
+        function tOutsideBMPIsOneCharacter(test)
+            % A UTF-16 surrogate pair is one character: four UTF-8 bytes,
+            % not two invalid halves.
+            import prodserver.mcp.io.percentEncode
+            test.verifyEqual(percentEncode("😀"), "%F0%9F%98%80");
+        end
+
+        function tPercentEncodedUnlessExcepted(test)
+            import prodserver.mcp.io.percentEncode
+            test.verifyEqual(percentEncode("50%"), "50%", ...
+                "% is a default exception.");
+            test.verifyEqual(percentEncode("50%", except="/"), "50%25");
+        end
+
+        function tExtraEncodesUnreserved(test)
+            import prodserver.mcp.io.percentEncode
+            test.verifyEqual(percentEncode("a.b", extra="."), "a%2Eb");
+        end
+
+        function tEmptyAndMissingUnchanged(test)
+            import prodserver.mcp.io.percentEncode
+            out = percentEncode(["", missing]);
+            test.verifyEqual(out(1), "");
+            test.verifyTrue(ismissing(out(2)));
+        end
+
     end
 
 end

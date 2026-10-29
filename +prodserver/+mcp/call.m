@@ -10,25 +10,19 @@ function [varargout] = call(endpoint, tool, varargin)
 %   (order matters) while optional arguments are order-independent
 %   name/value pairs.
 %
-%   Outputs are positional and ordered by the tool's output schema, followed
-%   by any further outputs its signature declares. Ask for as many as you
-%   want, up to the number the tool returns; asking for more is an error. A
-%   tool that returns more than you asked for is not an error -- the surplus
-%   is simply not returned, which is also the only option MATLAB allows,
-%   since varargout entries beyond nargout are discarded.
-%
 % Examples:
 %
-%  Invoke "cleanSignal" tool with three required inputs:
+%  Invoke "cleanSignal" tool with two required inputs and an optional
+%  output location:
 %
-%    prodserver.mcp.call("http://localhost:9910/mcp", ...
-%        "cleanSignal", noisy, frequency, clean)
+%    prodserver.mcp.call("http://localhost:9910/cleanSignal/mcp", ...
+%        "cleanSignal", noisy, period, cleanURL=clean)
 %
 %  Invoke "detectEdge" tool with two required and two optional inputs:
 %
-%    prodserver.mcp.call("http://localhost:9910/mcp", ...
+%    prodserver.mcp.call("http://localhost:9910/edges/mcp", ...
 %        "detectEdge", image, edges, algorithm="Canny", aperture=7)
-%    
+%
 
 % Copyright 2025-2026 The MathWorks, Inc.
 
@@ -40,62 +34,58 @@ function [varargout] = call(endpoint, tool, varargin)
         varargin
     end
 
+    % doCall returns its outputs as one cell array rather than through
+    % varargout, so that a call made as a statement (nargout 0) still gets
+    % its first output in ans.
+    try
+        varargout = doCall(endpoint, tool, nargout, varargin{:});
+    catch me
+        if prodserver.mcp.protocol.isProtocolError(me)
+            prodserver.mcp.client.Adapter.create(endpoint, action="clear");
+            varargout = doCall(endpoint, tool, nargout, varargin{:});
+        else
+            rethrow(me);
+        end
+    end
+end
+
+function outputs = doCall(endpoint, tool, nout, varargin)
+
     import prodserver.mcp.internal.hasField
     import prodserver.mcp.MCPConstants
-    import prodserver.mcp.jsonrpc.mcpDecode
 
-    %
-    % Initialize connection via JSON-RPC "initialize" message. And make
-    % session terminate exception-proof.
-    %
+    client = prodserver.mcp.client.Adapter.create(endpoint, ...
+        protocol="discover");
+    client.connect(require="Tool");
+    cleanup = onCleanup(@()client.disconnect()); %#ok<NASGU>
 
-    % Require that the server publish tools.
-    [session,id] = prodserver.mcp.internal.initialize(endpoint, ...
-        require="Tool");
-    terminate = onCleanup(@()terminateSession(endpoint,session));
-
-    %
-    % Check tools, to verify that TOOL exists at ENDPOINT
-    %
-    
-    [items,id] = prodserver.mcp.internal.list(endpoint,session, ...
-        "Tool",id=id);
+    items = client.list("Tool");
     tools = items.tools;
 
-    % Can't tell with JSON, sometimes -- the encoding and decoding is not
-    % invertible -- an encoded cell array of structures can decode to a
-    % struct array if all the structures have the same fields. Make sure
-    % tools is a cell array. (We have to pick one, and since the tools can
-    % have different fields, cell array is the only wide enough type.)
     if isstruct(tools)
         tools = num2cell(tools);
     end
 
-    % Out, out, damn char!
-    names = cellfun(@(t)string(t.name),tools);
+    names = cellfun(@(t)string(t.name), tools);
 
-    found = strcmp(tool,names);
+    found = strcmp(tool, names);
     if nnz(found) ~= 1
         error("prodserver:mcp:NonUniqueTool", "Tools must exist and " + ...
             "have unique names. Found %d tools named %s.", nnz(found), ...
             tool);
     end
-    % Get the structure defining the tool
     t = tools(found);
     if iscell(t)
         t = t{1};
     end
 
-    % Validate input argument count -- not more than max or less than
-    % required.
-    if hasField(t,"inputSchema") == false
+    if hasField(t, "inputSchema") == false
         error("prodserver:mcp:NoInputSchema", "Tool %s missing input " + ...
             "schema. Inform tool creator.", tool);
     end
 
-    % If maximum number of inputs specified, validate input count against it.
     N = numel(varargin);
-    if hasField(t.inputSchema,"maxProperties")
+    if hasField(t.inputSchema, "maxProperties")
         tN = t.inputSchema.maxProperties;
     else
         tN = N;
@@ -105,14 +95,10 @@ function [varargout] = call(endpoint, tool, varargin)
             "to tool %s is %d but %d provided.", tool, tN, N);
     end
 
-    % If minimum number of inputs specified, validate input count against
-    % it.
-    if hasField(t.inputSchema,"minProperties")
+    if hasField(t.inputSchema, "minProperties")
         tN = t.inputSchema.minProperties;
-    elseif hasField(t.inputSchema,"required")
-        tN = numel(t.inputSchema.required);
     else
-        tN = 0;
+        tN = numel(prodserver.mcp.internal.requiredNames(t, "inputSchema"));
     end
     if N < tN
         error("prodserver:mcp:TooFewInputs", "Tool %s requires at " + ...
@@ -121,133 +107,28 @@ function [varargout] = call(endpoint, tool, varargin)
 
     %
     % Fetch signature, required for optional and output argument management
-    % 
+    %
 
-    sigEndpoint = replace(endpoint,MCPConstants.MCP,MCPConstants.Signature);
-    sig = prodserver.mcp.internal.signature(tool,sigEndpoint,session);
+    sigEndpoint = replace(endpoint, MCPConstants.MCP, MCPConstants.Signature);
+    sig = prodserver.mcp.internal.signature(tool, sigEndpoint, client);
     if isempty(sig)
         error("prodserver:mcp:MissingSignature", ...
             "Tool %s missing signature information. Inform tool " + ...
             "creator.", tool);
     end
 
-    % Determine wire encoding for this tool from signature or description.
-    if isfield(sig,tool) && isfield(sig.(tool),'encoding')
-        encoding = prodserver.mcp.WireEncoding(sig.(tool).encoding);
-    elseif contains(string(t.description), MCPConstants.WireEncodingResourceURI)
-        encoding = prodserver.mcp.WireEncoding.Invertible;
-    else
-        encoding = prodserver.mcp.WireEncoding.JSON;
-    end
+    % As toolsCall encodes the inputs.
+    encoding = prodserver.mcp.jsonrpc.toolEncoding(tool, sig=sig, def=t);
 
     %
     % Invoke tool
     %
 
-    data = prodserver.mcp.jsonrpc.toolsCall(tool,id,t,sig,varargin{:});
+    data = prodserver.mcp.jsonrpc.toolsCall(tool, client.nextId(), ...
+        t, sig, varargin{:});
 
-    headers = [
-        matlab.net.http.HeaderField('Content-Type', 'application/json'), ...
-        matlab.net.http.HeaderField(MCPConstants.ProtocolVersion, ...
-            MCPConstants.protocolVersion), ...
-        matlab.net.http.HeaderField(MCPConstants.SessionId, char(session))
-        ];
-    body = matlab.net.http.MessageBody(data);
-    request = matlab.net.http.RequestMessage('POST', headers, body);
-    response = send(request,endpoint);
-    prodserver.mcp.internal.requireSuccess(response,endpoint, ...
-        request=data.method + " " + tool);
+    response = client.send(data, label=data.method + " " + tool);
 
-    % Require structuredContent field if the tool has an output schema
-    % with required outputs.
-    if hasField(t,"outputSchema.required") && ...
-            hasField(response,"Body.Data.result.structuredContent") == false
-        error("prodserver:mcp:NoStructuredContent", "Tool %s has required " + ...
-            "outputs but did not produce structured content.", tool);
-    end
-
-    % Prefer structured content, if available.
-    if hasField(response,"Body.Data.result.structuredContent")
-        % Result is "structuredContent". Outputs are positional: ordered by
-        % the output schema first, then by any further names the signature
-        % declares. REQ is that order, and it is the only order either side
-        % agrees on -- the field order jsondecode produces is the wire's.
-        result = response.Body.Data.result.structuredContent;
-        req = string.empty;
-        if hasField(t,"outputSchema.required")
-            req = string(t.outputSchema.required);
-        end
-        if hasField(sig,tool+".output")
-            req = union(req,string(sig.(tool).output.name),"stable");
-        end
-
-        if isempty(req)
-            % Nothing says what the outputs are called, so there is no
-            % defensible order to return them in. Refuse only if the caller
-            % actually asked for something.
-            if nargout > 0
-                error("prodserver:mcp:TooFewOutputs", "Tool %s at %s " + ...
-                    "declares no outputs, so the %d requested cannot be " + ...
-                    "ordered. Inform tool creator.", tool, endpoint, nargout);
-            end
-            varargout = {};
-        else
-            % A call made as a statement has nargout 0 and still wants one
-            % output, in ans. Filling 1:nargout left that call returning
-            % nothing at all -- no display, no ans -- which looks exactly
-            % like a tool that produced no result.
-            wanted = max(nargout,1);
-
-            if wanted > numel(req)
-                error("prodserver:mcp:TooFewOutputs", "Tool %s at %s " + ...
-                    "declares %d output(s) (%s) but %d requested.", ...
-                    tool, endpoint, numel(req), strjoin(req,", "), wanted);
-            end
-
-            % REQ unions two sources, either of which may name something the
-            % server did not actually send. Say which, rather than letting the
-            % field index below raise MATLAB:nonExistentField, which names the
-            % field but not the tool, the endpoint or the reason.
-            absent = setdiff(req(1:wanted), ...
-                string(fieldnames(result)),"stable");
-            if ~isempty(absent)
-                error("prodserver:mcp:MissingOutputs", "Tool %s at %s did " + ...
-                    "not return declared output(s) %s.", tool, endpoint, ...
-                    strjoin(absent,", "));
-            end
-
-            outVals = cell(1,wanted);
-            for n=1:wanted
-                outVals{n} = result.(req(n));
-            end
-            decoded = mcpDecode(encoding, outVals{:});
-            varargout = cell(1,wanted);
-            for n=1:wanted
-                varargout{n} = decoded{n};
-            end
-        end
-    elseif hasField(response,"Body.Data.result.content")
-        varargout{1} = response.Body.Data.result.content;
-    else 
-        varargout = {};
-    end
-
-    %
-    % Terminate session via onCleanup
-    %
-
-   
-end
-
-function terminateSession(endpoint, session)
-% Terminate errors are "soft" -- they do not prevent delivery of
-% results. 
-
-    try
-        % No response expected.
-        prodserver.mcp.internal.terminate(endpoint,session);
-    catch me
-        warning("prodserver:mcp:TerminateFailed", "Failed to terminate " + ...
-            "session '%s': %s", session, me.message);
-    end
+    outputs = prodserver.mcp.internal.assembleOutputs(tool, endpoint, ...
+        t, sig, response.Body.Data, nout, encoding);
 end

@@ -40,7 +40,7 @@ classdef tOptionalDefine < matlab.unittest.TestCase & ...
             % Generate definitions for tools
             tool = "toyScalarOptions";
 
-            % Vanilla argument list -- tools only, no GenAI.
+            % Vanilla argument list.
             td = prodserver.mcp.internal.defineForMCP(tool,tool, ...
                 encoding="Invertible");
 
@@ -57,7 +57,7 @@ classdef tOptionalDefine < matlab.unittest.TestCase & ...
             % Generate definitions for tools
             tool = "toyScalarNVOptions";
 
-            % Vanilla argument list -- tools only, no GenAI.
+            % Vanilla argument list.
             td = prodserver.mcp.internal.defineForMCP(tool,tool, ...
                 encoding="Invertible");
 

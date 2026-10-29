@@ -37,7 +37,8 @@ function response = taskOpenAI(prompt,mcpTools)
     % maximum number of alloted steps.
     while ~problemSolved
         if stepCount >= maxSteps
-            error("Agent stopped after reaching maximum step limit (%d).",maxSteps);
+            error("taskOpenAI:StepLimitReached", ...
+                "Agent stopped after reaching maximum step limit (%d).",maxSteps);
         end
         stepCount = stepCount + 1;
 

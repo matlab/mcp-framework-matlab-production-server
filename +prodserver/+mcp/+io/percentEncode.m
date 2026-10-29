@@ -1,11 +1,17 @@
 function str = percentEncode(str,opts)
 %percentEncode Replace characters with their percent encoding. 
 %
-%    str = percentEncode(str) replaces all non-ASCII characters with their
-%    percent-encoding. 
+%    str = percentEncode(str) replaces every character that is neither
+%    unreserved (letters, digits and .-_~) nor a reserved URI delimiter
+%    (/:?#[]@!$&'()*+,;=%) with the percent-encoding of its UTF-8 bytes.
+%    A non-ASCII character is always encoded.
 %
-%    str = percentEncode(str,except=<string>) does not percent-encode any
-%    of the characters in <string>.
+%    str = percentEncode(str,except=<string>) uses the ASCII characters in
+%    <string> as the exceptions instead of the reserved URI delimiters.
+%    skip=<string> adds to the exceptions; extra=<string> encodes the
+%    characters in <string> even if they are exceptions or unreserved.
+%    only=<string> clears the exceptions and encodes the characters in
+%    <string> as well.
 %
 % Examples:
 %
@@ -46,53 +52,27 @@ function str = percentEncode(str,opts)
         except = "";
     end
 
-    % There's a lot of back and forth between row and column vectors and
-    % character vectors and strings. Mostly that's because MATLAB's string
-    % arrays don't allow indexing into individual strings. To manipulate a
-    % string at the character level, it must be converted to a character
-    % vector. (And then back again, to preserve its original datatype.)
+    % A character is written as is if it is unreserved or an exception, and
+    % not listed in extra. Every other character is percent-encoded.
+    % Exceptions apply to ASCII characters only: anything else is always
+    % encoded.
+    keep = setdiff([unreserved, char(except)], char(extra));
 
-    untouchable = char(except);
-    extra = char(extra);
     for n = 1:numel(str)
+        if ismissing(str(n)) || strlength(str(n)) == 0
+            continue
+        end
 
-        % Find the non-unreserved characters in the string. MATLAB uses 
-        % UTF-16, which guarantees that the ASCII characters have numeric 
-        % values < 128. (UTF-8 uses a multi-byte encoding which cannot 
-        % make any such guarantee.)
-        c = char(str(n));
-        encodable = unique(c(~ismember(c,unreserved)));
+        % Work on the UTF-8 bytes. A character outside the Basic
+        % Multilingual Plane is two UTF-16 code units in MATLAB; encoding
+        % each unit separately produces two invalid halves. Its four UTF-8
+        % bytes encode correctly.
+        bytes = unicode2native(str(n), "UTF-8");
+        literal = bytes < 128 & ismember(char(bytes), keep);
 
-        %nonASCII = double(c) > 128;
-        %encodable = char(c(nonASCII));
-
-        % Remove untouchable characters from encodable
-        encodable = setdiff(encodable,untouchable);
-
-        % Add extra characters to encodable
-        encode = [ encodable, char(extra) ];
-
-        % If encodable is empty, replace will add a % between every
-        % character in the string. Nobody wants that. 
-        if isempty(encode), continue; end
-
-        % Replace requires a column vector.
-        if isrow(encode), encode = encode'; end
-
-        % Percent encode all the encodable and non-ASCII characters. Expand
-        % UTF-16 characters into their multi-byte UTF-8 representation to
-        % ensure that the % is followed by exactly two hex digits.
-        %
-        % encoding will be a string vector the same length as encode. But
-        % each string in encoding will have at least 3 characters and
-        % possibly as many as 12. (UTF-8 characters range from 1 to 4 bytes
-        % in size, and each byte is percent-encoded into three characters.)
-        encoding = arrayfun(@(c)strjoin("%"+string(dec2hex(...
-            unicode2native(c,"UTF-8"))),''),encode);
-
-        % Here encodable must be a string (a column vector of 1x1 strings
-        % -- each a single character) or replace will error.
-        str(n) = replace(str(n),string(encode),encoding);
+        pieces = "%" + string(dec2hex(bytes, 2))';
+        pieces(literal) = string(num2cell(char(bytes(literal))));
+        str(n) = join(pieces, "");
     end
 end
 

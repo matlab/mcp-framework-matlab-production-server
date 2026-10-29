@@ -1,0 +1,46 @@
+# A mock MATLAB Production Server for tDeployTransport's discovery timeout
+# test: an archive built before ping named its build, and a discovery API
+# that answers -- with the build the upload replaces -- only after longer
+# than deploy waits for it (Constants.DiscoveryTimeout, 10 seconds).
+routes:
+  - path: /api/health
+    methods:
+      - GET
+    request:
+      - body: ""
+        response:
+          status: 200
+          body: {"status": "ok"}
+  - path: /api/archives
+    methods:
+      - GET
+      - POST
+      - PUT
+    request:
+      - body: ""
+        response:
+          status: 200
+          body: {"action": "list", "result": false, "archive": "none"}
+      - anybody: true
+        response:
+          status: 200
+          body: {"action": "upload", "result": true}
+  - path: /slowdisc/ping
+    methods:
+      - GET
+    request:
+      - body: ""
+        response:
+          status: 200
+          headers:
+            Content-Type: text/plain
+          body: "pong"
+  - path: /api/discovery
+    methods:
+      - GET
+    request:
+      - body: ""
+        response:
+          delay: 12
+          status: 200
+          body: {"archives": {"slowdisc": {"archiveUuid": "slowdisc_old"}}}

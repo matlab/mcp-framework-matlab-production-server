@@ -1,5 +1,5 @@
-classdef tAdditionalFilesCI < MCPCaller & ...
-        prodserver.mcp.test.mixin.ExternalData 
+classdef tAdditionalFilesCI < prodserver.mcp.test.base.MCPCaller & ...
+        prodserver.mcp.test.mixin.ExternalData
 
 % Copyright 2026 The MathWorks, Inc.
 
@@ -50,54 +50,64 @@ classdef tAdditionalFilesCI < MCPCaller & ...
                 files=dataFile,archive=archiveName);
             test.verifyEqual(exist(ctf,"file"),2,ctf);
 
-            % Deploy 
+            % Deploy
             endpoint = prodserver.mcp.deploy(ctf,test.server);
 
-            for k=1:numel(fcn)
-                tf = prodserver.mcp.exist(endpoint,fcn(k),"Tool",delay=10,retry=5);
-                test.verifyTrue(tf,fcn(k) + " is not a tool at " + endpoint);
+            for p = test.Protocols
+                prodserver.mcp.client.Adapter.create(endpoint, action="clear");
+                prodserver.mcp.client.Adapter.create(endpoint, protocol=p);
+
+                for k=1:numel(fcn)
+                    tf = prodserver.mcp.exist(endpoint,fcn(k),"Tool", ...
+                        delay=10,retry=5,protocol=p);
+                    test.verifyTrue(tf, ...
+                        fcn(k) + " is not a tool at " + endpoint + ...
+                        " [" + p + "]");
+                end
+
+                % Call the tools
+
+                %
+                % toyScalarOne
+                %
+                actualEleven = prodserver.mcp.call(endpoint,fcn(1),ten);
+                test.verifyEqual(actualEleven,eleven, ...
+                    "toyScalarOne [" + p + "]");
+
+                %
+                % toySummary
+                %
+
+                dataURL = stow(test,test.dataFolder,"data",dataFile);
+                summaryURL = sink(test,"summary",test.dataFolder);
+                prodserver.mcp.call(endpoint,fcn(2),dataURL,answerURL=summaryURL);
+                aSummary = fetch(test,summaryURL);
+                test.verifyEqual(aSummary,eSummary, ...
+                    "toySummary [" + p + "]");
+
+                %
+                % toyToolOne
+                %
+
+                % Create the file URL inputs in the temporary folder.
+                xURL = sink(test,"x",test.dataFolder);
+                yURL = sink(test,"y",test.dataFolder);
+                zURL = sink(test,"z",test.dataFolder);
+                bURL = stow(test,test.dataFolder,"b",b);
+
+                % Invoke - x,y,z and b are externalized.
+                prodserver.mcp.call(endpoint,fcn(3),a,bURL,xURL=xURL,...
+                    yURL=yURL,zURL=zURL);
+
+                % Fetch outputs from their URLs.
+                aX = fetch(test,xURL);
+                aY = fetch(test,yURL);
+                aZ = fetch(test,zURL);
+
+                test.verifyEqual(aX,eX,"toyToolOne X [" + p + "]");
+                test.verifyEqual(aY,eY,"toyToolOne Y [" + p + "]");
+                test.verifyEqual(aZ,eZ,"toyToolOne Z [" + p + "]");
             end
-
-            % Call the tools
-
-            % 
-            % toyScalarOne
-            %
-            actualEleven = prodserver.mcp.call(endpoint,fcn(1),ten);
-            test.verifyEqual(actualEleven,eleven);
-
-            % 
-            % toySummary
-            %
-
-            dataURL = stow(test,test.dataFolder,"data",dataFile);
-            summaryURL = sink(test,"summary",test.dataFolder);
-            prodserver.mcp.call(endpoint,fcn(2),dataURL,answerURL=summaryURL);
-            aSummary = fetch(test,summaryURL);
-            test.verifyEqual(aSummary,eSummary);
-
-            %
-            % toyToolOne
-            %
-
-            % Create the file URL inputs in the temporary folder.
-            xURL = sink(test,"x",test.dataFolder);
-            yURL = sink(test,"y",test.dataFolder);
-            zURL = sink(test,"z",test.dataFolder);
-            bURL = stow(test,test.dataFolder,"b",b);
-
-            % Invoke - x,y,z and b are externalized.
-            prodserver.mcp.call(endpoint,fcn(3),a,bURL,xURL=xURL,...
-                yURL=yURL,zURL=zURL);
-
-            % Fetch outputs from their URLs.
-            aX = fetch(test,xURL);
-            aY = fetch(test,yURL);
-            aZ = fetch(test,zURL);
-
-            test.verifyEqual(aX,eX);
-            test.verifyEqual(aY,eY);
-            test.verifyEqual(aZ,eZ);
 
         end
     end

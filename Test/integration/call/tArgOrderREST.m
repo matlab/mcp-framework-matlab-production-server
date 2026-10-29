@@ -1,4 +1,4 @@
-classdef tArgOrderREST < MCPCaller
+classdef tArgOrderREST < prodserver.mcp.test.base.MCPCaller
 % Use the REST interface to test argument order processing
 
 % Copyright 2025-2026 The MathWorks, Inc.
@@ -17,6 +17,7 @@ classdef tArgOrderREST < MCPCaller
     methods 
         function [headers,payload] = buildToolsCall(test,tool)
             import prodserver.mcp.MCPConstants
+            import prodserver.mcp.protocol.v20250618.Constants
 
             test.server = "http://localhost:9910/"+tool+"/mcp";
 
@@ -27,7 +28,7 @@ classdef tArgOrderREST < MCPCaller
             headers = [...
                 matlab.net.http.HeaderField('Content-Type', 'application/json'), ...
                 matlab.net.http.HeaderField(MCPConstants.ProtocolVersion, ...
-                    MCPConstants.protocolVersion)...
+                    Constants.Version)...
             ];
         end
     end
@@ -37,6 +38,7 @@ classdef tArgOrderREST < MCPCaller
         function inputOrder(test)
             import prodserver.mcp.internal.hasField
             import prodserver.mcp.MCPConstants
+            import prodserver.mcp.protocol.v20250618.Constants
 
             test.applyFixture(prodserver.mcp.test.mixin.RequireParamTools());
 
@@ -72,7 +74,7 @@ classdef tArgOrderREST < MCPCaller
             [headers,payload] = buildToolsCall(test,fcn);
             payload.id = id;
             headers = [headers, ...
-     matlab.net.http.HeaderField(MCPConstants.SessionId, char(session))
+     matlab.net.http.HeaderField(Constants.SessionId, char(session))
             ];
  
             payload.params.arguments = orderfields(args,["a","b","c","d"]);

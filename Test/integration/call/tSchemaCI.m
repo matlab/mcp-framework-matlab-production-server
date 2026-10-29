@@ -1,4 +1,4 @@
-classdef tSchemaCI < MCPCaller & ...
+classdef tSchemaCI < prodserver.mcp.test.base.MCPCaller & ...
         prodserver.mcp.test.mixin.ExternalData
 
 % Copyright 2025-2026 The MathWorks, Inc.
@@ -63,7 +63,7 @@ classdef tSchemaCI < MCPCaller & ...
     methods(Test)
 
         function literal(test)
-      
+
             import prodserver.mcp.internal.hasField
 
             % Requires parameter-focused test tools
@@ -76,63 +76,12 @@ classdef tSchemaCI < MCPCaller & ...
             test.applyFixture(prodserver.mcp.test.mixin.RemoveArchive(...
                 test.server,fcn));
 
-            % Build 
+            % Build
             ctf = prodserver.mcp.build(fcn,folder=test.tempFolder, ...
                 encoding="Invertible");
 
             % Deploy
             endpoint = prodserver.mcp.deploy(ctf,test.host,test.port);
-
-            % Get the description from the server and ensure the schemas
-            % match.
-            d = prodserver.mcp.list(endpoint,"Tool");
-
-            % At least two tools on every server -- the user-specified tool
-            % and read_mcp_resource.
-            names = cellfun(@(t)string(t.name),d);
-            found = strcmp(fcn,names);
-            test.verifyEqual(nnz(found),1,"Too many tools named " + fcn);
-
-            % Make sure the wire-encoding resource is present, as
-            % Invertible requires it.
-            validateResource(test,endpoint);
-                
-            % Extract the tool definition structure.
-            d = d{found};
-
-            % Retrieved schemas must match original schemas.
-            cSchema = d.inputSchema.properties.circle;
-            cSchema = rmfield(cSchema,"description");
-            expectedSchema = jsondecode(...
-                fileread(fullfile(test.toolFolder,"circle.json")));
-            expectedSchema.maxItems = 11;
-
-            % Expect annotation field to match default encoding
-            test.verifyTrue(hasField(cSchema,"annotation"), "Annotation missing");
-            test.verifyTrue(startsWith(cSchema.annotation,"Invertible wire encoding wrapper"), ...
-                "Incorrect annotation");
-
-            test.verifyTrue(hasField(cSchema,"properties.data"), ...
-                "Missing properties.data");
-
-            test.verifyEqual(cSchema.properties.data,expectedSchema,"Circle schemas not equal");
-
-            sSchema = d.inputSchema.properties.square;
-            sSchema = rmfield(sSchema,"description");
-            expectedSchema = jsondecode(...
-                fileread(fullfile(test.toolFolder,"square.json")));
-            expectedSchema.maxItems = 13;
-
-            % Expect annotation field to match default encoding
-            test.verifyTrue(hasField(sSchema,"annotation"), "Annotation missing");
-            test.verifyTrue(startsWith(sSchema.annotation,"Invertible wire encoding wrapper"), ...
-                "Incorrect annotation");
-
-            test.verifyTrue(hasField(sSchema,"properties.data"), ...
-                "Missing properties.data");
-
-
-            test.verifyEqual(sSchema.properties.data,expectedSchema,"Square schemas not equal");
 
             % Make up some data and then call the deployed function
             xC = num2cell(randi(100,[11,1]));
@@ -149,11 +98,79 @@ classdef tSchemaCI < MCPCaller & ...
 
             [a.sortedC, a.sortedS, a.areaC, a.areaS] = literalSchemas(...
                 circle, square);
-            [e.sortedC, e.sortedS, e.areaC, e.areaS] = ...
-                prodserver.mcp.call(endpoint,fcn,circle, square);
-            test.verifyEqual(a,e,"Something went wrong");
-            test.verifyEqual([a.sortedC.radius],1:11,"Circle sort order wrong");
-            test.verifyEqual([a.sortedS.side],1:13,"Side sort order wrong");
+
+            for p = test.Protocols
+                prodserver.mcp.client.Adapter.create(endpoint, action="clear");
+                prodserver.mcp.client.Adapter.create(endpoint, protocol=p);
+
+                % Get the description from the server and ensure the schemas
+                % match.
+                d = prodserver.mcp.list(endpoint,"Tool");
+
+                % At least two tools on every server -- the user-specified tool
+                % and read_mcp_resource.
+                names = cellfun(@(t)string(t.name),d);
+                found = strcmp(fcn,names);
+                test.verifyEqual(nnz(found),1, ...
+                    "Too many tools named " + fcn + " [" + p + "]");
+
+                % Make sure the wire-encoding resource is present, as
+                % Invertible requires it.
+                validateResource(test,endpoint);
+
+                % Extract the tool definition structure.
+                d = d{found};
+
+                % Retrieved schemas must match original schemas.
+                cSchema = d.inputSchema.properties.circle;
+                cSchema = rmfield(cSchema,"description");
+                expectedSchema = jsondecode(...
+                    fileread(fullfile(test.toolFolder,"circle.json")));
+                expectedSchema.minItems = 11;
+                expectedSchema.maxItems = 11;
+
+                % Expect annotation field to match default encoding
+                test.verifyTrue(hasField(cSchema,"annotation"), ...
+                    "Annotation missing [" + p + "]");
+                test.verifyTrue(startsWith(cSchema.annotation, ...
+                    "Invertible wire encoding wrapper"), ...
+                    "Incorrect annotation [" + p + "]");
+
+                test.verifyTrue(hasField(cSchema,"properties.data"), ...
+                    "Missing properties.data [" + p + "]");
+
+                test.verifyEqual(cSchema.properties.data,expectedSchema, ...
+                    "Circle schemas not equal [" + p + "]");
+
+                sSchema = d.inputSchema.properties.square;
+                sSchema = rmfield(sSchema,"description");
+                expectedSchema = jsondecode(...
+                    fileread(fullfile(test.toolFolder,"square.json")));
+                expectedSchema.minItems = 13;
+                expectedSchema.maxItems = 13;
+
+                % Expect annotation field to match default encoding
+                test.verifyTrue(hasField(sSchema,"annotation"), ...
+                    "Annotation missing [" + p + "]");
+                test.verifyTrue(startsWith(sSchema.annotation, ...
+                    "Invertible wire encoding wrapper"), ...
+                    "Incorrect annotation [" + p + "]");
+
+                test.verifyTrue(hasField(sSchema,"properties.data"), ...
+                    "Missing properties.data [" + p + "]");
+
+                test.verifyEqual(sSchema.properties.data,expectedSchema, ...
+                    "Square schemas not equal [" + p + "]");
+
+                [e.sortedC, e.sortedS, e.areaC, e.areaS] = ...
+                    prodserver.mcp.call(endpoint,fcn,circle, square);
+                test.verifyEqual(a,e, ...
+                    "Something went wrong [" + p + "]");
+                test.verifyEqual([a.sortedC.radius],1:11, ...
+                    "Circle sort order wrong [" + p + "]");
+                test.verifyEqual([a.sortedS.side],1:13, ...
+                    "Side sort order wrong [" + p + "]");
+            end
         end
 
 
@@ -168,7 +185,7 @@ classdef tSchemaCI < MCPCaller & ...
             % Build -- suppress wrapper generation for this example to test
             % structure transmission over JSON.
             ctf = prodserver.mcp.build(fcn, folder=test.tempFolder);
-            
+
             test.verifyEqual(exist(ctf,"file"),2,ctf);
 
             % Deploy
@@ -178,15 +195,20 @@ classdef tSchemaCI < MCPCaller & ...
             m = 11; r.x = 3; r.y = 4; r.z = 5;
             [eZ,eQ] = feval(fcn,m,r);
 
-            % Allocate space for the input and output
-            aZURI = sink(test,"Z",test.tempFolder);
-            rURI = stow(test,test.tempFolder,"R",r);
+            for p = test.Protocols
+                prodserver.mcp.client.Adapter.create(endpoint, action="clear");
+                prodserver.mcp.client.Adapter.create(endpoint, protocol=p);
 
-            % Call the function on the server.
-            aQ = prodserver.mcp.call(endpoint,fcn,m,rURI,zURL=aZURI);
-            aZ = fetch(test,aZURI);
-            test.verifyEqual(aZ,eZ,"Z");
-            test.verifyEqual(aQ,eQ,"Q");
+                % Allocate space for the input and output
+                aZURI = sink(test,"Z",test.tempFolder);
+                rURI = stow(test,test.tempFolder,"R",r);
+
+                % Call the function on the server.
+                aQ = prodserver.mcp.call(endpoint,fcn,m,rURI,zURL=aZURI);
+                aZ = fetch(test,aZURI);
+                test.verifyEqual(aZ,eZ,"Z [" + p + "]");
+                test.verifyEqual(aQ,eQ,"Q [" + p + "]");
+            end
 
         end
 
@@ -209,10 +231,6 @@ classdef tSchemaCI < MCPCaller & ...
             % Deploy
             endpoint = prodserver.mcp.deploy(ctf,test.host,test.port);
 
-            % Make sure the wire-encoding resource is present, as
-            % Invertible requires it.
-            validateResource(test,endpoint);
-
             % Generate circles and squares with area less than 11
             %
             % Going from high to low index allocates the entire structure
@@ -231,7 +249,7 @@ classdef tSchemaCI < MCPCaller & ...
             end
             square = square(randperm(numel(square)));
 
-            % All objects with area < 4.5. 
+            % All objects with area < 4.5.
             area = 4.5;
             cA = arrayfun(@(c)c.radius * c.radius * pi, circle);
             sA = arrayfun(@(s)s.side * s.side,square);
@@ -239,11 +257,20 @@ classdef tSchemaCI < MCPCaller & ...
             eC = circle(cA < area);
             eList = [num2cell(eC), num2cell(eS)];
 
-            % Call -- transmit all data over the wire
-            list = prodserver.mcp.call(endpoint,fcn,circle,square,area);
-            test.verifyEqual(numel(list),numel(eList),"Result length");
-            test.verifyEqual(list,eList,"Result list");
+            for p = test.Protocols
+                prodserver.mcp.client.Adapter.create(endpoint, action="clear");
+                prodserver.mcp.client.Adapter.create(endpoint, protocol=p);
+
+                % Make sure the wire-encoding resource is present, as
+                % Invertible requires it.
+                validateResource(test,endpoint);
+
+                % Call -- transmit all data over the wire
+                list = prodserver.mcp.call(endpoint,fcn,circle,square,area);
+                test.verifyEqual(numel(list),numel(eList), ...
+                    "Result length [" + p + "]");
+                test.verifyEqual(list,eList,"Result list [" + p + "]");
+            end
         end
     end
 end
-

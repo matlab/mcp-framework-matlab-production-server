@@ -5,12 +5,11 @@ function [result, httpCode, httpMsg, msgHeaders, r] = initResult(~)
 
 % Copyright 2025-2026 The MathWorks, Inc.
 
-    % The response version is the server's to state. Echoing the request's
-    % jsonrpc field would let a client dictate it; validateEnvelope has
-    % already rejected anything that is not 2.0 by the time a handler runs.
+    % The server's version, not the request's: validateEnvelope has
+    % already insisted they agree, and a handler reached any other way must
+    % not echo whatever the request said (XD21).
     result.jsonrpc = prodserver.mcp.MCPConstants.jrpcVersion;
-    httpCode = 200;
-    httpMsg = 'OK';
+    [httpCode, httpMsg] = prodserver.mcp.handler.internal.httpStatus(200);
     msgHeaders = {};
     r = struct();
 end

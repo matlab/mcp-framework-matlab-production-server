@@ -10,6 +10,29 @@ classdef MCPHandlerBase < matlab.unittest.TestCase
         toolNames
         fcnNames
         server
+        protocol
+    end
+
+    properties (MethodSetupParameter)
+        % Every registered revision, taken from the registry rather than
+        % written out. This is the parameter that multiplies all 27 suites
+        % built on this base, so a hardcoded list here is the single place
+        % where adding an adapter would silently leave the whole test estate
+        % running against the old revisions only -- green, and not testing
+        % the new one at all.
+        %
+        % num2cell, because a MethodSetupParameter wants a cell of values and
+        % supportedVersions returns a string array. The parameter names in
+        % test output stay the version strings themselves.
+        protocolParam = num2cell( ...
+            prodserver.mcp.protocol.ProtocolRegistry.instance( ...
+                ).supportedVersions())
+    end
+
+    methods (TestMethodSetup)
+        function setupProtocol(test, protocolParam)
+            test.protocol = protocolParam;
+        end
     end
 
     methods (TestClassSetup)
@@ -44,191 +67,52 @@ classdef MCPHandlerBase < matlab.unittest.TestCase
             % Get base request structure
             req = test.request;
             req.Headers = [req.Headers; {MCPConstants.ContentType, ...
-                'application/json'}];
-
-            % Make up a session ID
-            id = matlab.lang.internal.uuid;
-            req.Headers = [req.Headers; { MCPConstants.SessionId id} ];
+                char(prodserver.mcp.internal.Constants.MIMETypeJSON)}];
 
             % Add arguments to request body. Expect varargin to be
             % name/value pairs.
-            body.jsonrpc = "2.0";
+            body.jsonrpc = MCPConstants.jrpcVersion;
             body.id = 1;
             body.method = "tools/call";
             body.params.name = fcn;
             body.params.arguments = struct(varargin{:});
+
+            [rows, body] = prodserver.mcp.test.protocolEnvelope( ...
+                test.protocol, body);
+            req.Headers = [req.Headers; rows];
+
             body = jsonencode(body);
 
             reqT = req;
             reqT.Method = "POST";  % Because there's a body
             % Extract path from endpoint
-            u = prodserver.mcp.io.parseURI(endpoint); 
+            u = prodserver.mcp.io.parseURI(endpoint);
             reqT.Path = u.path;
-            reqT.Headers = [reqT.Headers; {MCPConstants.ContentLength, numel(body)}];
+            % Content-Length counts bytes, not characters.
             reqT.Body = unicode2native(body,"UTF-8");
+            reqT.Headers = [reqT.Headers; {MCPConstants.ContentLength, numel(reqT.Body)}];
         end
 
-        function reqT = rawRequest(test, method, body, opts)
-        %rawRequest Build a handler request with a verbatim body and full
-        %   control over the session and protocol-version headers.
-        %
-        %   createRequest above always sets a session id and always builds a
-        %   well-formed tools/call body. Conformance tests need the opposite:
-        %   headers deliberately absent or blank, and bodies that are
-        %   deliberately malformed.
-        %
-        %   session: "auto" mints a fresh uuid, "omit" sends no header at all,
-        %   and any other value -- including "" -- is sent verbatim, which is
-        %   how the blank-session case is expressed.
-            arguments
-                test
-                method (1,1) string
-                body (1,1) string = ""
-                opts.session (1,1) string = "auto"
-                opts.protocolVersion (1,1) string = "omit"
-                opts.contentType (1,1) string = "application/json"
-                opts.accept (1,1) string = "omit"
-                opts.path (1,1) string = "/prime/mcp"
-            end
-
-            import prodserver.mcp.MCPConstants
-
-            reqT = test.request;
-            reqT.Method = method;
-            reqT.Path = char(opts.path);
-
-            if strlength(opts.contentType) > 0
-                reqT.Headers = [reqT.Headers; ...
-                    {MCPConstants.ContentType char(opts.contentType)}];
-            end
-
-            if opts.session ~= "omit"
-                if opts.session == "auto"
-                    value = char(matlab.lang.internal.uuid);
-                else
-                    value = char(opts.session);
-                end
-                reqT.Headers = [reqT.Headers; ...
-                    {MCPConstants.SessionId value}];
-            end
-
-            if opts.protocolVersion ~= "omit"
-                reqT.Headers = [reqT.Headers; ...
-                    {MCPConstants.ProtocolVersion char(opts.protocolVersion)}];
-            end
-
-            if opts.accept ~= "omit"
-                reqT.Headers = [reqT.Headers; ...
-                    {'Accept' char(opts.accept)}];
-            end
-
-            if strlength(body) > 0
-                reqT.Body = unicode2native(body,"UTF-8");
+        function [req, body] = applyProtocol(test, req, body)
+        %applyProtocol Add protocol-specific envelope to a request.
+        %   BODY is a JSON string. For 2025-06-18 it is returned unchanged;
+        %   for 2026-07-28 it gains _meta. See test.protocolEnvelope.
+        %   The 2025-06-18 body is not decoded at all, so a test may send one
+        %   that is deliberately not a single JSON-RPC object.
+            if test.protocol == prodserver.mcp.protocol.v20250618.Constants.Version
+                rows = prodserver.mcp.test.protocolEnvelope(test.protocol, struct());
             else
-                reqT.Body = uint8.empty(1,0);
+                [rows, s] = prodserver.mcp.test.protocolEnvelope( ...
+                    test.protocol, jsondecode(body));
+                body = jsonencode(s);
             end
-            reqT.Headers = [reqT.Headers; ...
-                {MCPConstants.ContentLength numel(reqT.Body)}];
+            req.Headers = [req.Headers; rows];
         end
 
-        function jrpc = responseBody(test, response)
-        %responseBody Decode a handler response body as JSON-RPC.
-            test.assertNotEmpty(response.Body, ...
-                "Expected a JSON-RPC body in the response");
-            jrpc = jsondecode(native2unicode(response.Body,"UTF-8"));
-        end
-
-        function verifyErrorCode(test, response, code, httpCode)
-        %verifyErrorCode Assert a response is the JSON-RPC error it should be.
-        %   The whole class of defect here is the HTTP status and the JSON-RPC
-        %   error code disagreeing, so both are checked together, along with
-        %   the rule that an error response carries no result.
-            arguments
-                test
-                response
-                code (1,1) double
-                httpCode (1,1) double = 200
-            end
-
-            test.verifyConformantResponse(response);
-            test.verifyEqual(response.HttpCode, httpCode);
-            jrpc = test.responseBody(response);
-            test.assertTrue(isfield(jrpc,"error"), ...
-                "Response carries no error member");
-            test.verifyEqual(jrpc.error.code, code);
-            test.verifyFalse(isfield(jrpc,"result"), ...
-                "An error response must not also carry a result");
-            test.verifyTrue(isfield(jrpc,"id"), ...
-                "A JSON-RPC error must report an id, null when unknown");
-        end
-
-        function verifyConformantResponse(test, response)
-        %verifyConformantResponse Assert the transport invariants that hold
-        %   for every MCP response, whatever the request was. Most of the
-        %   conformance defects this guards against are invariant violations
-        %   rather than mistakes in an individual case, so call this from
-        %   every handler test in addition to the case-specific assertions.
-            import prodserver.mcp.MCPConstants
-            import prodserver.mcp.internal.Constants
-
-            hdrs = response.Headers;
-            ct = prodserver.mcp.internal.getHeaderValue( ...
-                MCPConstants.ContentType, hdrs);
-            hasBody = ~isempty(response.Body);
-
-            % Content-Type describes a body. A status that forbids one must
-            % not advertise a type for the body it is not sending.
-            if hasBody
-                test.verifyEqual(string(ct), Constants.MIMETypeJSON, ...
-                    "A response with a body must declare application/json");
-            else
-                test.verifyEmpty(ct, sprintf( ...
-                    "HTTP %d has no body and must not set Content-Type", ...
-                    response.HttpCode));
-            end
-
-            % Framing is MPS's job, for an empty body as much as a full one.
-            % Measured on R2026b: MPS emits Content-Length on every response it
-            % sends from a custom web handler, including Content-Length: 0 for
-            % an empty body. A handler that states it as well does not make the
-            % wire any clearer -- it puts the header on it twice, which this
-            % suite cannot see, because the duplicate appears downstream of the
-            % struct asserted on here.
-            len = prodserver.mcp.internal.getHeaderValue( ...
-                MCPConstants.ContentLength, hdrs);
-            test.verifyEmpty(len, sprintf( ...
-                "HTTP %d must leave Content-Length to MPS, but set it to '%s'", ...
-                response.HttpCode, string(len)));
-
-            % Whatever the status, no header may be sent twice: a duplicate is
-            % how a client ends up honouring the value the server did not mean.
-            [uniqueNames, ~, where] = unique(lower(string(hdrs(:,1))));
-            duplicated = uniqueNames(accumarray(where,1) > 1);
-            test.verifyEmpty(duplicated, ...
-                "Duplicate response header(s): " + strjoin(duplicated,", "));
-
-            % 202 and 204 forbid a body outright.
-            if ismember(response.HttpCode, [202 204])
-                test.verifyFalse(hasBody, sprintf( ...
-                    "HTTP %d must carry no body", response.HttpCode));
-            end
-
-            % The session id is echoed from one place only; two sources
-            % writing it would duplicate the header.
-            names = string(hdrs(:,1));
-            test.verifyLessThanOrEqual( ...
-                nnz(strcmpi(names, string(MCPConstants.SessionId))), 1, ...
-                "Mcp-Session-Id must appear at most once");
-
-            if hasBody
-                jrpc = jsondecode(native2unicode(response.Body,"UTF-8"));
-                test.verifyEqual(string(jrpc.jsonrpc), ...
-                    MCPConstants.jrpcVersion, ...
-                    "Every JSON-RPC body must declare version 2.0");
-                test.verifyFalse( ...
-                    isfield(jrpc,"result") && isfield(jrpc,"error"), ...
-                    "A JSON-RPC body carries result or error, never both");
-            end
+        function response = handle(test, request)
+        %handle Run mcpHandler and check the response's transport invariants.
+            response = prodserver.mcp.internal.mcpHandler(request);
+            prodserver.mcp.test.verifyConformantResponse(test, response);
         end
 
         function response = decodeResponse(test,request,response) %#ok<INUSL>
@@ -244,13 +128,21 @@ classdef MCPHandlerBase < matlab.unittest.TestCase
                 tools          % Tool name of each function
                 opts.encoding  % Encoding used by the tool
                 opts.dFiles    % JSON files containing complete definitions
+                opts.definition % A complete definition struct, saved as is
             end
 
             import prodserver.mcp.MCPConstants
 
             % Definition generation support in 26a and later.
-            if nargin > 4
-                dJSON = arrayfun(@(f)jsondecode(fileread(f)),opts.dFiles, ...
+            if isfield(opts, "definition")
+                % Built by the caller, for a shape the other two routes
+                % cannot produce -- e.g. the one build(..., example=) saves,
+                % whose observed signatures have no 'input' for a tool with
+                % no inputs.
+                definition = opts.definition;
+            elseif isfield(opts, "dFiles")
+                dJSON = arrayfun(@(f)jsondecode( ...
+                    prodserver.mcp.internal.readUTF8(f)),opts.dFiles, ...
                     UniformOutput=false);
                 definition.tools = cell(1,numel(dJSON));
                 for n = 1:numel(dJSON)

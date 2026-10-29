@@ -4,8 +4,7 @@ function [result, httpCode, httpMsg, msgHeaders] = initialized(~)
 
 % Copyright 2025-2026 The MathWorks, Inc.
 
-    httpCode = 202;
-    httpMsg = 'Accepted';
+    [httpCode, httpMsg] = prodserver.mcp.handler.internal.httpStatus(202);
     msgHeaders = {};
     result = [];
 end

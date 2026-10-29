@@ -5,6 +5,14 @@ function [ctf,endpoint] = buildWireEncodingServer(opts)
 %   [ctf,endpoint] = buildWireEncodingServer(host="http://myserver:9910")
 %       builds and deploys to the given server.
 %
+%   ... = buildWireEncodingServer(..., archive=name) names the archive
+%       NAME instead of "WireEncoding". On a shared server, choose a name
+%       of your own: deploy replaces an archive with the same name.
+%
+%   ... = buildWireEncodingServer(..., folder=f) writes the archive to
+%       folder F instead of "./deploy", in the current folder, as build
+%       does.
+%
 % This example demonstrates five engineering tools that require the MCP
 % Framework wire encoding format to function correctly. Each tool showcases
 % a different limitation of plain JSON for MATLAB numeric data:
@@ -18,7 +26,13 @@ function [ctf,endpoint] = buildWireEncodingServer(opts)
 % Copyright 2026 The MathWorks, Inc.
 
     arguments
-        opts.host string {prodserver.mcp.validation.mustBeHost} = string.empty
+        opts.host string = string.empty
+        opts.archive (1,1) string = "WireEncoding"
+        opts.folder (1,1) string = "./deploy"
+    end
+
+    if strlength(opts.host) > 0
+        prodserver.mcp.validation.mustBeHost(opts.host);
     end
 
     thisFolder = fileparts(mfilename("fullpath"));
@@ -115,10 +129,10 @@ function [ctf,endpoint] = buildWireEncodingServer(opts)
            "fuseSensors", "blendImages"];
 
     ctf = prodserver.mcp.build(fcn, ...
-        archive="WireEncoding", ...
+        archive=opts.archive, ...
         wrapper=["None","None","None","None","None"], ...
         resource=resources, ...
-        folder=fullfile(thisFolder, "deploy"), ...
+        folder=opts.folder, ...
         encoding="Invertible");
 
     endpoint = "";

@@ -10,7 +10,7 @@ classdef tMustBeSessionID < matlab.unittest.TestCase
 
     methods (TestClassSetup)
         function buildSID(test)
-            import prodserver.mcp.internal.Constants
+            import prodserver.mcp.protocol.v20250618.Constants
             sep = Constants.SessionIDSep;
             prefix = Constants.SessionIDPrefix + sep + Constants.SessionIDType;
             test.validSID = prefix + sep + "myrealm" + sep + "1234";

@@ -13,6 +13,13 @@ classdef tObserver < matlab.unittest.TestCase
                 prodserver.mcp.test.mixin.RequireToyTools());
             test.toolsFolder = rtt.toolFolder;
         end
+
+        function quietUnobserved(test)
+            % These tests record only the inputs they're about, so harvest
+            % warns about every output.
+            test.applyFixture(matlab.unittest.fixtures.SuppressedWarningsFixture( ...
+                "prodserver:mcp:UnobservedParameters"));
+        end
     end
 
     methods(Test)

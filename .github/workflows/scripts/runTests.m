@@ -21,6 +21,10 @@ function runTests(suite, resultsFile, folders, mps)
 
     if nargin < 3 || isempty(folders)
         tests = TestSuite.fromFolder(baseFolder, "IncludingSubfolders", true);
+        % The set of folders under baseFolder that contain tests
+        folders = unique(string({tests.BaseFolder}));
+        folders = erase(folders, baseFolder + filesep);
+        folders = extractBefore(folders, filesep);
     else
         tests = TestSuite.fromFolder( ...
             fullfile(baseFolder, folders(1)), "IncludingSubfolders", true);

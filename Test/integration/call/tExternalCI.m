@@ -1,4 +1,4 @@
-classdef tExternalCI < MCPCaller & ...
+classdef tExternalCI < prodserver.mcp.test.base.MCPCaller & ...
         prodserver.mcp.test.mixin.ExternalData
 
 % Copyright 2025-2026 The MathWorks, Inc.
@@ -46,12 +46,7 @@ classdef tExternalCI < MCPCaller & ...
             % Deploy
             endpoint = prodserver.mcp.deploy(ctf,test.host,test.port);
 
-            % Validate
-            tf = prodserver.mcp.exist(endpoint,fcn,"Tool");
-            test.verifyTrue(tf,fcn + " is not a tool at " + endpoint);
-
             % Call the original function to get the expected values.
-
             q = "a"; v = 1:17;
             p = struct('r', num2cell(1:10)', 'theta', num2cell(21:30)');
             t.r = 7; t.theta = 27;
@@ -59,28 +54,37 @@ classdef tExternalCI < MCPCaller & ...
             test.verifyEqual(z,q+v);
             test.verifyEqual(u,sum(strlength(q+v)));
             test.verifyEqual(m,t);
-            
-            % Now call the deployed function using externalized inputs and
-            % outputs.
-            urlFolder = string(test.tempFolder);
-            zURL = sink(test,"Z",urlFolder);
-            mURL = sink(test,"M",urlFolder);
 
-            % Externalize input data
-            pURL = stow(test,urlFolder,"P",p);
-            tURL = stow(test,urlFolder,"T",t);
+            for proto = test.Protocols
+                prodserver.mcp.client.Adapter.create(endpoint, action="clear");
+                prodserver.mcp.client.Adapter.create(endpoint, protocol=proto);
 
-            % Mix the order of the optional outputs all around.
-            au = prodserver.mcp.call(endpoint,fcn,q,v,zURL=zURL,pURL=pURL,...
-                mURL=mURL,tURL=tURL);
+                % Validate
+                tf = prodserver.mcp.exist(endpoint,fcn,"Tool",protocol=proto);
+                test.verifyTrue(tf, ...
+                    fcn + " is not a tool at " + endpoint + " [" + proto + "]");
 
-            az = fetch(test,zURL);
-            am = fetch(test,mURL);
+                % Now call the deployed function using externalized inputs and
+                % outputs.
+                urlFolder = string(test.tempFolder);
+                zURL = sink(test,"Z",urlFolder);
+                mURL = sink(test,"M",urlFolder);
 
-            test.verifyEqual(az,z,"Z not equal");
-            test.verifyEqual(am,m,"M not equal");
-            test.verifyEqual(au,u,"U not equal");
+                % Externalize input data
+                pURL = stow(test,urlFolder,"P",p);
+                tURL = stow(test,urlFolder,"T",t);
 
+                % Mix the order of the optional outputs all around.
+                au = prodserver.mcp.call(endpoint,fcn,q,v,zURL=zURL,pURL=pURL,...
+                    mURL=mURL,tURL=tURL);
+
+                az = fetch(test,zURL);
+                am = fetch(test,mURL);
+
+                test.verifyEqual(az,z,"Z not equal [" + proto + "]");
+                test.verifyEqual(am,m,"M not equal [" + proto + "]");
+                test.verifyEqual(au,u,"U not equal [" + proto + "]");
+            end
         end
     end
 end

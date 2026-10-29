@@ -42,7 +42,11 @@ prodserver.mcp.exist(endpoint, "plotTrajectories", "Tool")
 
 thisFolder = fileparts(mfilename("fullpath"));
 quakeURL = "file:" + fullfile(thisFolder, "quakeData.csv");
-plotFile = fullfile(thisFolder, "qTrajectories.jpg");
+% Results go to an output folder in the current folder, replaced on
+% each run: the example's own folder may be read-only.
+out = fullfile(pwd, "output");
+if ~isfolder(out), mkdir(out); end
+plotFile = fullfile(out, "qTrajectories.jpg");
 plotURL = "file:" + plotFile;
 
 [status, msg] = prodserver.mcp.call(endpoint, "plotTrajectories", ...

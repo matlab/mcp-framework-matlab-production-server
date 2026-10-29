@@ -188,13 +188,16 @@ classdef tSchemaRoundTrip < matlab.unittest.TestCase
 
         function verifyWireEncodedType(test, obs, exp, label)
         %verifyWireEncodedType Compare wire-encoded parameter structures.
-            % Both should be wire encoding objects
+            % Both should be wire encoding objects, with the same bare
+            % forms beside them, if any.
+            test.verifyEqual(prodserver.mcp.jsonrpc.bareOrWrapped(obs), ...
+                prodserver.mcp.jsonrpc.bareOrWrapped(exp), label + ": bare forms");
+            [obs, obsData] = prodserver.mcp.test.wrapperOf(obs);
+            [exp, expData] = prodserver.mcp.test.wrapperOf(exp);
             test.verifyEqual(obs.type, exp.type, label + ": wrapper type");
 
             % Compare the data field type
             if isfield(obs, 'properties') && isfield(obs.properties, 'data')
-                obsData = obs.properties.data;
-                expData = exp.properties.data;
                 test.verifyEqual(obsData.type, expData.type, ...
                     label + ": data type");
                 if isfield(obsData, 'items') && isfield(expData, 'items')

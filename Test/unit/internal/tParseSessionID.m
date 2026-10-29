@@ -11,7 +11,7 @@ classdef tParseSessionID < matlab.unittest.TestCase
 
     methods (TestClassSetup)
         function buildSID(test)
-            import prodserver.mcp.internal.Constants
+            import prodserver.mcp.protocol.v20250618.Constants
             test.sep = Constants.SessionIDSep;
             prefix = Constants.SessionIDPrefix + test.sep + Constants.SessionIDType;
             test.validSID = prefix + test.sep + "myrealm" + test.sep + "1234";
@@ -21,7 +21,7 @@ classdef tParseSessionID < matlab.unittest.TestCase
     methods (Test)
 
         function tDecomposesParts(test)
-            import prodserver.mcp.internal.Constants
+            import prodserver.mcp.protocol.v20250618.Constants
             [id, realm, type, sid] = prodserver.mcp.internal.parseSessionID(test.validSID);
             test.verifyEqual(id, "1234");
             test.verifyEqual(realm, "myrealm");

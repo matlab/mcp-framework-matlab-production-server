@@ -16,3 +16,5 @@ SECURITY.md
 *.prompt
 .gitattributes
 Test/unit/definition/notMATLAB
+.public-exclude
+

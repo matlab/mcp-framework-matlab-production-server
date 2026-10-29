@@ -51,7 +51,9 @@ function cfg = findConfig(config,u,type)
     end
 
     if nnz(found) > 1
-        m = join(candidates(found),",");
+        % Name the matching configurations, not the extensions of the
+        % last one examined.
+        m = join(string({config(found).via}),", ");
         error("prodserver:mcp:AmbiguousStorageFormat", ...
 "Unable to import or export %s with format %s because it matches " + ...
 "multiple serialization formats: %s.", u.path,ext,m);

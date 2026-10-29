@@ -46,10 +46,18 @@ function [minItems, maxItems] = countSchemaItems(schema)
         return;
     end
 
-    % If the schema is the wire-encoding wrapper, we must count the number
-    % of items in the data array.
-    if isfield(schema,"annotation") && ...
-            contains(schema.annotation,"Invertible wire encoding wrapper for MCP Framework for MATLAB Production Server")
+    % If the schema is an invertibly encoded value with a data array -- the
+    % generic wrapper, or the array form of a datetime, duration or
+    % categorical (see wireTypeSchema) -- count the items in the data. A
+    % schema of wireTypeSchema's with no data field, such as a table's, is
+    % counted as it is.
+    % The generic wrapper with its bare forms (see allowBareForms) counts as
+    % the wrapper: a bare form is one element of what it describes.
+    [published, ~, wrapped] = prodserver.mcp.jsonrpc.bareOrWrapped(schema);
+    if published
+        schema = wrapped.properties.data;
+    elseif prodserver.mcp.jsonrpc.isInvertibleSchema(schema) && ...
+            prodserver.mcp.internal.hasField(schema, "properties.data")
         schema = schema.properties.data;
     end
 
@@ -95,7 +103,7 @@ function [minItems, maxItems] = processObjectSchema(schema)
     maxItems = 0;
 
     % Get required fields list
-    requiredFields = getRequiredFields(schema);
+    requiredFields = prodserver.mcp.internal.requiredNames(schema);
 
     % Process defined properties
     if isfield(schema, 'properties')
@@ -110,7 +118,7 @@ function [minItems, maxItems] = processObjectSchema(schema)
             [propMin, propMax] = countSchemaItems(propSchema);
 
             % Only add to minimum if the field is required
-            if isFieldRequired(propName, requiredFields)
+            if any(requiredFields == propName)
                 minItems = minItems + propMin;
             end
 
@@ -152,9 +160,12 @@ function [minItems, maxItems] = processArraySchema(schema)
         if iscell(itemsSchema)
             [minItems, maxItems] = processTupleItems(itemsSchema, schema);
             return;
-        elseif prodserver.mcp.validation.isPrimitiveType(itemsSchema.type)
-            % An array of primitive types -- the size is determined by the
-            % size of the array, since each element is a scalar.
+        elseif isfield(itemsSchema, 'type') && ...
+                all(prodserver.mcp.validation.isPrimitiveType(itemsSchema.type))
+            % An array of primitive MATLAB types (a declared schema, before
+            % its types become JSON ones) -- the size is determined by the
+            % size of the array, since each element is a scalar. Items with
+            % no type, such as an anyOf, are counted below.
             itemMin = 1; 
             itemMax = 1;
         else
@@ -319,36 +330,6 @@ function [minItems, maxItems] = processAllOfSchemas(schemas)
     if hasUnbounded
         maxItems = Inf;
     end
-end
-
-%--------------------------------------------------------------------------
-function requiredFields = getRequiredFields(schema)
-%GETREQUIREDFIELDS Extract required fields list from schema
-
-    if isfield(schema, 'required')
-        req = schema.required;
-        if iscell(req)
-            requiredFields = req;
-        elseif ischar(req) || isstring(req)
-            requiredFields = {char(req)};
-        else
-            requiredFields = {};
-        end
-    else
-        requiredFields = {};
-    end
-end
-
-%--------------------------------------------------------------------------
-function tf = isFieldRequired(fieldName, requiredFields)
-%ISFIELDREQUIRED Check if a field is in the required list
-
-    if isempty(requiredFields)
-        tf = false;
-        return;
-    end
-
-    tf = any(strcmp(fieldName, requiredFields));
 end
 
 %--------------------------------------------------------------------------

@@ -12,7 +12,6 @@ function definition = defineForMCP(tools,fcns, opts)
         tools string { prodserver.mcp.validation.mustBeText }
         % Function called by the tool. Must be on the MATLAB path.
         fcns string { prodserver.mcp.validation.mustBeText }
-        opts.AI = [];
         % If non-empty, the definition(s) of tools
         opts.definitions cell = {};
         % Wire encoding to use for each tool.
@@ -25,6 +24,8 @@ function definition = defineForMCP(tools,fcns, opts)
         % At what stage of the build is defineForMCP being called?
         opts.stage prodserver.mcp.BuildStage = "Definition"
     end
+
+    import prodserver.mcp.internal.hasField
 
     % Position-based error only makes sense in argument block.
     prodserver.mcp.validation.mustBeSameSize(["fcns","tools"],tools,fcns);
@@ -62,9 +63,28 @@ function definition = defineForMCP(tools,fcns, opts)
             if isstruct(opts.definitions{n})
                 td = opts.definitions{n};
             elseif exist(opts.definitions{n},"file") == 2
-                td = jsondecode(fileread(opts.definitions{n}));
+                td = jsondecode(prodserver.mcp.internal.readUTF8(opts.definitions{n}));
             elseif isstring(opts.definitions{n})
                 td = jsondecode(opts.definitions{n});
+            end
+
+            % Override tool name when caller specified a different one.
+            if iscell(td.tools)
+                oldName = string(td.tools{1}.name);
+            else
+                oldName = string(td.tools.name);
+            end
+            newName = tools(n);
+            if oldName ~= newName
+                if iscell(td.tools)
+                    td.tools{1}.name = newName;
+                else
+                    td.tools.name = newName;
+                end
+                if isfield(td.signatures, oldName)
+                    td.signatures.(newName) = td.signatures.(oldName);
+                    td.signatures = rmfield(td.signatures, oldName);
+                end
             end
 
             % Inject encoding into signatures that don't already have one.
@@ -74,7 +94,7 @@ function definition = defineForMCP(tools,fcns, opts)
                 encoding = opts.encoding(n);
             end
             for sig = string(fieldnames(td.signatures))'
-                if ~isfield(td.signatures.(sig), 'encoding')
+                if ~hasField(td, "signatures." + sig + ".encoding")
                     td.signatures.(sig).encoding = string(encoding);
                 end
             end

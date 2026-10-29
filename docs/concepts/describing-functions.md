@@ -83,7 +83,7 @@ ctf = prodserver.mcp.build("convertSensor", ...
 
 The framework sees that `reading` is sometimes `uint16` and sometimes `double`, and records both patterns.
 
-Specify multiple examples via a vector of:
+Specify multiple examples via a cell array of:
 - Function handles
 - Function or script names
 - Full or relative paths to function or script files
@@ -106,10 +106,18 @@ ctf = prodserver.mcp.build("smoothSignal", ...
 
 The framework observes that the minimum call uses 2 arguments (`signal` and `windowSize`), so `overlap` is marked optional in the schema.
 
+This inference applies only to functions without an `arguments` block. When the function declares one, the block decides which inputs are optional: an input that has a default is optional, whatever the examples do.
+
+### Parameters No Example Exercises
+
+An example observes only what it uses: the inputs it passes and the outputs it asks for. `@() smoothSignal(signal, 5)` alone observes neither `overlap` nor any output after the first. For a parameter no example exercises, the schema uses the class its `arguments` block declares. With no declared class, nothing says what the parameter is, so its schema has a description but no type, and allows any value. `build` warns with `prodserver:mcp:UnobservedParameters`, naming those parameters. To fix it, add an example that passes or requests them, or declare their classes.
+
 ## Argument Blocks
 
 When your function declares `arguments` blocks, the framework reads type, size, comments, and constraints from them.
 Constraints describe characteristics of an argument that limit the values a variable can take within its type—`mustBePositive` or `mustBeSorted` for example.
+
+When you build with `example`, the framework takes types, sizes and comments from the block, but not its constraints or default values: whether an input has a default makes it optional, but the value itself isn't published. MATLAB still enforces the constraints and supplies the defaults when the tool runs, because the tool calls your function directly. One exception: under `encoding="Invertible"`, class-restricting validators such as `mustBeNumeric`, `mustBeFloat` and `mustBeText` limit the classes the wire-encoding wrapper's `"type"` may name, for a parameter with no declared class. See [Wire Encoding](./wire-encoding.md#the-encoding-format).
 
 Argument blocks may provide complete or partial type information. When only partial information can be specified, explicit JSON schemas provide the rest.
 
@@ -204,7 +212,7 @@ The framework supports two styles, which you can mix:
 
 - **Above comments** — for longer descriptions, on the line(s) before the argument:
   ```MATLAB
-  % A five-dimensional array specifying pixel colors.
+  % A three-dimensional array specifying pixel colors.
   % Width x Height x [R,G,B].
   img double
   ```
@@ -221,6 +229,43 @@ Output arguments follow the same rules. Declaring output types helps the LLM int
         seq double
     end
 ```
+
+### Parser Requirements
+
+The framework reads argument blocks from the source file line by line, so it accepts a narrower layout than MATLAB does:
+
+- **At most two `arguments` blocks per file**, one for inputs and one for outputs. The count includes blocks in local functions. A third raises `prodserver:mcp:TooManyArgBlocks`, with or without `example`.
+- **The `arguments` keyword and its `(Input)` or `(Output)` modifier on one line**, with nothing after them except a comment. An undecorated `arguments` block is the input block. A block written another way, such as `arguments (Repeating)` or with the modifier on a continuation line, isn't recognized.
+
+Without `example`, the framework builds the description from the source alone, so it also requires:
+
+| Requirement | Error if missing |
+| :--- | :--- |
+| A function comment | `prodserver:mcp:EmptyToolDescription` |
+| An input block, if the function has inputs | `prodserver:mcp:InputArgBlockRequired` |
+| An output block, if the function has outputs | `prodserver:mcp:OutputArgBlockRequired` |
+| A declaration in the block for every input or output | `prodserver:mcp:InputBlockSizeMismatch` or `prodserver:mcp:OutputBlockSizeMismatch` |
+| A comment for every declared argument | `prodserver:mcp:ArgumentDescriptionMissing` |
+
+With `example`, none of these is required. The framework uses whatever blocks and comments it finds, and the examples supply the rest. A function with no comment gets its name as its tool description.
+
+### Parameter Descriptions Without an Argument Block
+
+With `example`, a parameter that has no comment in an arguments block can be described in the function comment instead, in the usual MATLAB help style: a line that begins with the parameter's name, then `:` or `-`, then the description. A following line indented more deeply continues it.
+
+```MATLAB
+function smooth = smoothSignal(signal, windowSize)
+% Smooth a signal with a moving average.
+% signal: samples to smooth
+%   windowSize - window length,
+%       in samples
+```
+
+The name is compared without regard to case, so `% N: iterations` describes a parameter named `n` or `N`. A line that begins with any other word, such as `% Note: ...`, stays part of the tool description. A line that becomes a parameter's description is left out of the tool description, so the tool description here is just "Smooth a signal with a moving average." A comment in an arguments block takes precedence over a help-text line.
+
+A parameter with neither gets a description generated from its name and, if the arguments block declares them, its size and type: `Input window size.`, `Output y.`, `Input x: scalar double.` Whether a parameter is required is stated by the schema's `required` list, not by its description.
+
+Without `example`, help-text lines don't replace arguments-block comments: every declared argument still needs its own comment.
 
 ## How the Sources Combine
 

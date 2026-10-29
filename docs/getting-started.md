@@ -5,8 +5,9 @@ Build your first MCP tool from a MATLAB function, deploy it to MATLAB Production
 ## Prerequisites
 
 - [MATLAB](https://www.mathworks.com/products/matlab.html) R2025b or later
+- [MATLAB Compiler&trade;](https://www.mathworks.com/products/compiler.html), which MATLAB Compiler SDK requires
 - [MATLAB Compiler SDK&trade;](https://www.mathworks.com/products/matlab-compiler-sdk.html)
-- [MATLAB Production Server](https://www.mathworks.com/products/matlab-production-server.html) R2022a or later
+- [MATLAB Production Server](https://www.mathworks.com/products/matlab-production-server.html) R2025b or later. Archives built in R2025b need the R2025b MATLAB Runtime, and a server can host runtimes from its own release or earlier.
 - An [MCP client](https://modelcontextprotocol.io/clients) (Claude Desktop, Claude Code, VS Code with Copilot, or any HTTP-capable client)
 
 ## Write a Function
@@ -77,7 +78,8 @@ prodserver.mcp.ping(endpoint)
 ```
 ```
 ans =
-    true
+  logical
+   1
 ```
 
 To find the maximum principal stress for a state of 120 MPa tension, 50 MPa compression, and 80 MPa shear, test with a direct call.

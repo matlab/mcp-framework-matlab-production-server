@@ -12,36 +12,40 @@ function response = sendRequest(request,uri,opts)
         opts.delay double {mustBePositive} = 2
     end
 
-    % Statuses worth a second attempt: the same request may well succeed if
-    % we wait.
-    %
-    % 404 is the load-bearing one. MATLAB Production Server answers 404 for an
-    % archive it has accepted but not yet finished unpacking, which is why
-    % internal.initialize defaults to retry=30 and exist/list default to 10 --
-    % those budgets are a deployment wait, not error handling. Dropping 404
-    % here would silently shorten it.
-    %
-    % Every other client error is a property of the request itself -- a
-    % missing session id, an unsupported protocol version, a bad method -- and
-    % resending it unchanged only multiplies the failure and the delay before
-    % the caller sees it.
-    retryable = [404 408 429];  % Not Found (still loading), Timeout, Too Many
+    import prodserver.mcp.internal.Constants
 
     tries = 0;
-    retry = true;
 
-    while retry && tries <= opts.retry
+    % Retry only the statuses that can change without the request changing:
+    % 404 (Production Server answers 404 while an archive is still being
+    % unpacked, with an empty body), 408 and 429. Any other 4xx is a verdict
+    % on the request itself, and re-sending it only multiplies the failure
+    % and the delay (XD14).
+    retryable = true;
+    while tries <= opts.retry && retryable
 
         % Send the request and retrieve returned status code.
         httpOptions = matlab.net.http.HTTPOptions(...
             ConnectTimeout=opts.timeout, ResponseTimeout=opts.timeout);
         response = request.send(uri,httpOptions);
+        sc = response.StatusCode;
+
+        % A 4xx carrying a JSON-RPC error body is a deterministic rejection
+        % -- an unsupported protocol version, a header mismatch, a malformed
+        % request. The server will answer identically every time, so retrying
+        % only multiplies the failure and the delay. Stop immediately and let
+        % requireSuccess report it. The same predicate requireSuccess uses,
+        % so the two can never disagree about what counts as an error body.
+        if ~isempty(response.Body) && ...
+                prodserver.mcp.internal.isJsonRpcError(response.Body.Data)
+            break
+        end
+
+        retryable = ismember(double(sc), Constants.RetryableStatus);
         tries = tries + 1;
 
-        retry = ismember(double(response.StatusCode), retryable);
-
-        % Pause only when another attempt is actually coming.
-        if retry && tries <= opts.retry && opts.delay > 0
+        % Pause only when another attempt is actually coming (ND11).
+        if retryable && tries <= opts.retry && opts.delay > 0
             pause(opts.delay);
         end
     end
@@ -50,7 +54,7 @@ function response = sendRequest(request,uri,opts)
     % occurred.
     try
         prodserver.mcp.internal.requireSuccess(response,uri, ...
-            request=opts.label);
+            request=opts.label); 
     catch me
         throwAsCaller(me);
     end

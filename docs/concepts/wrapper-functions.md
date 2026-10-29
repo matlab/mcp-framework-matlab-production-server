@@ -47,15 +47,17 @@ The framework determines which parameters are large by examining argument blocks
 - Arguments without a size constraint are assumed large
 - Any argument with a declared size whose product exceeds 64 is externalized
 
-If your function has no argument blocks, Auto cannot determine parameter sizes and skips wrapper generation. The function serves as its own entry point. To force wrapper generation for a function without argument blocks, add argument blocks declaring parameter sizes, or pass `wrapper=""`.
+The threshold is the `maxLiteralSize` argument of `build`, 64 by default. It applies to the sizes the argument blocks declare, not to the values you pass at run time.
+
+If your function has no argument blocks, Auto cannot determine parameter sizes and skips wrapper generation. The function serves as its own entry point. To get a wrapper, add argument blocks declaring parameter sizes. `wrapper=""`, which always generates one, also needs argument blocks: without them it raises `prodserver:mcp:InputArgBlockRequired`.
 
 ```MATLAB
-ctf = prodserver.mcp.build("cleanSignal", ...
-    example=@() cleanSignal(noisySignal, 60), ...
-    server="http://localhost:9910");
+ctf = prodserver.mcp.build("cleanSignal", server="http://localhost:9910");
 ```
 
-If `noisySignal` has more than 64 elements, the framework generates `cleanSignalMCP.m` and deploys it as the tool entry point.
+`cleanSignal` declares `noisy` with no size, so it is assumed large. The framework generates `cleanSignalMCP.m` and deploys it as the tool entry point.
+
+**`example` builds no wrapper.** When you pass `example`, the tool description is generated from the example calls and the tool calls your original function directly, so every argument travels by value. Use argument blocks without `example` to get a generated wrapper. `build` raises `prodserver:mcp:ExampleWrapperConflict` if you combine `example` with a `wrapper` other than `"Auto"` or `"None"`.
 
 ### Generated Wrapper Structure
 
@@ -136,30 +138,56 @@ Use `FileURI2Path` in custom wrappers when you need direct filesystem access (e.
 
 ## URL Scheme
 
-The framework currently supports the `file:` scheme. URLs follow the standard format:
+The framework currently supports the `file:` scheme. URLs follow the standard format, which is also the form the tool descriptions advertise:
 
 ```
-file:/C:/data/source/signal.mat
+file:///C:/data/source/signal.mat
+file:///tmp/data/signal.mat
 file:////server/share/data/output.csv
 ```
 
-Use four slashes for UNC paths on Windows.
+Use four slashes for UNC paths on Windows. The single-slash form, such as `file:/C:/data/source/signal.mat`, is also accepted.
+
+MATLAB Production Server reads and writes these files itself, so a `file:` URL names a path on the server's machine, not the client's. A URL built from a folder on the client, as the example walkthroughs do, works only when the server runs on the same machine, or can reach that folder at the same path, for example on a shared drive. For a remote server, use a folder the server can read and write, such as a share both machines mount at the same path.
+
+A URL whose path contains a `..` segment, or an encoded separator (`%2F`, or `%5C` on Windows), is refused with `prodserver:mcp:BadFilePath`. No file name needs either, and a client could use them to reach a file outside the folder the URL names. `Path2FileURI` resolves `.` and `..` in a local path before it builds the URL, so give it relative paths freely.
 
 ## When Wrappers Are Not Needed
 
 If all your parameters are small (scalars, short strings, small vectors), the framework passes them directly as JSON. With the default `wrapper="Auto"`, no wrapper is generated and your original function serves as the tool entry point. This is the common case for functions with simple inputs like `principalStress([120 -50 80], "max")`.
 
-To force wrapper generation regardless of parameter size, pass `wrapper=""`. To suppress wrapper generation even when parameters are large, pass `wrapper="None"` — all data passes through the LLM as JSON regardless of size. Use `"None"` only when you know parameters are small, or when an external system (not the LLM) provides the data.
+To force wrapper generation regardless of parameter size, pass `wrapper=""` (the function still needs argument blocks). To suppress wrapper generation even when parameters are large, pass `wrapper="None"` — all data passes through the LLM as JSON regardless of size. Use `"None"` only when you know parameters are small, or when an external system (not the LLM) provides the data.
 
 ## Effect on Schemas
 
-When a wrapper externalizes a parameter, the tool schema describes the URL — a string — not the underlying data type. The LLM sees:
+When a wrapper externalizes a parameter, the tool schema describes the URL — a string — not the underlying data type. For the Periodic Noise example's `cleanSignal`, the LLM sees:
 
 ```json
-{"noisyURL": {"type": "string", "description": "file: URL pointing to input signal"}}
+"noisyURL": {
+  "type": "string",
+  "description": "URL pointing to the input value for 'noisy'. The content of the URL is:
+Noisy signal",
+  "examples": [ "file:///tmp/storage/data.csv", "file:///c:/tmp/storage/data.csv", "http://server/writable/resource (PUT endpoint)" ]
+},
+"cleanURL": {
+  "type": "string",
+  "description": "URL pointing to the output value for 'clean'. This value never returned
+inline. Read result from URL using scheme-appropriate method: ...",
+  "examples": [ "..." ],
+  "writeOnly": true
+}
 ```
 
-The LLM never interacts with the array data directly. It provides a URL, and the wrapper handles the rest.
+An externalized output becomes an optional input marked `writeOnly`: the LLM supplies a URL and the tool writes the result there. The original schemas move to `$defs` in `inputSchema`:
+
+```json
+"$defs": {
+  "inputSchema":  { "noisyURL": { "type": "array", "items": { "type": "number" }, "description": "Noisy signal" } },
+  "outputSchema": { "cleanURL": { "type": "array", "items": { "type": "number" }, "description": "Filtered signal" } }
+}
+```
+
+The LLM never interacts with the array data directly. It provides a URL, and the wrapper handles the rest. With `encoding="Invertible"`, each URL's description also points to its `$defs` entry, because the data at the URL must be wire-encoded. See [Schemas](./schemas.md#large-data-and-schema-interaction).
 
 ## See Also
 

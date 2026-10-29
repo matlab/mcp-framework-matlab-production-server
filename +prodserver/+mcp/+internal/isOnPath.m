@@ -9,25 +9,8 @@ function tf = isOnPath(folder)
         folder string
     end
 
-    pth = canonical(string(strsplit(path, pathsep)));
-    tf = arrayfun(@(f)ismember(canonical(absolute(f)), pth), folder);
-end
+    import prodserver.mcp.internal.canonicalFolder
 
-function f = absolute(f)
-% The absolute name of an existing folder, as addpath would store it. A
-% folder that doesn't exist can't be on the path; leave its name alone.
-    if isfolder(f)
-        d = dir(f);
-        f = string(d(1).folder);
-    end
-end
-
-function f = canonical(f)
-% Native separators, no trailing separator, and case-insensitive on
-% Windows, where the file system is.
-    f = replace(f, ["/","\"], filesep);
-    f = strip(f, "right", filesep);
-    if ispc
-        f = lower(f);
-    end
+    pth = canonicalFolder(string(strsplit(path, pathsep)), resolve=false);
+    tf = ismember(canonicalFolder(folder), pth);
 end

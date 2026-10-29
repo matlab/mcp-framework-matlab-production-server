@@ -22,7 +22,9 @@ function endpoint = deploy(archive,host,port,opts)
         opts.scheme string {prodserver.mcp.validation.mustBeScheme} = "http";
         % Should upload overwrite existing archive with the same name?
         opts.overwrite logical = true;
-        % Number of seconds to wait for HTTP requests to complete.
+        % Seconds to wait for the health check and ping requests to
+        % complete. For the upload itself this is a CONNECT timeout only: a
+        % large archive may legitimately take longer than this to transfer.
         opts.timeout double {prodserver.mcp.validation.mustBePositiveInteger} = 180;
         % How many times to retry HTTP requests.
         opts.retry double = 10
@@ -31,8 +33,6 @@ function endpoint = deploy(archive,host,port,opts)
         % How long to wait between retries
         opts.delay double = 2
     end
-
-    webOpts = weboptions(Timeout=opts.timeout);
 
     % Allow server to be a complete URL, beginning with <scheme>://. In this
     % case, ignore port.
@@ -62,29 +62,12 @@ function endpoint = deploy(archive,host,port,opts)
     end
 
     % url must be the address of an active MATLAB Production Server
-    % instance. Allow the server some grace period in case it is still
-    % starting up.
-    healthURL = sprintf("%s/api/health", url);
-    n = 1;
-    status = [];
-    while n <= opts.retry && isempty(status)
-        try
-            status = webread(healthURL,webOpts);
-        catch me
-            % Often occurs because server still starting up.
-            if contains(me.identifier,"ConnectionRefused") || ...
-                    contains(me.message,"could not connect to server",IgnoreCase=true) || ...
-                    contains(me.message,"connection refused",IgnoreCase=true)
-                pause(opts.delay);
-            else
-                rethrow(me);
-            end
-        end
-        n = n + 1;
-    end
-
-    if ~isstruct(status) || isfield(status,"status") == false || ...
-        strcmpi(status.status,"ok") == false
+    % instance. isserver allows the server some grace period in case it is
+    % still starting up. This is the only health check: uploadCTF relies on
+    % it rather than making its own.
+    [~, isActive] = prodserver.mcp.validation.isserver(url, ...
+        retry=opts.retry, timeout=opts.timeout, delay=opts.delay);
+    if ~isActive
         error("prodserver:mcp:ServerUnresponsive", ...
             "The server at %s did not respond to a health check. " + ...
             "Check to be sure the server is running and that you have " + ...
@@ -135,53 +118,158 @@ function endpoint = deploy(archive,host,port,opts)
         end
     end
 
+    % Assigned before the verify block, which used to be the only place it
+    % was set, so verify=0 could not return the endpoint.
+    [~,archiveName] = fileparts(archive);
+    prefix = sprintf('%s/%s', url, archiveName);
+
     if opts.verify
-        % Verify that upload was successful. Send "ping" to the archive. 
-        % Allow a few 404 responses to give the server time to unpack the 
-        % archive, if necessary.
-        [~,archiveName] = fileparts(archive);
-        prefix = sprintf('%s/%s', url, archiveName);
-        pingURL = sprintf("%s/ping",prefix);
-    
-        n = 1; pong = string.empty;
-        while n <= opts.verify && isempty(pong)
-            k = 1;
-            while k <= opts.retry && isempty(pong)
-                try
-                    pong = webread(pingURL,webOpts);
-                catch ex
-                    % Retry on 404 and 500 with "end of file" only -- after 
-                    % a brief pause, to let the server get its house in order.
-                    if contains(ex.identifier,"HTTP404") || ...
-      (contains(ex.identifier,"HTTP500") && contains(ex.message,"End of file"))
-                        % Server is likely still unpacking new archive
-                        pause(opts.delay);
-                    elseif contains(ex.identifier,"HTTP500") && ...
-                            contains(ex.message,"pipe") && contains(ex.message,"ended")
-                        error("prodserver:mcp:NeedMultiMCOSMode", ...
-                            "Internal error loading archive. Restart server in " + ...
-                            "multi-MCOS mode: set environment variable " + ...
-                            prodserver.mcp.internal.Constants.MultiMCOSEnvVar + ...
-                            " to ""true"" on server machine and restart server.");
-                    else
-                        rethrow(ex);
-                    end
-                end
-                k = k + 1;
+        % Verify that upload was successful: ping the archive until the
+        % archive answering is the one uploaded. Allow a few 404 responses
+        % to give the server time to unpack a new archive. An update is
+        % slower to show: the server answers with the archive it replaces
+        % for several seconds after the upload returns, and that one says
+        % pong too. Only the build's UUID tells them apart.
+        expected = prodserver.mcp.internal.archiveUUID(archive);
+        verifyArchive(sprintf("%s/ping",prefix), url, archiveName, ...
+            expected, opts);
+    end
+
+    % Success! Network address of MCP endpoint. 
+    endpoint = sprintf("%s%s", prefix, prodserver.mcp.MCPConstants.MCP);
+end
+
+
+function verifyArchive(pingURL, url, archiveName, expected, opts)
+%verifyArchive Wait until the archive answering ping is the build EXPECTED.
+%   The archive names its build in a header (see pingHandler). One built
+%   before it did is asked about through discovery, and when that is turned
+%   off, any pong is taken as the answer, as it always was. So is any pong
+%   when EXPECTED is empty: the uploaded file's UUID couldn't be read.
+%
+%   Two answers in a row from that build: each ping may reach a different
+%   worker, and they need not all change over at once.
+
+    import prodserver.mcp.MCPConstants
+
+    request = matlab.net.http.RequestMessage(matlab.net.http.RequestMethod.GET);
+    uri = matlab.net.URI(pingURL);
+    httpOpts = matlab.net.http.HTTPOptions(ConnectTimeout=opts.timeout, ...
+        ResponseTimeout=opts.timeout);
+
+    needed = 2;
+    matched = 0;
+    live = "";
+    status = [];
+    attempts = opts.verify*opts.retry;
+    for attempt = 1:attempts
+        response = request.send(uri, httpOpts);
+        status = double(response.StatusCode);
+        text = bodyText(response);
+        % Production Server says why it failed in the status line's reason
+        % phrase -- all that webread's error message, which this loop used
+        % to read, contains -- so look there as well as in the body.
+        why = reasonPhrase(response) + " " + text;
+        if status == 200 && strcmpi(strtrim(text), MCPConstants.Pong)
+            live = answeringBuild(response, url, archiveName, opts);
+            if strlength(expected) == 0 || strlength(live) == 0
+                return
             end
-            n = n + 1;
+            if live == expected
+                matched = matched + 1;
+                if matched >= needed
+                    return
+                end
+                continue
+            end
+            % The archive the upload replaces.
+            matched = 0;
+        elseif status == 404 || (status == 500 && contains(why, "End of file"))
+            % Server is likely still unpacking new archive
+        elseif status == 500 && contains(why, "pipe") && contains(why, "ended")
+            error("prodserver:mcp:NeedMultiMCOSMode", ...
+                "Internal error loading archive. Restart server in " + ...
+                "multi-MCOS mode: set environment variable " + ...
+                prodserver.mcp.internal.Constants.MultiMCOSEnvVar + ...
+                " to ""true"" on server machine and restart server.");
+        else
+            break
         end
-        if isempty(pong) || strcmpi(pong,prodserver.mcp.MCPConstants.Pong) == false 
-            error("prodserver:mcp:DeployedArchiveUnresponsive", ...
-    "Archive %s on server at %s did not respond to ping request. " + ...
-    "Check server logs for errors or increase timeout (%d seconds), " + ...
-    "retry count (%d) or retry delay (%d seconds) and try again.", ...
-                archiveName, url, opts.timeout, opts.retry, opts.delay);
+        % A brief pause, to let the server get its house in order -- if
+        % another attempt is coming.
+        if attempt < attempts
+            pause(opts.delay);
         end
     end
 
-    % Success! Network address of MCP endpoint.
-    endpoint = sprintf("%s%s", prefix, prodserver.mcp.MCPConstants.MCP);
+    if strlength(live) > 0
+        error("prodserver:mcp:DeployedArchiveStale", ...
+            "Archive %s on server at %s is still the build it replaces " + ...
+            "(%s), not the one uploaded (%s). Check server logs for " + ...
+            "errors or increase retry count (%d) or retry delay (%d " + ...
+            "seconds) and try again.", archiveName, url, live, expected, ...
+            opts.retry, opts.delay);
+    end
+    answer = "";
+    if ~isempty(status)
+        answer = sprintf(" Its last answer was HTTP %d.", status);
+    end
+    error("prodserver:mcp:DeployedArchiveUnresponsive", ...
+        "Archive %s on server at %s did not respond to ping request.%s " + ...
+        "Check server logs for errors or increase timeout (%d seconds), " + ...
+        "retry count (%d) or retry delay (%d seconds) and try again.", ...
+        archiveName, url, answer, opts.timeout, opts.retry, opts.delay);
+end
+
+
+function live = answeringBuild(response, url, archiveName, opts)
+%answeringBuild The UUID of the build that answered a ping: the header, or
+%   discovery's archiveUuid for an archive that doesn't send it. Empty if
+%   neither says, and then the caller takes the pong as the answer.
+%
+%   Discovery is server metadata, so it answers at once or not usefully at
+%   all: it is given at most Constants.DiscoveryTimeout seconds. With the
+%   whole timeout (180 seconds by default), a discovery that hung cost that
+%   much, and one that answered slowly cost it on every ping until the old
+%   build stopped answering.
+    live = "";
+    field = response.getFields(prodserver.mcp.internal.Constants.ArchiveUUIDHeader);
+    if ~isempty(field)
+        live = string(field(1).Value);
+        return
+    end
+    try
+        found = webread(url + "/api/discovery", weboptions(ContentType="text", ...
+            Timeout=min(opts.timeout, ...
+            prodserver.mcp.internal.Constants.DiscoveryTimeout)));
+        archives = jsondecode(found).archives;
+        name = matlab.lang.makeValidName(archiveName);
+        if isfield(archives, name) && isfield(archives.(name), "archiveUuid")
+            live = string(archives.(name).archiveUuid);
+        end
+    catch
+        % Discovery turned off, too slow, or not an answer: nothing more to
+        % go on.
+    end
+end
+
+
+function why = reasonPhrase(response)
+%reasonPhrase The reason phrase of a response's status line; empty if none.
+    why = "";
+    if ~isempty(response.StatusLine)
+        why = string(response.StatusLine.ReasonPhrase);
+    end
+end
+
+
+function text = bodyText(response)
+%bodyText A response's body as text; empty if it has none.
+    text = "";
+    if ~isempty(response.Body) && (ischar(response.Body.Data) || ...
+            isstring(response.Body.Data))
+        text = string(response.Body.Data);
+    end
 end
 
 

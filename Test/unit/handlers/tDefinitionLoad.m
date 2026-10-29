@@ -79,7 +79,7 @@ classdef tDefinitionLoad < prodserver.mcp.test.base.MCPHandlerBase
             writeBytes(test.definitionFile, uint8('this is not a MAT file'));
             reqT = createRequest(test, test.Tool, test.server, ...
                 s="hello world", n=2);
-            response = prodserver.mcp.internal.mcpHandler(reqT);
+            response = test.handle(reqT);
             body = native2unicode(response.Body, "UTF-8");
             test.verifyEqual(response.HttpCode, 500, body);
             decoded = prodserver.mcp.internal.decodeBody(response);

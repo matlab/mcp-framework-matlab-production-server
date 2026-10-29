@@ -5,6 +5,13 @@ function [ctf,endpoint] = buildMaterialsServer(opts)
 %   [ctf,endpoint] = buildMaterialsServer(host="http://myserver:9910")
 %       builds and deploys to the given server.
 %
+%   ... = buildMaterialsServer(..., archive=name) names the archive
+%       NAME instead of "Materials". On a shared server, choose a name of
+%       your own: deploy replaces an archive with the same name.
+%
+%   ... = buildMaterialsServer(..., folder=f) writes the archive to folder
+%       F instead of "./deploy", in the current folder, as build does.
+%
 % This example demonstrates how MCP Resources enhance the usability of MCP
 % tools. The server exposes material property data as resources and
 % engineering calculation tools that consume that data.
@@ -16,7 +23,13 @@ function [ctf,endpoint] = buildMaterialsServer(opts)
 % Copyright 2026 The MathWorks, Inc.
 
     arguments
-        opts.host string {prodserver.mcp.validation.mustBeHost} = string.empty
+        opts.host string = string.empty
+        opts.archive (1,1) string = "Materials"
+        opts.folder (1,1) string = "./deploy"
+    end
+
+    if strlength(opts.host) > 0
+        prodserver.mcp.validation.mustBeHost(opts.host);
     end
 
     thisFolder = fileparts(mfilename("fullpath"));
@@ -72,9 +85,9 @@ function [ctf,endpoint] = buildMaterialsServer(opts)
     fcn = ["calculateBeamStress", "calculateThermalResistance"];
 
     ctf = prodserver.mcp.build(fcn, ...
-        archive="Materials", ...
+        archive=opts.archive, ...
         resource=resources, ...
-        folder=fullfile(thisFolder, "deploy"));
+        folder=opts.folder);
 
     % Deploy only if the user supplied host or port. Apply MPS defaults for
     % whichever was not specified.

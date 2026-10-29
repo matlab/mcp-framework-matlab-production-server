@@ -58,10 +58,10 @@ function [code,indirect] = mcpWrapper(fcn,tool,opts)
     % Require argument block entries for all inputs and outputs.
 
     [isLiteralIn, namesIn] = findLiterals(mf.Signature.Inputs,...
-        td.tools.inputSchema);
+        td.tools.inputSchema, opts.maxLiteralSize);
 
     [isLiteralOut, namesOut] = findLiterals(mf.Signature.Outputs,...
-        td.tools.outputSchema);
+        td.tools.outputSchema, opts.maxLiteralSize);
 
     % Form output parameter list from names of all literal outputs.
     literalOut = namesOut(isLiteralOut);
@@ -592,10 +592,10 @@ function description = nonDuplicateArguments(description,renamed)
 end
 
 
-function [isLiteral, names] = findLiterals(parameters,schema)
+function [isLiteral, names] = findLiterals(parameters,schema,maxLiteralSize)
 % findLiterals Search a matlab.metadata.Argument list to find all the
 % elements with all dimensions fixed and prod(fixed dimensions) <=
-% MaxLiteralLimit.
+% maxLiteralSize.
 %
 % Return parameter names and scalar classification.
 
@@ -618,8 +618,8 @@ function [isLiteral, names] = findLiterals(parameters,schema)
                 end
             end
             % A parameter is a literal if the product of its dimensions is
-            % less than MaxLiteralLimit. 
-            isLiteral(n) = (sz <= MCPConstants.MaxLiteralSize);
+            % at most maxLiteralSize.
+            isLiteral(n) = (sz <= maxLiteralSize);
         end
 
         %
@@ -630,7 +630,7 @@ function [isLiteral, names] = findLiterals(parameters,schema)
         % Parameter notation: x-call-by: value and x-call-by: reference
         % set the mode directly. No further processing: this is an
         % authoritative client directive that must be obeyed.
-        if isfield(schema.properties.(p.Identifier.Name),SchemaCallBy.fieldName)
+        if hasField(schema, "properties." + string(p.Identifier.Name) + "." + string(SchemaCallBy.fieldName))
             isLiteral(n) = strcmpi(...
                 schema.properties.(p.Identifier.Name).(SchemaCallBy.fieldName), ...
                 SchemaCallBy.Value);
@@ -646,11 +646,11 @@ function [isLiteral, names] = findLiterals(parameters,schema)
             [~, maxSz] = prodserver.mcp.jsonrpc.countSchemaItems(...
                 schema.properties.(p.Identifier.Name));
 
-            % If the parameter size is <= MaxLiteralSize and the parameter
+            % If the parameter size is <= maxLiteralSize and the parameter
             % type is a known primitive (numeric, string, etc.) then the
             % parameter is a literal.
 
-            isLiteral(n) = (maxSz <= MCPConstants.MaxLiteralSize );
+            isLiteral(n) = (maxSz <= maxLiteralSize);
         end
     end
 end
@@ -672,19 +672,19 @@ function name = uniqueLocalVariable(in, out, local)
 end
 
 function schema = allowBareScalar(schema)
-%allowBareScalar Extend wire-encoding schema to also accept bare scalars.
-    if ~isfield(schema, 'properties') || ~isfield(schema.properties, 'data')
+%allowBareScalar Extend wire-encoding schema to every form the value takes:
+%the forms toolArgumentError accepts. A schema for a class JSON can't
+%describe (see wireTypeSchema) already lists them.
+    % The schema may already list them (see allowBareForms); the URL's
+    % $defs entry still takes only the alternatives and the description.
+    [published, bare, wrapped] = prodserver.mcp.jsonrpc.bareOrWrapped(schema);
+    if ~published && ~prodserver.mcp.jsonrpc.isGenericWrapper(schema)
         return
     end
-    bare = bareScalarSchema(schema);
-    wrapped = schema;
-    if isfield(wrapped, 'description')
-        wrapped = rmfield(wrapped, 'description');
+    if ~published
+        [bare, wrapped] = prodserver.mcp.jsonrpc.wrapperAlternatives(schema);
     end
-    if isfield(wrapped, 'annotation')
-        wrapped = rmfield(wrapped, 'annotation');
-    end
-    result.oneOf = [bare; {wrapped}];
+    result.anyOf = [bare; {wrapped}];
     if isfield(schema, 'description')
         result.description = stripEncodingMsg(schema.description);
     end
@@ -706,27 +706,5 @@ function d = stripEncodingMsg(d)
         d = strjoin(lines, newline);
     else
         d = lines;
-    end
-end
-
-function bare = bareScalarSchema(wrappedSchema)
-%bareScalarSchema Bare-scalar alternatives for a wire-encoded parameter.
-    dataSchema = wrappedSchema.properties.data;
-    if isfield(dataSchema, 'items')
-        elementType = dataSchema.items.type;
-    else
-        elementType = dataSchema.type;
-    end
-    switch elementType
-        case "number"
-            bare = {struct('type','number'); struct('type','string')};
-        case "integer"
-            bare = {struct('type','integer')};
-        case "string"
-            bare = {struct('type','string')};
-        case "boolean"
-            bare = {struct('type','boolean')};
-        otherwise
-            bare = {struct('type',elementType)};
     end
 end

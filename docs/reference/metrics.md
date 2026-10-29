@@ -6,6 +6,8 @@ Retrieve [metrics](https://www.mathworks.com/help/mps/restfuljson/restful-api-fo
 
 Metrics must be enabled on the server. If metrics are disabled, the function throws an error with the identifier `prodserver:mcp:MetricsDisabled`.
 
+The catalog always holds every metric on the instance, whichever form `uri` takes. An MCP endpoint also names an archive, which `Scope.Server` selects. The function first checks that the server has that archive, through the archive's `/ping` route, which counts nothing. If it doesn't, the function throws `prodserver:mcp:UnknownArchive`, rather than returning the instance's metrics as though they were the archive's. A server address, with or without a trailing slash, names no archive and isn't checked. If the server doesn't answer, the function throws `prodserver:mcp:ServerUnresponsive`.
+
 ### Inputs
 | Argument | Type | Description | Example
 | :---     | :--- | :---        | :---    |
@@ -21,7 +23,7 @@ Pass optional arguments with *argument=value* syntax following required inputs. 
 | Argument | Type | Description | Default |
 | :---     | :--- | :---        | :---    |
 | delay | integer | Number of seconds to pause between retries | 2 |
-| retry | integer | Number of times to retry on connection errors | 30 |
+| retry | integer | Number of attempts at each request, including the first. Only a refused or failed connection is retried. | 30 |
 | timeout | integer | Number of seconds to wait for a reply | 180 |
 
 ## Catalog API
@@ -77,17 +79,6 @@ When an archive is deployed more than once to the same server, MATLAB Production
 
 The suffix filter is applied after the other criteria, so `suffix=@max` selects the most recent deployment among the metrics that match `name`, `archive`, and `type`. If none of those metrics has a suffix, `@max` returns `NaN` and selects all of them.
 
-An invalid `suffix` raises an error:
-
-| Identifier | Raised when |
-| :--- | :--- |
-| `prodserver:mcp:InvalidMetricsSuffix` | `suffix` isn't numeric, text, or a function handle, or the function returns something other than numbers or a logical mask |
-| `prodserver:mcp:InvalidTextMetricsSuffix` | Text `suffix` doesn't convert to a number |
-| `prodserver:mcp:NonExistentMetricsSuffixFunction` | The function handle names a function that can't be found |
-| `prodserver:mcp:InvalidMetricsSuffixFunction` | The function takes no inputs |
-| `prodserver:mcp:MetricsSuffixFunctionFailed` | The function raised an error. The message includes its error text. |
-| `prodserver:mcp:InvalidMetricsMaskSize` | The function returned a logical mask whose size doesn't match its input |
-
 ### The `scope` Argument
 
 Pass a `prodserver.mcp.metrics.Scope` enumeration to `catalog.scope()`.
@@ -97,8 +88,8 @@ Pass a `prodserver.mcp.metrics.Scope` enumeration to `catalog.scope()`.
 | `Scope.All` | Every metric on the MPS instance |
 | `Scope.Instance` | MPS instance metrics (prefix `matlabprodserver_`) |
 | `Scope.MCP` | MCP framework metrics (prefix `MCP_`) |
-| `Scope.Server` | Metrics matching the archive name from the endpoint URI |
-| `Scope.Tool` | Metrics for the specific tool |
+| `Scope.Server` | Metrics whose name contains `_<archive>_`, where `<archive>` comes from the endpoint URI. This matches on the metric name, not the `archive` label. Requires a catalog created from an `/<archive>/mcp` endpoint; otherwise it raises `prodserver:mcp:NoServerScope`. |
+| `Scope.Tool` | The `MCP_<tool>_Call` counters of every tool on the instance. To select one tool, use `catalog.name("MCP_<tool>_Call")`. The `MCP_<tool>_Rejected` counters aren't included: use `catalog.name("MCP_<tool>_Rejected")`. Nor are the per-revision counters, such as `MCP_<tool>_Call_2026_07_28` and `MCP_<tool>_Rejected_2025_06_18`, since the name must match `MCP_<tool>_Call` exactly. |
 
 ### Return Value
 

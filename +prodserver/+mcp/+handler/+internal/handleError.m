@@ -1,40 +1,35 @@
-function result = handleError(jrpc, ex)
-%handleError Build a JSON-RPC error response from a protocol-level exception.
+function [result, httpCode, httpMsg] = handleError(jrpc, ex, request, attributed)
+%handleError Build a JSON-RPC 2.0 error response for pre-detection failures.
+%   Used when no protocol adapter could be matched, so the protocol-specific
+%   status mapping is unavailable. The code and status come from
+%   mapPreDetectionError, which recognizes the failures that happen before
+%   an adapter exists (parse, envelope, media type, protocol attribution,
+%   version resolution); anything it does not recognize is a genuine
+%   internal failure and maps to HTTP 500.
 %
-%   RESULT = handleError(JRPC, EX) constructs a JSON-RPC error object from
-%   the MException EX. The request id is taken from JRPC when available.
-%   Protocol errors (unknown method, bad/missing params, decode failures) are
-%   reported as a JSON-RPC error object with a numeric error.code;
-%   tool-EXECUTION errors are reported separately as isError results by the
-%   tools/call handler, so they never reach here.
+%   The envelope itself is jsonrpc.errorResponse, the same one the adapters
+%   use. All that is protocol-specific about an error response is the mapper.
 
 % Copyright 2025-2026 The MathWorks, Inc.
 
-    import prodserver.mcp.MCPConstants
-
-    % The response version is ours to state, not the client's to choose. A
-    % request that named some other version never gets this far, and a
-    % request too malformed to name one at all still needs a reply it can
-    % parse.
-    result.jsonrpc = MCPConstants.jrpcVersion;
-
-    % JSON-RPC requires an id member on every error response. When the
-    % request was too malformed to carry one, the id is null: jsonencode(NaN)
-    % emits null, which is the wire form we need.
-    if ~isempty(jrpc) && isstruct(jrpc) && isscalar(jrpc) && isfield(jrpc,"id")
-        result.id = jrpc.id;
-    else
-        result.id = NaN;
+    arguments
+        jrpc
+        ex
+        request = []
+        attributed = []
     end
 
-    result.error.code = prodserver.mcp.handler.internal.mapErrorCode(ex);
-    % Rudimentary error location. May decide to add more detail.
-    if ~isempty(ex.stack)
-        location = ex.stack(1);
-        [~,file] = fileparts(location.file);
-        result.error.message = sprintf("%s:%d : %s", ...
-            file, location.line, ex.message);
-    else
-        result.error.message = ex.message;
-    end
+    % request and attributed are bound here rather than passed through
+    % errorResponse: they are the two inputs the post-detection mappers never
+    % have, because formatError is handed the body and not the request, and by
+    % the time it runs the adapter is no longer merely attributed. attributed
+    % is the adapter the request's shape selected even though resolution then
+    % failed -- mapPreDetectionError asks it for the codes whose correctness
+    % depends on which revision the request declared.
+    mapper = @(me, body) ...
+        prodserver.mcp.handler.internal.mapPreDetectionError( ...
+            me, body, request, attributed);
+
+    [result, httpCode, httpMsg] = ...
+        prodserver.mcp.jsonrpc.errorResponse(ex, jrpc, mapper);
 end

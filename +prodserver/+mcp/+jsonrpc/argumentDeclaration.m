@@ -1,5 +1,5 @@
 function [properties,required,kind,order,group,validation,default] = ...
-    argumentDeclaration(args,parameters,encoding,stage)
+    argumentDeclaration(args,parameters,encoding,stage,typemap,io)
 % Extract argument names, types and descriptions from an argument
 % block. Return an MCP properties structure and an array of the names of
 % the required arguments.
@@ -11,14 +11,16 @@ function [properties,required,kind,order,group,validation,default] = ...
 % Copyright 2026 The MathWorks, Inc.
 
     import prodserver.mcp.MCPConstants
-    import prodserver.mcp.internal.Constants
     import prodserver.mcp.internal.hasField
     import prodserver.mcp.internal.ParameterKind
-    import prodserver.mcp.internal.SchemaInjection
     import prodserver.mcp.internal.SchemaOrigin
-    import prodserver.mcp.jsonrpc.SchemaCallBy
-    import prodserver.mcp.internal.nestedFieldValues
-    import prodserver.mcp.jsonrpc.isExternalized
+
+    if nargin < 5 || isempty(typemap)
+        typemap = struct();
+    end
+    if nargin < 6
+        io = "input";
+    end
 
     names = cell(1,numel(args));
     decl = cell(size(names));
@@ -28,19 +30,6 @@ function [properties,required,kind,order,group,validation,default] = ...
     group = [];
     default = [];
     validation = cell(size(names));
-
-    % If we're using the precise, invertible encoding, wrap the user's
-    % declaration in the encoding wrapper.
-    wrapper = struct.empty;
-    if encoding == prodserver.mcp.WireEncoding.Invertible
-        % Fetch the wrapper text, a JSON object. Storing it as JSON
-        % improves readability and maintainability.
-        wrapper = fileread(fullfile(prodserver.mcp.internal.packageFolder(),...
-            "+prodserver","+mcp","+jsonrpc","wireEncodingArgTemplate.json"));
-        % Turn the wrapper text into a structure. Plain JSON, decodes
-        % without ambiguity.
-        wrapper = jsondecode(wrapper);
-    end
 
     % Determine the properties of each argument, either by introspection 
     % or from a user-supplied schema.
@@ -59,10 +48,10 @@ function [properties,required,kind,order,group,validation,default] = ...
         % The default type for all arguments, until we're told differently
         % by the argument block validation or the schema.
         t = MCPConstants.DefaultArgType;
-        if hasField(args(i),"Validation.Class")
-            if ~isempty(args(i).Validation.Class)
-                t = args(i).Validation.Class.Name;
-            end
+        declaredClass = hasField(args(i),"Validation.Class") && ...
+            ~isempty(args(i).Validation.Class);
+        if declaredClass
+            t = args(i).Validation.Class.Name;
         end
 
         % Argument block validation typically specifies one or more of size
@@ -71,8 +60,10 @@ function [properties,required,kind,order,group,validation,default] = ...
         if hasField(parameters(names{i}),"validation") && ...
                 strlength(parameters(names{i}).validation) > 0
             [sz,t,f,v] = argumentInfo(parameters(names{i}).validation);
-            if isempty(t) 
+            if isempty(t)
                 t = MCPConstants.DefaultArgType;
+            else
+                declaredClass = true;
             end
             validation{i} = struct("size",sz,"type",t,"fcn",f);
             default.(names{i}) = v;
@@ -90,8 +81,8 @@ function [properties,required,kind,order,group,validation,default] = ...
         %       "items": { "type": "<MATLAB type name>" }
         %   }
         % If the parameter has a size validation like (1,3,2), the
-        % structure will include the "maxItems" field (with value 6 in this
-        % case.)
+        % structure will include the "minItems" and "maxItems" fields (both
+        % with value 6 in this case.)
         %
         % For scalar parameters (where the size is explicitly (1,1)):
         %   {
@@ -101,27 +92,32 @@ function [properties,required,kind,order,group,validation,default] = ...
         % Some MCP hosts appear to validate against the schema. Others do
         % not. YMMV. For the ones that do, the schema must be correct.
 
-        d.type = "array";
-        d.items.type = t;
+        % A class with no plain JSON type has a schema of its own, if the
+        % encoding can carry it at all. The schema is the whole encoded
+        % value, so it takes no invertible envelope.
+        wireClass = "";
+        sz = [];
+        if hasField(args(i),"Validation.Size")
+            sz = args(i).Validation.Size;
+        end
+        % A char row vector is one string, as on the example path.
+        text = prodserver.mcp.jsonrpc.isCharText(string(t), sz);
+        if prodserver.mcp.jsonrpc.WireSupport.of(t, typemap) ~= ...
+                prodserver.mcp.jsonrpc.WireSupport.JSON
+            wireClass = string(t);
+            d = prodserver.mcp.jsonrpc.classSchema(names{i}, wireClass, ...
+                encoding, typemap=typemap, size=sz);
+        elseif text
+            d.type = t;
+        else
+            d.type = "array";
+            d.items.type = t;
+        end
 
-        % Validation may indicate the size of one or more dimensions. If
-        % all dimensions have a finite size, we can compute the maximum
-        % number of elements, which JSONSchema uses.
-        if hasField(args(i),"Validation.Size") && ...
-            ~isempty(args(i).Validation.Size)
-
-            maxItems = prodserver.mcp.jsonrpc.sizeFromValidation( ...
-                args(i).Validation.Size);
-            if ~isinf(maxItems) && maxItems > 1
-                d.maxItems = maxItems;
-            end
-
-            % Check for scalar -- and undo all work above, if so. Create
-            % the much simpler scalar declaration.
-            if maxItems == 1
-                d = [];
-                d.type = t;
-            end
+        % Validation may indicate the size of one or more dimensions: a
+        % scalar, or an array of an exact or unrestricted count.
+        if wireClass == "" && ~text
+            d = prodserver.mcp.jsonrpc.declaredSizeSchema(d, sz, string(t));
         end
 
         % Record variable group membership. Optional arguments have a
@@ -137,80 +133,42 @@ function [properties,required,kind,order,group,validation,default] = ...
         if parameters(names{i}).schema.origin ~= SchemaOrigin.Introspection
             schema = parameters(names{i}).schema;
             d.schema.line = schema.line;
-            inject = schema.inject;
-            schema = schema.schema;
-
             % The user-specified schema may either add to or replace the
             % autogenerated schema.
-            if inject == SchemaInjection.Replace
-                d = [];
-            end
-
-            propertyNames = string(fieldnames(schema))';
-            for p = propertyNames
-                [pth,val] = nestedFieldValues(schema,p);
-                for f = 1:numel(pth)
-                    fPth = pth{f};
-                    d = setfield(d,fPth{:},val{f});
-                end
-            end
-            % Validate consistency after injection
-            if isfield(d, 'type') && ~strcmpi(d.type, "array")
-                if isfield(d, 'maxItems')
-                    error("prodserver:mcp:SchemaConflict", ...
-                        "Parameter '%s': %%#schema declares " + ...
-                        "maxItems but argument block declares " + ...
-                        "scalar. These are incompatible.", names{i});
-                end
-                if isfield(d, 'items')
-                    error("prodserver:mcp:SchemaConflict", ...
-                        "Parameter '%s': %%#schema declares " + ...
-                        "items but argument block declares " + ...
-                        "scalar. These are incompatible.", names{i});
-                end
+            [d, replaced] = prodserver.mcp.jsonrpc.injectSchema(d, schema, names{i});
+            if replaced
+                wireClass = "";
             end
         end
         % Whence did the schema originate?
         d.schema.origin = parameters(names{i}).schema.origin;
 
         % Format description appropriately for schema.
-        d.description = sanitizeDescription(parameters(names{i}).description,...
-            stage);
+        d.description = prodserver.mcp.internal.descriptionText( ...
+            parameters(names{i}).description, stage);
 
-        % Annotate each externalized parameter with examples of valid URLs.
-        % Explicitly supported by JSONSchema.
-        if isExternalized(d)
-            d.examples = MCPConstants.ByReferenceExample;
+        % Record the MATLAB class of a schema of classSchema's, for the
+        % signature and so that mcpArgumentTypes leaves the JSON types
+        % alone. Then the externalized examples, and the invertible
+        % envelope or annotation.
+        if wireClass ~= ""
+            d.schema.matlabClass = wireClass;
         end
-
-        % If we're using the invertible wire encoding, wrap the argument in
-        % the invertible envelope. Never wrap externalized arguments, as
-        % they are scalar strings.
-        if ~isempty(wrapper) && isExternalized(d) == false
-            % Get a clean copy of the wrapper object.
-            thisWrapper = wrapper;
-
-            % Move the schema field to the top level of the structure,
-            % whence it will be appropriately removed later.
-            thisWrapper.schema = d.schema; d = rmfield(d,"schema");
-
-            % Move the description field to the top level of the structure,
-            % where the LLM will see it.
-            thisWrapper.description = d.description; d = rmfield(d,"description");
-
-            % Move the call by field, if there is one, to the top level of
-            % the structure, so that it properly influences
-            % externalization.
-            if isfield(d,SchemaCallBy.fieldName)
-                thisWrapper.(SchemaCallBy.fieldName) = d.(SchemaCallBy.fieldName);
-                d = rmfield(d,SchemaCallBy.fieldName);
-            end
-
-            % Place the schema for this variable into the data field of the
-            % invertible envelope. 
-            thisWrapper.properties.data = d;
-            d = thisWrapper;
+        % The wrapper's type tag: the declared class, unless there is none
+        % or a typemap maps it.
+        % With no class, the validators may admit only some.
+        tagClass = string.empty;
+        if declaredClass && ~isfield(typemap, string(t))
+            tagClass = string(t);
         end
+        admitted = string.empty;
+        if ~declaredClass && hasField(parameters(names{i}), "validation")
+            admitted = prodserver.mcp.jsonrpc.validatorClasses( ...
+                parameters(names{i}).validation);
+        end
+        d = prodserver.mcp.jsonrpc.finishParameterSchema(d, encoding, ...
+            wireClass ~= "", ...
+            prodserver.mcp.jsonrpc.wrapperTypeSchema(tagClass, io, admitted));
 
         % Save the declaration in a format that makes creating the output
         % structure easy.
@@ -223,10 +181,7 @@ function [properties,required,kind,order,group,validation,default] = ...
     args = [ names; decl ];
     properties = struct(args{:});
     required = names(required);
-    count = ParameterKind.CountType(kind);
-    % How many positional arguments?
-    pN = count(ParameterKind.Required) + count(ParameterKind.Optional);
-    order = string(names(1:pN));
+    order = ParameterKind.PositionalOrder(names, kind);
 end
 
 function [size,type,fcn,default] = argumentInfo(info)
@@ -255,23 +210,4 @@ function [size,type,fcn,default] = argumentInfo(info)
     info = strtrim(erase(info,Constants.ValidationPattern));
     
     default = strtrim(extract(info,Constants.DefaultPattern));
-end
-
-function d = sanitizeDescription(d,stage)
-% Maintain line breaks of description. If the stage is "Definition", 
-% remove build-time pragmas.
-    import prodserver.mcp.internal.Constants
-    if stage == prodserver.mcp.BuildStage.Definition
-        keep = true(size(d));
-        for n = 1:numel(d)
-            % Don't keep %#schema lines in the published description.
-            if startsWith(d(n),Constants.Schema)
-                keep(n) = false;
-            end
-        end
-        d = d(keep);
-    end
-    % MCP protocol requires single-string descriptions -- can't be an
-    % array. Line breaks are OK.
-    d = strjoin(d,newline);
 end

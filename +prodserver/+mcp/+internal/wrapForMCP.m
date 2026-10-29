@@ -12,7 +12,6 @@ function [wrappers,indirect] = wrapForMCP(fcns,wrappers,folder,opts)
         opts.typemap struct = [];
         opts.maxLiteralSize = prodserver.mcp.MCPConstants.MaxLiteralSize
         opts.import string = string.empty
-        opts.AI = []
         opts.timeout double = 30
         opts.retry double = 2
         opts.encoding prodserver.mcp.WireEncoding = "JSON"
@@ -20,7 +19,7 @@ function [wrappers,indirect] = wrapForMCP(fcns,wrappers,folder,opts)
 
     import prodserver.mcp.MCPConstants
     
-    prodserver.mcp.validation.mustBeSameSize(1,{wrappers,fcns});
+    prodserver.mcp.validation.mustBeSameSize(["wrappers","fcns"],wrappers,fcns);
 
     enc = opts.encoding;
     if isscalar(enc)
@@ -84,7 +83,8 @@ function [wrappers,indirect] = wrapForMCP(fcns,wrappers,folder,opts)
             end
 
             % Generated code already ends with a newline.
-            writelines(code,wrappers(n),TrailingLineEndingRule="never");
+            prodserver.mcp.internal.writeUTF8(wrappers(n),code, ...
+                TrailingLineEnding=false);
 
             if refreshCache
                 rehash;

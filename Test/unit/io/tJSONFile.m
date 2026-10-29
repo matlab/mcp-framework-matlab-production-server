@@ -366,6 +366,37 @@ classdef tJSONFile < matlab.unittest.TestCase
             test.jsonRoundTrip(s);
         end
 
+        function jsonDatetimeIsISOText(test)
+            % As in a JSON tool's output: ISO 8601, not the display format.
+            file = fullfile(test.tempDir.Folder, "json_datetime.json");
+            d = datetime(2026,1,2,3,4,5, TimeZone="UTC", Format="dd-MMM-uuuu");
+            prodserver.mcp.io.saveJSON(file, struct('when', d), format="JSON");
+            x = prodserver.mcp.io.loadJSON(file, format="JSON");
+            test.verifyEqual(string(x.when), "2026-01-02T03:04:05.000Z");
+        end
+
+        % =================================================================
+        % TEXT ENCODING
+        % =================================================================
+
+        function nonASCIIRoundTrip(test)
+            % saveJSON writes UTF-8; loadJSON must decode it as UTF-8, not
+            % byte by byte. Includes a character outside the BMP.
+            x.name = 'été 日本 😀';
+            test.jsonRoundTrip(x);
+            test.invertibleRoundTrip("été 日本 😀");
+        end
+
+        function loadSkipsByteOrderMark(test)
+            file = fullfile(test.tempDir.Folder, "bom.json");
+            fid = fopen(file, "w");
+            fwrite(fid, [uint8([239 187 191]), ...
+                unicode2native('{"name":"été"}', "UTF-8")]);
+            fclose(fid);
+            x = prodserver.mcp.io.loadJSON(file, format="JSON");
+            test.verifyEqual(string(x.name), "été");
+        end
+
         % =================================================================
         % NEGATIVE TESTS
         % =================================================================
@@ -373,7 +404,7 @@ classdef tJSONFile < matlab.unittest.TestCase
         function loadNonExistentFile(test)
             bogusFile = fullfile(test.tempDir.Folder, "does_not_exist.json");
             test.verifyError(@() prodserver.mcp.io.loadJSON(bogusFile), ...
-                'MATLAB:FileIO:InvalidFid');
+                'prodserver:mcp:CannotOpenFile');
         end
 
         function loadNonJSONContent(test)

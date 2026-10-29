@@ -5,7 +5,7 @@ An MCP server may host multiple tools. Build multi\-tool servers with MCP Framew
 
 # Build Server with Seven Tools
 
-By default, a tool has the same name as the MATLAB function that implements the tool. Optionally, tools may be given their own names. MCP clients interact with tool names, not MATLAB function names. This code specifies new names for six of the seven tools. Even though the `snowflake` function is not getting a new name it still must have its tool name specified explicitly, since the `tool` and `fcn` inputs must be the same size.
+By default, a tool has the same name as the MATLAB function that implements the tool. Optionally, tools may be given their own names. MCP clients interact with tool names, not MATLAB function names. This code specifies new names for five of the seven tools. Even though the `snowflake` and `mandelbrot` functions are not getting new names they still must have their tool names specified explicitly, since the `tool` and `fcn` inputs must be the same size.
 
 ```matlab
 % Tool names -- the names used to call the tool. These are the names
@@ -26,7 +26,7 @@ ctf = prodserver.mcp.build(fcn, tool=tool, archive=server, folder="./deploy")
 ```
 
 ```matlabTextOutput
-ctf = "S:\gecks\MCP\MCPFramework\Examples\MultiTool\deploy\Fractalizer.ctf"
+ctf = "C:\work\MultiTool\deploy\Fractalizer.ctf"
 ```
 
 # Deploy the Server
@@ -59,7 +59,6 @@ tools = prodserver.mcp.list(endpoint,"Tool")
 
 ```matlab
 toolNames = {tools.name};
-thisFolder = replace(fileparts(matlab.desktop.editor.getActive().Filename),filesep,"/");
 ```
 # Create and Display TwinDragon
 
@@ -117,16 +116,21 @@ ans = struct with fields:
 
 ```matlab
 % Setup to generate a fractal with 200,000 points. Return the points in a 
-% MAT-file, TwinDragonXY.mat, in the same directory as this file.
+% MAT-file, TwinDragonXY.mat, in an output folder in the current folder:
+% the example's own folder may be read-only.
 N = 200000;
-dragonXY = fullfile(thisFolder,"TwinDragonXY.mat");
+out = fullfile(pwd,"output");
+if ~isfolder(out), mkdir(out); end
+dragonXY = fullfile(out,"TwinDragonXY.mat");
 dragonURL = "file:" + replace(dragonXY,filesep,"/");
 
 % Call the tool using the MCP protocol and check for success: the tool
 % should create the MAT-file.
-prodserver.mcp.call(endpoint,tool,N,dragonURL);
+prodserver.mcp.call(endpoint,tool,N,"dragonURL",dragonURL);
 success = exist(dragonXY,"file") == 2
 ```
+
+These `file:` URLs name files on the server's machine: MATLAB Production Server reads and writes them itself. Building them from your own folder works when the server runs on your machine, or can reach that folder at the same path. For a remote server, see [URL Scheme](../../docs/concepts/wrapper-functions.md#url-scheme).
 
 ```matlabTextOutput
 success = logical
@@ -158,15 +162,15 @@ ans = struct with fields:
 ```matlab
 % Setup to call a second tool, dragonDraw, to render the points of the
 % fractal into a JPG image. 
-jpg = fullfile(thisFolder,"TwinDragonImage.jpg");
+jpg = fullfile(out,"TwinDragonImage.jpg");
 color1 = "#FF0000";   % Red
 color2 = "#0000FF";   % Blue
-dragonSize = fullfile(thisFolder,"TwinDragonSize.mat");
-dragonSizeURL = "file:" + replace(dragonXY,filesep,"/");
+dragonSize = fullfile(out,"TwinDragonSize.mat");
+dragonSizeURL = "file:" + replace(dragonSize,filesep,"/");
 
 % Call the dragonDraw tool using the MCP protocol. Test for success by
 % looking for the generated JPG file.
-prodserver.mcp.call(endpoint,tool,dragonURL,color1,color2,jpg,dragonSizeURL);
+prodserver.mcp.call(endpoint,tool,dragonURL,color1,color2,jpg,"szURL",dragonSizeURL);
 success = exist(jpg,"file") == 2
 ```
 
@@ -184,3 +188,5 @@ imshow(img);
 ```
 
 ![figure_0.png](MultipleTools_media/figure_0.png)
+
+--- Copyright 2025-2026 The MathWorks, Inc. ---

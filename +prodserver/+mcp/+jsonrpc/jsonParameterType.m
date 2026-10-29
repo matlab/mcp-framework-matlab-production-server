@@ -12,9 +12,8 @@ function jsonType = jsonParameterType(matlabType,typemap)
         typemap struct
     end
     
-    intType = textBoundary("start") + ("int" | "uint") + ...
-        ("8" | "16" | "32" | "64" | "128") + textBoundary("end");
-    
+    import prodserver.mcp.internal.Constants
+
     jsonType = strings(1,numel(matlabType));
     
     for n = 1:numel(matlabType)
@@ -28,11 +27,11 @@ function jsonType = jsonParameterType(matlabType,typemap)
             jsonType(n) = "string";
     
             % All integer types become "integer"
-        elseif matches(matlabType(n),intType)
+        elseif ismember(matlabType(n),Constants.IntegerClasses)
             jsonType(n) = "integer";
     
             % Floating point types are "number"
-        elseif strcmp(matlabType(n),"double") || strcmp(matlabType(n),"float")
+        elseif ismember(matlabType(n),[Constants.FloatClasses "float"])
             jsonType(n) = "number";
     
             % Data with named fields is an "object"

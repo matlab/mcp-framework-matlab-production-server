@@ -16,6 +16,8 @@ Deploy the `cleanSignal` tool if you have not already:
 [ctf, endpoint] = prodserver.mcp.build("cleanSignal", server="http://localhost:9910");
 ```
 
+On a shared server, give the archive a name of your own with `build`'s `archive` option, for example by adding your user name: `deploy` replaces an archive with the same name, even one someone else deployed.
+
 Copy `openloopVoltage.csv` from the Periodic Noise example into your working directory.
 
 ## The MCP Host

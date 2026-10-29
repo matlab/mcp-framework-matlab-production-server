@@ -47,6 +47,11 @@ classdef tSchemaOptionalInference < matlab.unittest.TestCase
         end
 
         function noBlockVectorOptionalScale(test)
+            % build warns if any input or output has no assigned type. But
+            % that's not what we're testing here, so turn off that warning.
+            test.applyFixture(matlab.unittest.fixtures.SuppressedWarningsFixture( ...
+                "prodserver:mcp:UnobservedParameters"));
+
             % schemaVectorNoBlock(values, scale): call with 1 and 2 args.
             % values required; scale optional.
             defs = prodserver.mcp.schema("schemaVectorNoBlock", ...

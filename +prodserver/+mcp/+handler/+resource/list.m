@@ -1,6 +1,9 @@
-function [result, httpCode, httpMsg, msgHeaders] = list(jrpc)
+function [result, httpCode, httpMsg, msgHeaders] = list(jrpc, ~)
 %list Handle MCP resources/list request. Returns all resource descriptors
 % (without contents) from the definition file.
+%
+%   Takes, and ignores, the serving protocol revision -- see
+%   ProtocolDispatcher.dispatch for why every handler receives it.
 
 % Copyright 2025-2026 The MathWorks, Inc.
 

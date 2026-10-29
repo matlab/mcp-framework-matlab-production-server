@@ -1,4 +1,4 @@
-classdef tJSONEncodingCI < MCPCaller
+classdef tJSONEncodingCI < prodserver.mcp.test.base.MCPCaller
 % Test deployment and invocation of MCP tools built with encoding="JSON".
 % Verifies that prodserver.mcp.call sends bare JSON (no typed wrappers) and
 % the server responds with bare JSON when the tool uses JSON encoding.
@@ -27,15 +27,21 @@ classdef tJSONEncodingCI < MCPCaller
                 archive=archive, encoding="JSON");
             endpoint = prodserver.mcp.deploy(ctf, test.server);
 
-            tf = prodserver.mcp.exist(endpoint, fcn, "Tool", ...
-                delay=10, retry=5);
-            test.verifyTrue(tf, fcn + " not found at " + endpoint);
-
             x = 41;
             expected = toyScalarOne(x);
-            actual = prodserver.mcp.call(endpoint, fcn, x);
 
-            test.verifyEqual(actual, expected);
+            for p = test.Protocols
+                prodserver.mcp.client.Adapter.create(endpoint, action="clear");
+                prodserver.mcp.client.Adapter.create(endpoint, protocol=p);
+
+                tf = prodserver.mcp.exist(endpoint, fcn, "Tool", ...
+                    delay=10, retry=5, protocol=p);
+                test.verifyTrue(tf, ...
+                    fcn + " not found [" + p + "]");
+
+                actual = prodserver.mcp.call(endpoint, fcn, x);
+                test.verifyEqual(actual, expected, "[" + p + "]");
+            end
         end
 
         function multiOutput(test)
@@ -48,17 +54,27 @@ classdef tJSONEncodingCI < MCPCaller
                 archive=archive, wrapper="None", encoding="JSON");
             endpoint = prodserver.mcp.deploy(ctf, test.server);
 
-            tf = prodserver.mcp.exist(endpoint, fcn, "Tool", ...
-                delay=10, retry=5);
-            test.verifyTrue(tf, fcn + " not found at " + endpoint);
-
             a = 3; b = uint64(5);
             [eX, eY, eZ] = toyToolOne(a, b);
-            [aX, aY, aZ] = prodserver.mcp.call(endpoint, fcn, a, b);
 
-            test.verifyEqual(aX, double(eX), AbsTol=1e-10);
-            test.verifyEqual(aY, double(eY), AbsTol=1e-10);
-            test.verifyEqual(aZ, double(eZ), AbsTol=1e-10);
+            for p = test.Protocols
+                prodserver.mcp.client.Adapter.create(endpoint, action="clear");
+                prodserver.mcp.client.Adapter.create(endpoint, protocol=p);
+
+                tf = prodserver.mcp.exist(endpoint, fcn, "Tool", ...
+                    delay=10, retry=5, protocol=p);
+                test.verifyTrue(tf, ...
+                    fcn + " not found [" + p + "]");
+
+                [aX, aY, aZ] = prodserver.mcp.call(endpoint, fcn, a, b);
+
+                test.verifyEqual(aX, double(eX), ...
+                    "[" + p + "]", AbsTol=1e-10);
+                test.verifyEqual(aY, double(eY), ...
+                    "[" + p + "]", AbsTol=1e-10);
+                test.verifyEqual(aZ, double(eZ), ...
+                    "[" + p + "]", AbsTol=1e-10);
+            end
         end
 
         function scalarFourInputs(test)
@@ -71,15 +87,21 @@ classdef tJSONEncodingCI < MCPCaller
                 archive=archive, encoding="JSON");
             endpoint = prodserver.mcp.deploy(ctf, test.server);
 
-            tf = prodserver.mcp.exist(endpoint, fcn, "Tool", ...
-                delay=10, retry=5);
-            test.verifyTrue(tf, fcn + " not found at " + endpoint);
-
             a = 1103515245; c = 12345; m = 2^31; x0 = 7;
             expected = toyScalarFour(a, c, m, x0);
-            actual = prodserver.mcp.call(endpoint, fcn, a, c, m, x0);
 
-            test.verifyEqual(actual, expected);
+            for p = test.Protocols
+                prodserver.mcp.client.Adapter.create(endpoint, action="clear");
+                prodserver.mcp.client.Adapter.create(endpoint, protocol=p);
+
+                tf = prodserver.mcp.exist(endpoint, fcn, "Tool", ...
+                    delay=10, retry=5, protocol=p);
+                test.verifyTrue(tf, ...
+                    fcn + " not found [" + p + "]");
+
+                actual = prodserver.mcp.call(endpoint, fcn, a, c, m, x0);
+                test.verifyEqual(actual, expected, "[" + p + "]");
+            end
         end
 
         function stringOutput(test)
@@ -92,19 +114,28 @@ classdef tJSONEncodingCI < MCPCaller
                 archive=archive, encoding="JSON");
             endpoint = prodserver.mcp.deploy(ctf, test.server);
 
-            tf = prodserver.mcp.exist(endpoint, fcn, "Tool", ...
-                delay=10, retry=5);
-            test.verifyTrue(tf, fcn + " not found at " + endpoint);
-
-            % toyScalarTwo uses randi internally so results are
-            % non-deterministic. Verify structural properties instead.
             s = "hello world"; n = 3;
-            [aCS, aD] = prodserver.mcp.call(endpoint, fcn, s, n);
 
-            test.verifyTrue(ischar(aCS) || isstring(aCS));
-            test.verifyEqual(strlength(string(aCS)), strlength(s));
-            test.verifyClass(aD, "double");
-            test.verifyGreaterThanOrEqual(aD, 0);
+            for p = test.Protocols
+                prodserver.mcp.client.Adapter.create(endpoint, action="clear");
+                prodserver.mcp.client.Adapter.create(endpoint, protocol=p);
+
+                tf = prodserver.mcp.exist(endpoint, fcn, "Tool", ...
+                    delay=10, retry=5, protocol=p);
+                test.verifyTrue(tf, ...
+                    fcn + " not found [" + p + "]");
+
+                % toyScalarTwo uses randi internally so results are
+                % non-deterministic. Verify structural properties instead.
+                [aCS, aD] = prodserver.mcp.call(endpoint, fcn, s, n);
+
+                test.verifyTrue(ischar(aCS) || isstring(aCS), ...
+                    "type [" + p + "]");
+                test.verifyEqual(strlength(string(aCS)), strlength(s), ...
+                    "length [" + p + "]");
+                test.verifyClass(aD, "double", "[" + p + "]");
+                test.verifyGreaterThanOrEqual(aD, 0, "[" + p + "]");
+            end
         end
 
         function optionalPositional(test)
@@ -117,20 +148,29 @@ classdef tJSONEncodingCI < MCPCaller
                 archive=archive, encoding="JSON");
             endpoint = prodserver.mcp.deploy(ctf, test.server);
 
-            tf = prodserver.mcp.exist(endpoint, fcn, "Tool", ...
-                delay=10, retry=5);
-            test.verifyTrue(tf, fcn + " not found at " + endpoint);
-
-            % Call with all arguments
             args = {1999, 1001, 100000, "Polaris", "Zeta"};
-            expected = feval(fcn, args{:});
-            actual = prodserver.mcp.call(endpoint, fcn, args{:});
-            test.verifyEqual(string(actual), expected, "All args");
+            expectedAll = feval(fcn, args{:});
+            expectedReq = feval(fcn, 1999);
 
-            % Call with only required argument
-            expected = feval(fcn, 1999);
-            actual = prodserver.mcp.call(endpoint, fcn, 1999);
-            test.verifyEqual(string(actual), expected, "Required only");
+            for p = test.Protocols
+                prodserver.mcp.client.Adapter.create(endpoint, action="clear");
+                prodserver.mcp.client.Adapter.create(endpoint, protocol=p);
+
+                tf = prodserver.mcp.exist(endpoint, fcn, "Tool", ...
+                    delay=10, retry=5, protocol=p);
+                test.verifyTrue(tf, ...
+                    fcn + " not found [" + p + "]");
+
+                % Call with all arguments
+                actual = prodserver.mcp.call(endpoint, fcn, args{:});
+                test.verifyEqual(string(actual), expectedAll, ...
+                    "All args [" + p + "]");
+
+                % Call with only required argument
+                actual = prodserver.mcp.call(endpoint, fcn, 1999);
+                test.verifyEqual(string(actual), expectedReq, ...
+                    "Required only [" + p + "]");
+            end
         end
 
         function optionalNVP(test)
@@ -143,21 +183,30 @@ classdef tJSONEncodingCI < MCPCaller
                 archive=archive, encoding="JSON");
             endpoint = prodserver.mcp.deploy(ctf, test.server);
 
-            tf = prodserver.mcp.exist(endpoint, fcn, "Tool", ...
-                delay=10, retry=5);
-            test.verifyTrue(tf, fcn + " not found at " + endpoint);
-
-            % Call with NVP arguments
             year = 2020;
-            expected = feval(fcn, year, mpg=50, make="Tesla");
-            actual = prodserver.mcp.call(endpoint, fcn, year, ...
-                'mpg', 50, 'make', "Tesla");
-            test.verifyEqual(string(actual), expected, "With NVP");
+            expectedNVP = feval(fcn, year, mpg=50, make="Tesla");
+            expectedReq = feval(fcn, year);
 
-            % Required only
-            expected = feval(fcn, year);
-            actual = prodserver.mcp.call(endpoint, fcn, year);
-            test.verifyEqual(string(actual), expected, "Required only");
+            for p = test.Protocols
+                prodserver.mcp.client.Adapter.create(endpoint, action="clear");
+                prodserver.mcp.client.Adapter.create(endpoint, protocol=p);
+
+                tf = prodserver.mcp.exist(endpoint, fcn, "Tool", ...
+                    delay=10, retry=5, protocol=p);
+                test.verifyTrue(tf, ...
+                    fcn + " not found [" + p + "]");
+
+                % Call with NVP arguments
+                actual = prodserver.mcp.call(endpoint, fcn, year, ...
+                    'mpg', 50, 'make', "Tesla");
+                test.verifyEqual(string(actual), expectedNVP, ...
+                    "With NVP [" + p + "]");
+
+                % Required only
+                actual = prodserver.mcp.call(endpoint, fcn, year);
+                test.verifyEqual(string(actual), expectedReq, ...
+                    "Required only [" + p + "]");
+            end
         end
 
         function multiToolArchive(test)
@@ -170,21 +219,31 @@ classdef tJSONEncodingCI < MCPCaller
                 archive=archive, encoding="JSON");
             endpoint = prodserver.mcp.deploy(ctf, test.server);
 
-            tf = prodserver.mcp.exist(endpoint, fcns(1), "Tool", ...
-                delay=10, retry=5);
-            test.verifyTrue(tf, fcns(1) + " not found at " + endpoint);
-
-            % Call first tool
             x = 99;
-            expected = toyScalarOne(x);
-            actual = prodserver.mcp.call(endpoint, fcns(1), x);
-            test.verifyEqual(actual, expected, "toyScalarOne");
+            expected1 = toyScalarOne(x);
 
-            % Call second tool
             a = 7; c = 3; m = 100; x0 = 42;
-            expected = toyScalarFour(a, c, m, x0);
-            actual = prodserver.mcp.call(endpoint, fcns(2), a, c, m, x0);
-            test.verifyEqual(actual, expected, "toyScalarFour");
+            expected4 = toyScalarFour(a, c, m, x0);
+
+            for p = test.Protocols
+                prodserver.mcp.client.Adapter.create(endpoint, action="clear");
+                prodserver.mcp.client.Adapter.create(endpoint, protocol=p);
+
+                tf = prodserver.mcp.exist(endpoint, fcns(1), "Tool", ...
+                    delay=10, retry=5, protocol=p);
+                test.verifyTrue(tf, ...
+                    fcns(1) + " not found [" + p + "]");
+
+                % Call first tool
+                actual = prodserver.mcp.call(endpoint, fcns(1), x);
+                test.verifyEqual(actual, expected1, ...
+                    "toyScalarOne [" + p + "]");
+
+                % Call second tool
+                actual = prodserver.mcp.call(endpoint, fcns(2), a, c, m, x0);
+                test.verifyEqual(actual, expected4, ...
+                    "toyScalarFour [" + p + "]");
+            end
         end
 
         function schemaNoAnnotation(test)
@@ -206,16 +265,7 @@ classdef tJSONEncodingCI < MCPCaller
             test.verifyTrue(tf, fcn + " not found at " + endpoint);
 
             % List tools and check description
-            [session, id] = prodserver.mcp.internal.initialize(endpoint, ...
-                require="Tool");
-            [items, ~] = prodserver.mcp.internal.list(endpoint, session, ...
-                "Tool", id=id);
-            prodserver.mcp.internal.terminate(endpoint, session);
-
-            tools = items.tools;
-            if isstruct(tools)
-                tools = num2cell(tools);
-            end
+            tools = prodserver.mcp.list(endpoint, "Tool");
             names = cellfun(@(t)string(t.name), tools);
             t = tools{strcmp(names, fcn)};
 
@@ -225,6 +275,11 @@ classdef tJSONEncodingCI < MCPCaller
         end
 
         function schemaVectorJSON(test)
+            % build warns if any input or output has no assigned type. But
+            % that's not what we're testing here, so turn off that warning.
+            test.applyFixture(matlab.unittest.fixtures.SuppressedWarningsFixture( ...
+                "prodserver:mcp:UnobservedParameters"));
+
             % Vector data via JSON encoding — orientation is not preserved
             % but values round-trip correctly.
             fcn = "schemaVectorNoBlock";
@@ -242,21 +297,36 @@ classdef tJSONEncodingCI < MCPCaller
                 encoding="JSON");
             endpoint = prodserver.mcp.deploy(ctf, test.server);
 
-            tf = prodserver.mcp.exist(endpoint, fcn, "Tool", ...
-                delay=10, retry=5);
-            test.verifyTrue(tf, fcn + " not found at " + endpoint);
-
             v = [10, 20, 30, 40, 50];
             [eMag, eNorm, eCount] = schemaVectorNoBlock(v);
-            [aMag, aNorm, aCount] = prodserver.mcp.call(endpoint, fcn, v);
 
-            test.verifyEqual(aMag, eMag, AbsTol=1e-12);
-            test.verifyEqual(aCount, eCount);
-            % JSON loses orientation — compare values only
-            test.verifyEqual(sort(aNorm(:)), sort(eNorm(:)), AbsTol=1e-12);
+            for p = test.Protocols
+                prodserver.mcp.client.Adapter.create(endpoint, action="clear");
+                prodserver.mcp.client.Adapter.create(endpoint, protocol=p);
+
+                tf = prodserver.mcp.exist(endpoint, fcn, "Tool", ...
+                    delay=10, retry=5, protocol=p);
+                test.verifyTrue(tf, ...
+                    fcn + " not found [" + p + "]");
+
+                [aMag, aNorm, aCount] = prodserver.mcp.call( ...
+                    endpoint, fcn, v);
+
+                test.verifyEqual(aMag, eMag, ...
+                    "[" + p + "]", AbsTol=1e-12);
+                test.verifyEqual(aCount, eCount, "[" + p + "]");
+                % JSON loses orientation — compare values only
+                test.verifyEqual(sort(aNorm(:)), sort(eNorm(:)), ...
+                    "[" + p + "]", AbsTol=1e-12);
+            end
         end
 
         function schemaDurationJSON(test)
+            % build warns if any input or output has no assigned type. But
+            % that's not what we're testing here, so turn off that warning.
+            test.applyFixture(matlab.unittest.fixtures.SuppressedWarningsFixture( ...
+                "prodserver:mcp:UnobservedParameters"));
+
             fcn = "schemaDurationNoBlock";
             archive = "jsonEncDuration";
             test.applyFixture(prodserver.mcp.test.mixin.RemoveArchive(...
@@ -272,19 +342,32 @@ classdef tJSONEncodingCI < MCPCaller
                 encoding="JSON");
             endpoint = prodserver.mcp.deploy(ctf, test.server);
 
-            tf = prodserver.mcp.exist(endpoint, fcn, "Tool", ...
-                delay=10, retry=5);
-            test.verifyTrue(tf, fcn + " not found at " + endpoint);
-
             h = 2; m = 15; s = 30;
             [~, eTotalSec] = schemaDurationNoBlock(h, m, s);
-            [~, aTotalSec] = prodserver.mcp.call(endpoint, fcn, h, m, s);
 
-            % Duration scalars may degrade to numeric in JSON encoding
-            test.verifyEqual(double(aTotalSec), double(eTotalSec), AbsTol=1e-10);
+            for p = test.Protocols
+                prodserver.mcp.client.Adapter.create(endpoint, action="clear");
+                prodserver.mcp.client.Adapter.create(endpoint, protocol=p);
+
+                tf = prodserver.mcp.exist(endpoint, fcn, "Tool", ...
+                    delay=10, retry=5, protocol=p);
+                test.verifyTrue(tf, ...
+                    fcn + " not found [" + p + "]");
+
+                [~, aTotalSec] = prodserver.mcp.call( ...
+                    endpoint, fcn, h, m, s);
+
+                test.verifyEqual(double(aTotalSec), double(eTotalSec), ...
+                    "[" + p + "]", AbsTol=1e-10);
+            end
         end
 
         function schemaDatetimeJSON(test)
+            % build warns if any input or output has no assigned type. But
+            % that's not what we're testing here, so turn off that warning.
+            test.applyFixture(matlab.unittest.fixtures.SuppressedWarningsFixture( ...
+                "prodserver:mcp:UnobservedParameters"));
+
             fcn = "schemaDatetimeNoBlock";
             archive = "jsonEncDatetime";
             test.applyFixture(prodserver.mcp.test.mixin.RemoveArchive(...
@@ -300,20 +383,28 @@ classdef tJSONEncodingCI < MCPCaller
                 encoding="JSON");
             endpoint = prodserver.mcp.deploy(ctf, test.server);
 
-            tf = prodserver.mcp.exist(endpoint, fcn, "Tool", ...
-                delay=10, retry=5);
-            test.verifyTrue(tf, fcn + " not found at " + endpoint);
-
             year = 2026; month = 8; day = 18;
             [~, eDow, eSerial] = schemaDatetimeNoBlock(year, month, day);
-            [~, aDow, aSerial] = prodserver.mcp.call(...
-                endpoint, fcn, year, month, day);
 
-            % Day-of-week is a string — should come back as a char because
-            % jsonencode is not Invertible.
-            test.verifyEqual(aDow, char(eDow));
-            % Serial date number is numeric — should round-trip
-            test.verifyEqual(double(aSerial), double(eSerial), AbsTol=1e-10);
+            for p = test.Protocols
+                prodserver.mcp.client.Adapter.create(endpoint, action="clear");
+                prodserver.mcp.client.Adapter.create(endpoint, protocol=p);
+
+                tf = prodserver.mcp.exist(endpoint, fcn, "Tool", ...
+                    delay=10, retry=5, protocol=p);
+                test.verifyTrue(tf, ...
+                    fcn + " not found [" + p + "]");
+
+                [~, aDow, aSerial] = prodserver.mcp.call(...
+                    endpoint, fcn, year, month, day);
+
+                % Day-of-week is a string — should come back as a char
+                % because jsonencode is not Invertible.
+                test.verifyEqual(aDow, char(eDow), "[" + p + "]");
+                % Serial date number is numeric — should round-trip
+                test.verifyEqual(double(aSerial), double(eSerial), ...
+                    "[" + p + "]", AbsTol=1e-10);
+            end
         end
 
         function externalArrayJSON(test)
@@ -334,10 +425,6 @@ classdef tJSONEncodingCI < MCPCaller
                 archive=archive, encoding="JSON");
             endpoint = prodserver.mcp.deploy(ctf, test.server);
 
-            tf = prodserver.mcp.exist(endpoint, fcn, "Tool", ...
-                delay=10, retry=5);
-            test.verifyTrue(tf, fcn + " not found at " + endpoint);
-
             a = 10; b = 20; c = 30; d = 40;
             [eX, eY, eZ] = allIndirect(a, b, c, d);
 
@@ -356,40 +443,30 @@ classdef tJSONEncodingCI < MCPCaller
             serialize(m, cFile, {c});
             serialize(m, dFile, {d});
 
-            prodserver.mcp.call(endpoint, fcn, ...
-                aFile, bFile, cFile, dFile, ...
-                xURL=xFile, yURL=yFile, zURL=zFile);
+            for p = test.Protocols
+                prodserver.mcp.client.Adapter.create(endpoint, action="clear");
+                prodserver.mcp.client.Adapter.create(endpoint, protocol=p);
 
-            aX = deserialize(m, xFile); aX = aX{1};
-            aY = deserialize(m, yFile); aY = aY{1};
-            aZ = deserialize(m, zFile); aZ = aZ{1};
+                tf = prodserver.mcp.exist(endpoint, fcn, "Tool", ...
+                    delay=10, retry=5, protocol=p);
+                test.verifyTrue(tf, ...
+                    fcn + " not found [" + p + "]");
 
-            test.verifyEqual(double(aX), double(eX), AbsTol=1e-10);
-            test.verifyEqual(double(aY), double(eY), AbsTol=1e-10);
-            test.verifyEqual(double(aZ), double(eZ), AbsTol=1e-10);
-        end
+                prodserver.mcp.call(endpoint, fcn, ...
+                    aFile, bFile, cFile, dFile, ...
+                    xURL=xFile, yURL=yFile, zURL=zFile);
 
-        function hybridEncoding(test)
-            % Smoke test for Hybrid encoding mode — should behave like
-            % Invertible (typed wrappers) for now.
-            fcn = "toyScalarOne";
-            archive = "jsonEncHybrid";
-            test.applyFixture(prodserver.mcp.test.mixin.RemoveArchive(...
-                test.server, archive));
+                aX = deserialize(m, xFile); aX = aX{1};
+                aY = deserialize(m, yFile); aY = aY{1};
+                aZ = deserialize(m, zFile); aZ = aZ{1};
 
-            ctf = prodserver.mcp.build(fcn, folder=test.tempFolder, ...
-                archive=archive, encoding="Hybrid");
-            endpoint = prodserver.mcp.deploy(ctf, test.server);
-
-            tf = prodserver.mcp.exist(endpoint, fcn, "Tool", ...
-                delay=10, retry=5);
-            test.verifyTrue(tf, fcn + " not found at " + endpoint);
-
-            x = 77;
-            expected = toyScalarOne(x);
-            actual = prodserver.mcp.call(endpoint, fcn, x);
-
-            test.verifyEqual(actual, expected);
+                test.verifyEqual(double(aX), double(eX), ...
+                    "X [" + p + "]", AbsTol=1e-10);
+                test.verifyEqual(double(aY), double(eY), ...
+                    "Y [" + p + "]", AbsTol=1e-10);
+                test.verifyEqual(double(aZ), double(eZ), ...
+                    "Z [" + p + "]", AbsTol=1e-10);
+            end
         end
 
     end

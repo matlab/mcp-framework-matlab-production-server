@@ -95,7 +95,7 @@ For an audio crossover network (R=8 Ohm, L=1.2 mH, C=22 uF, Vs=10 V) swept from 
 **With wire encoding:**
 ```json
 {
-  "Z_total": {"type":"double", "mwcomplex":true, "size":[20,1], "data":[[8,-72.3],[8,-46.1],...]}
+  "Z_total": {"type":"double", "size":[20,1], "data":[8,8,...], "im":[-71.6,-53.7,...]}
 }
 ```
 
@@ -131,7 +131,7 @@ Optimally fuses two sensor readings by weighting inversely to quantization noise
 
 **Sample scenario:** A laser rangefinder (double, sub-mm precision) and an ultrasonic sensor (uint16, 1mm resolution in millimeters) both measure distance to the same target at ~2.45 m. The laser reading `2.4503` (double) should be trusted almost entirely over the ultrasonic reading `2451` (uint16 in mm).
 
-**Without wire encoding:** Both sensors arrive as `double`. The function calls `class(sensor1)` which returns `'double'` for both. The quantization noise is `eps` (~2e-16) for both. The fusion gives **equal 50/50 weight** regardless of actual sensor precision — averaging 2.4503 with 2451.0 to produce ~1226.7, an obviously wrong answer.
+**Without wire encoding:** Both sensors arrive as `double`. The function calls `class(sensor1)` which returns `'double'` for both. The quantization noise is `eps` (~2e-16) for both. The fusion gives **equal 50/50 weight** (`weights = [0.5 0.5]`) regardless of actual sensor precision — each sensor is first normalized to [0, 1] by its own range, so the fused result is the plain average of the two normalized signals, and the coarse 1 mm ultrasonic readings count as much as the laser's.
 
 **With wire encoding:**
 ```json
@@ -141,7 +141,7 @@ Optimally fuses two sensor readings by weighting inversely to quantization noise
 }
 ```
 
-The function correctly assigns near-100% weight to the laser (double = essentially zero quantization noise) and near-0% to the ultrasonic sensor. The fused result is ~2.4501 meters — correct.
+The function correctly assigns near-100% weight to the laser (double = essentially zero quantization noise) and near-0% to the ultrasonic sensor: `weights = [1 0]` to display precision. The fused result is the laser signal, normalized to [0, 1] — correct.
 
 Note: declaring `sensor1 uint8` in the arguments block would force a single type via coercion. But this function must accept **different types on the same parameter** to compare their precisions. There is no fixed-type declaration that works.
 
@@ -176,7 +176,7 @@ As with `fuseSensors`, the function must accept multiple types on the same param
 
 The server includes ten MCP resources containing realistic sensor and engineering data. An LLM reads these resources to obtain input data, then calls the appropriate tool with wire-encoded arguments.
 
-The CSV data files live in `Test/data/examples/WireEncoding/` and are shared between the example build script and the test suite (unit and integration tests).
+The CSV data files live in `Examples/WireEncoding/data/`, which the example build script reads. The test suite (unit and integration tests) uses an identical copy in `Test/data/examples/WireEncoding/`.
 
 | Resource URI | Description | Tool |
 | :--- | :--- | :--- |
@@ -219,9 +219,11 @@ ctf = buildWireEncodingServer();
 % Build and deploy to localhost:9910
 [ctf, endpoint] = buildWireEncodingServer(host="localhost");
 
-% Build and deploy to a specific host and port
-[ctf, endpoint] = buildWireEncodingServer(host="myserver", port=9920);
+% Build and deploy to a specific server and port
+[ctf, endpoint] = buildWireEncodingServer(host="http://myserver:9920");
 ```
+
+On a shared server, give the archive a name of your own with `buildWireEncodingServer`'s `archive` option: `deploy` replaces an archive with the same name, even one someone else deployed. `buildWireEncodingServer` writes the archive to `./deploy`, in the current folder, unless you give it `folder`.
 
 ### Using /mps-mcp-build (AI agentic skill)
 
@@ -245,7 +247,8 @@ ctf = prodserver.mcp.build(fcn, ...
     archive="WireEncoding", ...
     wrapper=["None","None","None","None","None"], ...
     resource=resources, ...
-    folder="./deploy");
+    folder="./deploy", ...
+    encoding="Invertible");
 
 endpoint = prodserver.mcp.deploy(ctf, "localhost", 9910);
 ```
@@ -298,7 +301,7 @@ result = prodserver.mcp.call(endpoint, "blendImages", A, B, 0.6)
 
 ## Wire Encoding Reference
 
-Every MCP Framework server automatically exposes the wire encoding specification as an MCP resource:
+Every MCP Framework server with at least one tool that uses Invertible encoding (as all five tools here do) automatically exposes the wire encoding specification as an MCP resource:
 
 ```
 mcp://protocol/tools/wire-format/parameters/encoding_rules
@@ -308,7 +311,7 @@ LLMs read this resource to learn the encoding rules. The key rules are:
 - Arrays are **never** bare `[1,2,3]` — always wrapped with `type`, `size`, `data`
 - `size` preserves orientation: `[1,3]` for row, `[3,1]` for column
 - Data is **row-major** (last index varies fastest)
-- Complex values use `"mwcomplex":true` with `[real, imag]` pairs
+- Complex arrays add an `"im"` array of imaginary parts, parallel to `"data"`; a complex scalar is `{"re":..., "im":...}`
 - NaN, Inf, -Inf are encoded as strings: `"NaN"`, `"Inf"`, `"-Inf"`
 - Integer types are explicit: `"type":"uint8"`, `"type":"int16"`, etc.
 
@@ -359,8 +362,8 @@ LLMs read this resource to learn the encoding rules. The key rules are:
 
 | Parameter | Type | Shape | Description |
 | :--- | :--- | :--- | :--- |
-| A | numeric | (:,:) | Image A — uint8, int16, or double |
-| B | numeric | (:,:) | Image B — same type as A |
+| A | numeric | any | Image A — uint8, int16, or double |
+| B | numeric | any | Image B — same type as A |
 | alpha | double | (1,1) | Blending factor in [0, 1] |
 
 **Returns:** result (same type as A — uint8, int16, or double)

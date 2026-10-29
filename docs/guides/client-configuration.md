@@ -10,6 +10,7 @@ Connect your MCP client to tools deployed on MATLAB Production Server. MCP Frame
 - [Claude Desktop](#claude-desktop)
 - [Visual Studio Code](#visual-studio-code)
 - [Any HTTP client](#any-http-client)
+- [Protocol support](#protocol-support)
 - [STDIO bridge](#stdio-bridge)
 - [Troubleshooting](#troubleshooting)
 
@@ -63,11 +64,10 @@ Codex CLI reads MCP server configuration from `~/.codex/config.toml`. Add an HTT
 
 ```toml
 [mcp_servers.principalStress]
-type = "http"
 url = "http://localhost:9910/principalStress/mcp"
 ```
 
-Restart Codex CLI after editing. The tool appears in the MCP status display.
+Codex CLI infers the HTTP transport from `url`, so the entry needs no other key. Restart Codex CLI after editing. The tool appears in the MCP status display.
 
 ---
 
@@ -146,21 +146,35 @@ No bridge or adapter needed. The server speaks standard MCP-over-HTTP (JSON-RPC)
 
 ---
 
+## Protocol Support
+
+The server supports two MCP revisions, `2025-06-18` and `2026-07-28`, and serves each request by the revision it's written for. A client of either revision connects without configuration. Clients that ask for `2025-03-26` or `2024-11-05` are served as `2025-06-18`.
+
+The server uses the Streamable HTTP transport in JSON-only mode. It never opens a server-sent events stream, so a client that requires one can't connect. See [Protocol Conformance](../concepts/protocol-conformance.md) for what each revision requires.
+
+---
+
 ## STDIO Bridge
 
 For clients that only support STDIO transport, MCP Framework includes `mcpstdio2http.py`. It forwards STDIO requests to an HTTP server and returns the responses.
+
+The bridge works with either MCP revision. For a `2025-06-18` client, it sends back the session ID from `initialize` and ends the session when the client disconnects. For a `2026-07-28` client, it adds the `MCP-Protocol-Version`, `Mcp-Method` and `Mcp-Name` headers that the message body calls for.
 
 ```sh
 python mcpstdio2http.py --url http://localhost:9910/principalStress/mcp
 ```
 
-Optional flags:
+Flags:
 
-| Flag | Description |
-| :--- | :--- |
-| `--log-level` | `DEBUG`, `INFO`, `WARNING`, `ERROR`, or `CRITICAL` |
-| `--log-dir` | Directory for log files (the MCP client must have write access) |
-| `--timeout` | Request timeout in seconds |
+| Flag | Default | Description |
+| :--- | :--- | :--- |
+| `--url` | `http://localhost:9910/mcp` | MCP endpoint, `http://<host>:<port>/<archive>/mcp`. The default names no archive, so always set it. |
+| `--timeout` | `30` | Request timeout in seconds |
+| `--log-level` | `INFO` | `DEBUG`, `INFO`, `WARNING`, `ERROR`, or `CRITICAL` |
+| `--log-file` | `mcpstdio2http.py.log` | Name of the log file |
+| `--log-dir` | The current folder | Folder for the log file. The MCP client must have write access to it. |
+
+The bridge always writes a log file.
 
 The bridge requires the `requests` Python package.
 
@@ -172,12 +186,13 @@ You do not call the bridge directly — configure your MCP client to launch it a
 
 For the full request and response rules, see [Protocol Conformance](../concepts/protocol-conformance.md).
 
-### The first request works, then everything gets HTTP 400
+### Requests get HTTP 400
 
-The 400 has no body. It has one of two causes:
+The body is a JSON-RPC error. Read `error.code`:
 
-- **The client sends an unsupported `MCP-Protocol-Version`.** The server accepts only `2025-06-18`, or no header at all. Update the client, or configure it to use revision `2025-06-18`.
-- **The client doesn't send back `Mcp-Session-Id`.** The server returns a session ID in a response header from `initialize`. Every later request must include it. Check that your client or proxy doesn't strip the header.
+- **`-32022`: the client sends an unsupported `MCP-Protocol-Version`.** The server accepts `2025-06-18` (and `2025-03-26` and `2024-11-05`, served as `2025-06-18`) and `2026-07-28`. `error.data.supported` lists `2025-06-18` and `2026-07-28`. Update the client, or configure it to use one of those revisions.
+- **`-32602` with "Cannot attribute the request to a protocol version": the server can't tell which revision the request is for.** A `2025-06-18` client that gets this after `initialize` isn't sending back `Mcp-Session-Id`. The server returns the session ID in a response header from `initialize`, and every later request must include it. Check that your client or proxy doesn't strip the header. A `2026-07-28` client must put `io.modelcontextprotocol/protocolVersion` in every request's `params._meta`.
+- **`-32020`: a `2026-07-28` request has a missing or mismatched header.** `MCP-Protocol-Version` and `Mcp-Method` are required on every request, and `Mcp-Name` on `tools/call`, `resources/read` and `prompts/get`. Each must match the body.
 
 ### `GET` gets HTTP 405
 
@@ -185,7 +200,7 @@ That's expected. The server doesn't open server-to-client streams. A client that
 
 ### `tools/list` gets HTTP 500 with error `-32603`
 
-The server couldn't load the archive's tool definitions. Read `error.message`. If it says that another archive in the same worker may have loaded a different copy of a framework class, set the environment variable `MW_MULTIMCOS_MODE` to `true` on the server machine and restart the server. See [Several Archives on One Server](../reference/deploy.md#several-archives-on-one-server). The same failure can appear on `tools/call`, `resources/list` and `resources/read`.
+The server couldn't load the archive's tool definitions. Read `error.message`. If it says to restart the server in multi-MCOS mode, set the environment variable `MW_MULTIMCOS_MODE` to `true` on the server machine and restart the server. See [Several Archives on One Server](../reference/deploy.md#several-archives-on-one-server). The same failure can appear on `tools/call`, `resources/list` and `resources/read`.
 
 ### A tool error arrives as HTTP 200
 

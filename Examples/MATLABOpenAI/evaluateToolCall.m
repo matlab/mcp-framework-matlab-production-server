@@ -5,19 +5,22 @@ function observation = evaluateToolCall(toolCall,tools)
 
     % Validate tool name
     toolName = toolCall.function.name;
-    assert(isKey(tools.mcp,toolName),"Invalid tool name ''%s''.",toolName)
+    assert(isKey(tools.mcp,toolName),"evaluateToolCall:InvalidToolName", ...
+        "Invalid tool name '%s'.",toolName)
     
     % Validate JSON syntax
     try
         args = jsondecode(toolCall.function.arguments);
     catch
-        error("Model returned invalid JSON syntax for arguments of tool ''%s''.",toolName);
+        error("evaluateToolCall:InvalidArgumentJSON", ...
+            "Model returned invalid JSON syntax for arguments of tool '%s'.",toolName);
     end
     
     % Validate tool parameters
     tool = tools.mcp(toolName);
     requiredArgs = string(tool.inputSchema.required);
-    assert(all(isfield(args,requiredArgs)),"Invalid tool parameters: %s",strjoin(fieldnames(args),","))
+    assert(all(isfield(args,requiredArgs)),"evaluateToolCall:InvalidToolParameters", ...
+        "Invalid tool parameters: %s",strjoin(fieldnames(args),","))
     
     % Remove non-required parameters. Clearly this represents an area for
     % enhancement.
@@ -50,6 +53,7 @@ function observation = evaluateToolCall(toolCall,tools)
             observation = me.message;
         end
     else
-        error("Unsupported MCP server type: %s", tool.server.type);
+        error("evaluateToolCall:UnsupportedServerType", ...
+            "Unsupported MCP server type: %s", tool.server.type);
     end
 end

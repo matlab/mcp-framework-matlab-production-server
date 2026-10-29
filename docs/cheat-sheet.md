@@ -132,7 +132,7 @@ end
 ## Client Configuration
 
 ```json
-// Claude Code / Claude Desktop
+// Claude Code
 {
   "mcpServers": {
     "myServer": {
@@ -144,26 +144,24 @@ end
 ```
 
 ```json
-// VS Code (settings.json)
+// VS Code (.vscode/mcp.json)
 {
-  "mcp": {
-    "servers": {
-      "myServer": {
-        "url": "http://localhost:9910/myServer/mcp",
-        "type": "http"
-      }
+  "servers": {
+    "myServer": {
+      "url": "http://localhost:9910/myServer/mcp",
+      "type": "http"
     }
   }
 }
 ```
 
-STDIO bridge for clients without HTTP support.
+STDIO bridge for clients without HTTP support, such as Claude Desktop.
 ```json
 {
   "mcpServers": {
     "myServer": {
       "command": "python",
-      "args": ["mcpstdio2http.py", "--url", "http://localhost:9910/myServer/mcp"]
+      "args": ["/path/to/Utilities/mcpstdio2http.py", "--url", "http://localhost:9910/myServer/mcp"]
     }
   }
 }
@@ -175,13 +173,13 @@ STDIO bridge for clients without HTTP support.
 
 ```MATLAB
 % Define a resource
-r = struct( ...
-    'uri', 'mcp://data/material', ...
-    'contents', 'aluminum.json', ...
+aluminum = struct( ...
+    'uri', 'mcp://materials/aluminum_6061', ...
+    'contents', 'aluminum_6061.json', ...
     'description', 'Aluminum 6061-T6 properties', ...
     'mimeType', 'application/json');
 
-% Multiple resources
+% Multiple resources (steel and titanium defined the same way)
 resources = [aluminum, steel, titanium];
 
 % Include in build
@@ -206,15 +204,15 @@ Then in Claude Code: install plugin, `/reload-plugins`, use `/mps-mcp-build`.
 | Option | Type | Default | Purpose |
 | :--- | :--- | :--- | :--- |
 | `example` | handle or cell | `[]` | Example calls for schema generation |
-| `server` | string | `""` | Deploy immediately to this address |
+| `server` | string | none | Deploy immediately to this address |
 | `archive` | string | function name | CTF archive name |
 | `resource` | struct array | `[]` | MCP resources to embed |
-| `wrapper` | string | `"Auto"` | Wrapper mode: "Auto", "None", or path to custom wrapper |
+| `wrapper` | string | `"Auto"` | Wrapper mode: "Auto", "None", "" (always generate), or path to custom wrapper. With `example`, only "Auto" or "None". |
 | `discovery` | logical | `true` | Include in MPS discovery |
 | `folder` | string | `"./deploy"` | Output directory for CTF |
-| `files` | string vector | `""` | Extra files to include in archive |
-| `timeout` | integer | `30` | Server interaction timeout (seconds) |
-| `retry` | integer | `2` | Retry count for network operations |
+| `files` | string vector | none | Extra files to include in archive |
+| `timeout` | integer | `30` | Not used; the upload uses `deploy`'s defaults |
+| `retry` | integer | `2` | Not used; the upload uses `deploy`'s defaults |
 
 ---
 

@@ -8,9 +8,9 @@ classdef tOptionalWrapper < matlab.unittest.TestCase
 
     methods(TestClassSetup)
         function initTest(test)
-            testFolder = fileparts(mfilename("fullpath"));
-            test.toolFolder = fullfile(testFolder,"..","..","tools", ...
-                "toyTools");
+            % No .. in the path: its file: URIs must not have one.
+            test.toolFolder = fullfile(prodserver.mcp.internal.packageFolder(), ...
+                "Test", "tools", "toyTools");
         end
     end
 

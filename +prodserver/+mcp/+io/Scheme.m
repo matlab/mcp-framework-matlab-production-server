@@ -147,13 +147,22 @@ classdef (Abstract) Scheme
         %
         % Subclasses are encouraged to override this function.
 
+            % string: a char URI is one URI, not an array of characters.
+            arguments
+                s
+                uri string
+            end
+            arguments (Repeating)
+                varargin
+            end
+
             if isempty(uri)
                 tf = false;
             else
-                
-                tf = startsWith(uri,prefix(s)) && ...
-                    prodserver.mcp.validation.isuri(uri, ...
-                        varargin{:});
+                % isuri takes one URI at a time; uri may be an array.
+                tf = startsWith(uri,prefix(s)) & ...
+                    arrayfun(@(u)prodserver.mcp.validation.isuri(u, ...
+                        varargin{:}), uri);
             end
         end
 

@@ -118,6 +118,17 @@ classdef tClassifyExample < matlab.unittest.TestCase
             test.verifyTrue(true);
         end
 
+        function testFileRestoresPath(test)
+        % classifyExample puts the test file's folder first while it
+        % inspects the class, then restores the path.
+            test.assumeFalse(skipRecursiveTestsInSandbox(), ...
+                "Recursive runtests only works in installed MATLAB");
+            p = path;
+            testFile = fullfile(test.mockFolder, "tMockTest.m");
+            prodserver.mcp.internal.classifyExample(testFile);
+            test.verifyEqual(path, p);
+        end
+
         function testDetectionByName(test)
             test.assumeFalse(skipRecursiveTestsInSandbox(), ...
                 "Recursive runtests only works in installed MATLAB");

@@ -89,8 +89,14 @@ classdef tSchemaBlocks < matlab.unittest.TestCase
         end
 
         function outputBlockOnly(test)
+            % build warns if any input or output has no assigned type. But
+            % that's not what we're testing here, so turn off that warning.
+            test.applyFixture(matlab.unittest.fixtures.SuppressedWarningsFixture( ...
+                "prodserver:mcp:UnobservedParameters"));
+
             % Function with output block but no input block.
-            % Output descriptions from comments; input descriptions auto-generated.
+            % Output descriptions from comments; input descriptions 
+            % auto-generated.
             defs = prodserver.mcp.schema("schemaComputeOutputOnly", ...
                 @() callWithOutputs(@schemaComputeOutputOnly, 3, ...
                     {1.0, 2.0, 3.0}), ...
@@ -128,6 +134,11 @@ classdef tSchemaBlocks < matlab.unittest.TestCase
         end
 
         function autoDescriptionFormat(test)
+            % build warns if any input or output has no assigned type. But
+            % that's not what we're testing here, so turn off that warning.
+            test.applyFixture(matlab.unittest.fixtures.SuppressedWarningsFixture( ...
+                "prodserver:mcp:UnobservedParameters"));
+            
             % Auto-generated descriptions include name expansion, type, and
             % status when metadata is available from argument blocks.
             defs = prodserver.mcp.schema("schemaComputeOutputOnly", ...

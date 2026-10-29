@@ -27,8 +27,15 @@ function tf = isMIMETypeText(mimeType)
 
 % Copyright 2025-2026 The MathWorks, Inc.
 
-    % Strip parameters ("; charset=utf-8", etc.) and normalise case.
+    % Strip parameters ("; charset=utf-8", etc.) and normalise case. Through
+    % the shared helper, which trims AFTER removing the parameters: trimming
+    % first left the space in "text/plain ; charset=utf-8", and the type
+    % was then reported as binary.
     mimeType = prodserver.mcp.internal.mediaType(mimeType);
+    if isempty(mimeType)
+        tf = false;
+        return
+    end
 
     % Split into primary type and subtype.
     parts = split(mimeType, "/");

@@ -29,51 +29,55 @@ function items = list(endpoint, type, opts)
 
     arguments
         endpoint string { prodserver.mcp.validation.mustBeMCPServer }
-        type (1,1) prodserver.mcp.Primitive 
+        type (1,1) prodserver.mcp.Primitive
+        opts.protocol string = "discover"
         opts.timeout double {mustBePositive} = 30
         opts.retry double {mustBePositive} = 10
         opts.delay double {mustBePositive} = 2
     end
 
-    %
-    % Initialize connection via JSON-RPC "initialize" message.
-    %
+    try
+        items = doList(endpoint, type, opts);
+    catch me
+        if opts.protocol == "discover" && prodserver.mcp.protocol.isProtocolError(me)
+            prodserver.mcp.client.Adapter.create(endpoint, action="clear");
+            items = doList(endpoint, type, opts);
+        else
+            rethrow(me);
+        end
+    end
+end
 
-    % Require that the server publish the resources we're inquiring about.
-    try    
-        [session,id] = prodserver.mcp.internal.initialize(endpoint, ...
-            require=type, timeout=opts.timeout, delay=opts.delay, ...
-            retry=opts.retry);
+function items = doList(endpoint, type, opts)
+    client = prodserver.mcp.client.Adapter.create(endpoint, ...
+        protocol=opts.protocol);
+    client.connect(require=type, timeout=opts.timeout, ...
+        delay=opts.delay, retry=opts.retry);
+    cleanup = onCleanup(@()client.disconnect());
 
-        % Terminate session -- no response expected.
-        terminator = onCleanup(@()prodserver.mcp.internal.terminate( ...
-            endpoint,session));
-        
-        % List all primitives of TYPE at ENDPOINT
-        items = prodserver.mcp.internal.list(endpoint,session,type, ...
-            id=id,timeout=opts.timeout, delay=opts.delay, ...
-            retry=opts.retry);
+    try
+        items = client.list(type, timeout=opts.timeout, ...
+            delay=opts.delay, retry=opts.retry);
         items = items.(mcpName(type));
 
-        % Add the server endpoint to each result. Some lists return as cell
-        % arrays, some as structure arrays. This function ALWAYS returns a
-        % cell array.
         server.type = "http";
         server.url = endpoint;
         if iscell(items)
             for n = 1:numel(items)
                 items{n}.server = server;
             end
-        elseif isempty(items) == false && isstruct(items)
+        elseif ~isempty(items) && isstruct(items)
             [items.server] = server;
             items = num2cell(items);
         end
 
     catch me
-        if strcmpi(me.identifier,"prodserver:mcp:HttpError") && ...
+        if strcmpi(me.identifier, "prodserver:mcp:HttpError") && ...
                 contains(me.message, "404: Not Found", IgnoreCase=true)
-            error("Unknown MCP server %s.", endpoint);
+            error("prodserver:mcp:UnknownServer", ...
+                "Unknown MCP server %s.", endpoint);
         end
         rethrow(me);
     end
 end
+

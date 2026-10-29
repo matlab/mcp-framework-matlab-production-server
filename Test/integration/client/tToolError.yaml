@@ -9,6 +9,9 @@
 #                     content as the tool's first output, with no error at all.
 #   mockMultiPart  -- an error whose content has two text items, which
 #                     jsondecode turns into a struct array rather than a scalar.
+#   mockCrash      -- answers tools/call with a bare HTTP 500: no JSON-RPC
+#                     body, as from a crashed worker or a failing proxy. The
+#                     tool may have run, so the client must not call it again.
 #
 # The mock matches tools/call on arguments, not on the tool name, so each tool
 # is called with a different x.
@@ -48,7 +51,8 @@ routes:
               tools: [
                 {"name":"mockDeclared","description":"Declares one output.","inputSchema":{"type":"object","properties":{"x":{"type":"number","description":"Ignored"}},"required":["x"],"additionalProperties":false},"outputSchema":{"type":"object","properties":{"y":{"type":"number","description":"The only declared output"}},"required":["y"],"additionalProperties":false}},
                 {"name":"mockUndeclared","description":"Declares no outputs.","inputSchema":{"type":"object","properties":{"x":{"type":"number","description":"Ignored"}},"required":["x"],"additionalProperties":false}},
-                {"name":"mockMultiPart","description":"Declares no outputs.","inputSchema":{"type":"object","properties":{"x":{"type":"number","description":"Ignored"}},"required":["x"],"additionalProperties":false}}
+                {"name":"mockMultiPart","description":"Declares no outputs.","inputSchema":{"type":"object","properties":{"x":{"type":"number","description":"Ignored"}},"required":["x"],"additionalProperties":false}},
+                {"name":"mockCrash","description":"Declares no outputs.","inputSchema":{"type":"object","properties":{"x":{"type":"number","description":"Ignored"}},"required":["x"],"additionalProperties":false}}
                 ]
       - jrpc: tools/call
         call:
@@ -86,6 +90,13 @@ routes:
             Mcp-Session-Id: alpha
           body:
             result: { "isError": true, "content": [ { "type": "text", "text": "first part" }, { "type": "text", "text": "second part" } ] }
+      - jrpc: tools/call
+        call:
+          name: "mockCrash"
+          input:
+            x: 4
+        response:
+          status: 500
       # Terminate (DELETE, empty body) succeeds.
       - body: ""
         response:
@@ -117,3 +128,10 @@ routes:
             Content-Type: application/json
             Mcp-Session-Id: alpha
           body: {"mockMultiPart":{"function":"mockMultiPart","input":{"name":"x","type":"double","kind":"Required","order":"x"},"output":{"name":[],"type":[],"kind":[],"order":[]}}}
+      - body: "mockCrash"
+        response:
+          status: 200
+          headers:
+            Content-Type: application/json
+            Mcp-Session-Id: alpha
+          body: {"mockCrash":{"function":"mockCrash","input":{"name":"x","type":"double","kind":"Required","order":"x"},"output":{"name":[],"type":[],"kind":[],"order":[]}}}

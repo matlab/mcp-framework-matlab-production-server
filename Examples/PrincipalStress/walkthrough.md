@@ -8,6 +8,14 @@ Build your first MCP tool from a MATLAB function, deploy it to MATLAB Production
 
 ```MATLAB
 function sigma = principalStress(stressState, component)
+    arguments(Input)
+        stressState (1,3) double  % 2D stress state [sigma_x, sigma_y, tau_xy] in MPa
+        component (1,1) string    % Principal stress component: "max", "min", or "maxShear"
+    end
+    arguments(Output)
+        sigma (1,1) double        % Computed principal stress in MPa
+    end
+
     sx = stressState(1);
     sy = stressState(2);
     txy = stressState(3);
@@ -37,6 +45,8 @@ Package `principalStress` into a deployable archive. Pass an example call so the
 ctf = prodserver.mcp.build("principalStress", ...
     example=@() principalStress([120 -50 80], "max"));
 ```
+
+On a shared server, give the archive a name of your own with `build`'s `archive` option, for example by adding your user name: `deploy` replaces an archive with the same name, even one someone else deployed.
 
 The framework runs your example, observes that `stressState` is a 3-element numeric vector and `component` is a string, and combines that with comments from your source code to produce the MCP tool definition.
 

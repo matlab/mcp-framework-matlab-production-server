@@ -27,6 +27,8 @@ The function `buildMaterialsServer` packages both tools and all resources into a
 [ctf, endpoint] = buildMaterialsServer(host="localhost");
 ```
 
+On a shared server, give the archive a name of your own with `buildMaterialsServer`'s `archive` option: `deploy` replaces an archive with the same name, even one someone else deployed. `buildMaterialsServer` writes the archive to `./deploy`, in the current folder, unless you give it `folder`.
+
 Or build step-by-step:
 ```MATLAB
 fcn = ["calculateBeamStress", "calculateThermalResistance"];
@@ -59,7 +61,7 @@ result = prodserver.mcp.call(endpoint, "calculateBeamStress", ...
 result =
   struct with fields:
        max_stress_Pa: 6.0000e+07
-    max_deflection_m: 1.7125e-03
+    max_deflection_m: 0.0058
        safety_factor: 4.6000
               status: "PASS"
 ```

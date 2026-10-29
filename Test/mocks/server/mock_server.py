@@ -23,7 +23,14 @@ class MockHTTPHandler(BaseHTTPRequestHandler):
     """Handler for mock HTTP requests based on configuration."""
     
     config = {}
-    
+
+    # Count of requests received per "METHOD path" key, reported by /stats.
+    # Needed to assert that the client does NOT retry a deterministic
+    # rejection: a 4xx carrying a JSON-RPC error body will be answered
+    # identically every time, so retrying only multiplies the failure. The
+    # only way to observe a retry from the outside is to count requests.
+    counts = {}
+
     def do_GET(self):
         self.handle_request('GET')
     
@@ -54,36 +61,61 @@ class MockHTTPHandler(BaseHTTPRequestHandler):
             self.end_headers()
 
             raise StopMcpServer("immediately")
-        
+
+        # Report per-route request counts. Like /stop, a test-only hack, and
+        # deliberately not counted itself.
+        if path == "/stats":
+            payload = json.dumps(MockHTTPHandler.counts).encode('utf-8')
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Content-Length', str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
+            return
+
+        key = f"{method} {path}"
+        MockHTTPHandler.counts[key] = MockHTTPHandler.counts.get(key, 0) + 1
+
         # Read request body if present
         content_length = int(self.headers.get('Content-Length', 0))
-        body = self.rfile.read(content_length).decode('utf-8') if content_length > 0 else ''
+        # An uploaded archive is binary: undecodable bytes must not fail the
+        # request, only stop it matching a body.
+        body = self.rfile.read(content_length).decode('utf-8', errors='replace') if content_length > 0 else ''
         content_type = self.headers.get('Content-Type',[])
         if len(body) > 0 and content_type == 'application/json':
             body = json.loads(body)
         # Find matching route
-        response = self.find_matching_response(method, path, body)
+        response = self.find_matching_response(method, path, body,
+                                               MockHTTPHandler.counts[key])
         
         if response:
             self.send_configured_response(response, path, query_params, body)
         else:
             self.send_404()
     
-    def find_response_by_request(self, route, body):
-        # Match request by jrpc method or entire body
+    def find_response_by_request(self, route, method, body, count):
+        # Match request by jrpc method or entire body. An entry may also name
+        # the HTTP method it answers; one that does not answers any method
+        # its route accepts. An entry with "from: N" answers only the Nth
+        # and later requests of this method to this path, so a route can
+        # change its answer over time; one with "anybody: true" answers any
+        # body.
         logging.debug(f"Finding response for {route}")
+        requests = [req for req in route.get('request', [])
+                    if req.get('method', method) == method
+                    and count >= req.get('from', 0)]
         if isinstance(body,str):
-            for req in route.get('request', []):
+            for req in requests:
                 logging.debug(body)
                 b = req.get('body',[])
                 logging.debug(f"b {b}")
-                if b == body:
+                if b == body or req.get('anybody', False):
                     return req.get('response',[])
         elif isinstance(body,dict):
             logging.debug("dict")
             jrpc = body.get('method',[])
             logging.debug(jrpc)
-            for req in route.get('request', []):
+            for req in requests:
                 mth = req.get('jrpc')
                 if mth == jrpc:
                     # call must match inputs too
@@ -98,11 +130,18 @@ class MockHTTPHandler(BaseHTTPRequestHandler):
                             return req.get('response')
                         else:
                             continue
+                    # An entry naming a uri answers only that resource;
+                    # one without answers any.
+                    elif 'uri' in req:
+                        actualUri = (body.get('params') or {}).get('uri')
+                        if req.get('uri') == actualUri:
+                            return req.get('response')
+                        continue
                     else:
                         return req.get('response')
         return None
 
-    def find_matching_response(self, method, path, body):
+    def find_matching_response(self, method, path, body, count):
         """Find a route configuration that matches the request."""
         logging.debug(f"Searching for {method} {path}")
         for route in self.config.get('routes', []):
@@ -117,11 +156,11 @@ class MockHTTPHandler(BaseHTTPRequestHandler):
             if route.get('regex', False):
                 logging.debug("regex")
                 if re.match(route_path, path):
-                    return self.find_response_by_request(route,body)
+                    return self.find_response_by_request(route,method,body,count)
             else:
                 logging.debug(f"exact {route_path} == {path}")
                 if route_path == path:
-                    return self.find_response_by_request(route,body)
+                    return self.find_response_by_request(route,method,body,count)
         
         return None
     
@@ -144,8 +183,9 @@ class MockHTTPHandler(BaseHTTPRequestHandler):
             import time
             time.sleep(delay)
         
-        # Send response
-        self.send_response(status_code)
+        # Send response. "reason" sets the status line's reason phrase,
+        # where MATLAB Production Server says why a request failed.
+        self.send_response(status_code, response.get('reason'))
         
         # Send headers
         for header_name, header_value in headers.items():

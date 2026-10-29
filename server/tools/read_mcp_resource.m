@@ -25,8 +25,9 @@ function contents = read_mcp_resource(uri)
     %
     % tools/call reports this through the isError convention over HTTP 200: the
     % protocol succeeded and the tool ran, it just could not do what was asked.
-    % resources/read raises the same identifier and maps it to JSON-RPC -32002,
-    % so both ways of reading a resource agree that this one is absent.
+    % resources/read raises the same identifier and maps it to a JSON-RPC error
+    % (-32002 under 2025-06-18, -32602 under 2026-07-28), so both ways of
+    % reading a resource agree that this one is absent.
     if isempty(contents)
         error("prodserver:mcp:ResourceNotFound", ...
             "Resource '%s' not found on this MCP server.", uri);

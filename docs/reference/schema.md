@@ -18,16 +18,16 @@ prodserver.mcp.build(fcns, definition=definitions)
 ### Outputs
 | Argument | Type | Description | Example
 | :---     | :--- | :---        | :---    |
-| definitions | struct | MCP tool definitions with `tools` and `signatures` fields. Directly usable as `build(fcns, definition=definitions)`. | struct |
+| definitions | struct | MCP tool definitions: a struct array with one element per function in `fcns`, each with `tools` and `signatures` fields. Directly usable as `build(fcns, definition=definitions)`. | struct |
 
 ### Optional Inputs (Name/Value Pairs)
 Pass optional arguments with *argument=value* syntax following required inputs. For example: `encoding="JSON"`.
 | Argument | Type | Description | Default | Example |
 | :---     | :--- | :---        | :---    |:---     |
 | typemap | struct | Map of MATLAB type names (fieldnames) to JSON type names (values). Overrides default type mappings. | [] | struct('uint64','integer') |
-| encoding | WireEncoding | Wire encoding strategy: "Invertible", "JSON", or "Hybrid". | "JSON" | "Invertible" |
+| encoding | WireEncoding | Wire encoding strategy: "Invertible" or "JSON". A scalar applies to every function; a vector gives one encoding per function in `fcns`. The examples run once either way. | "JSON" | "Invertible" |
 
-All functions in `fcns` must be called at least once during example execution. If a function is never called, `schema` raises an error. For functions without argument blocks, the function infers parameter requiredness from the minimum observed argument count across all example calls. Name-value pair arguments appear in the schema only if the examples use them.
+All functions in `fcns` must be called at least once during example execution. If a function is never called, `schema` raises an error. For functions without argument blocks, the function infers parameter requiredness from the minimum observed argument count across all example calls. A function without an argument block has only `varargin`, so its name-value names don't appear in the schema. For a function with an argument block, every declared parameter appears, whether or not the examples use it. A parameter no example exercises gets the schema of its declared class; without one its schema allows any type, and `schema` warns `prodserver:mcp:UnobservedParameters`.
 
 See [Schemas](../concepts/schemas.md) for conceptual background on schema generation approaches.
 
