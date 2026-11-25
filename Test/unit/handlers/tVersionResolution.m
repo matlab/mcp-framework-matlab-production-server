@@ -172,7 +172,7 @@ classdef tVersionResolution < matlab.unittest.TestCase
             C = prodserver.mcp.protocol.v20260728.Constants;
 
             body = '{ "jsonrpc": "2.0", "id": 8, "method": "ping", "params": {} }';
-            headers = {Constants.SessionId, char(matlab.lang.internal.uuid); ...
+            headers = {Constants.SessionId, prodserver.mcp.test.sessionToken(); ...
                 MCPConstants.ProtocolVersion, '1999-01-01'};
 
             decoded = test.verifyRejected(test.post(body, headers), 400, ...
@@ -189,7 +189,7 @@ classdef tVersionResolution < matlab.unittest.TestCase
             import prodserver.mcp.protocol.v20250618.Constants
 
             body = '{ "jsonrpc": "2.0", "id": 9, "method": "ping", "params": {} }';
-            headers = {Constants.SessionId, char(matlab.lang.internal.uuid)};
+            headers = {Constants.SessionId, prodserver.mcp.test.sessionToken()};
 
             test.verifyServed(test.post(body, headers), 9);
         end
@@ -203,7 +203,7 @@ classdef tVersionResolution < matlab.unittest.TestCase
             import prodserver.mcp.protocol.v20250618.Constants
 
             body = '{ "jsonrpc": "2.0", "id": 10, "method": "ping", "params": {} }';
-            headers = {Constants.SessionId, char(matlab.lang.internal.uuid); ...
+            headers = {Constants.SessionId, prodserver.mcp.test.sessionToken(); ...
                 MCPConstants.ProtocolVersion, '2025-03-26'};
 
             test.verifyServed(test.post(body, headers), 10);
@@ -311,7 +311,7 @@ classdef tVersionResolution < matlab.unittest.TestCase
             import prodserver.mcp.MCPConstants
             import prodserver.mcp.protocol.v20250618.Constants
 
-            session = char(matlab.lang.internal.uuid);
+            session = prodserver.mcp.test.sessionToken();
             req = test.baseRequest;
             req.Method = "DELETE";
             req.Path = "/prime/mcp";
@@ -351,7 +351,7 @@ classdef tVersionResolution < matlab.unittest.TestCase
             req.Method = "DELETE";
             req.Path = "/prime/mcp";
             req.Headers = [req.Headers; ...
-                {Constants.SessionId, char(matlab.lang.internal.uuid)}; ...
+                {Constants.SessionId, prodserver.mcp.test.sessionToken()}; ...
                 {MCPConstants.ContentType, 'application/json'}; ...
                 {MCPConstants.ContentLength, numel(body)}];
             req.Body = unicode2native(body,"UTF-8");

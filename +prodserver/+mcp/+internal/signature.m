@@ -7,7 +7,7 @@ function sig = signature(tool, endpoint, client, opts)
         tool string
         endpoint string { prodserver.mcp.validation.mustBeURI }
         client prodserver.mcp.client.Adapter
-        opts.timeout double { mustBePositive } = 10
+        opts.timeout double { mustBePositive } = 60
     end
 
     import prodserver.mcp.MCPConstants
@@ -21,14 +21,12 @@ function sig = signature(tool, endpoint, client, opts)
     body = matlab.net.http.MessageBody(tool);
     request = matlab.net.http.RequestMessage('POST', headers, body);
     handler = "signature";
-    % A response timeout as well as a connect timeout: a server that
-    % accepts the connection and never answers would otherwise hang the
-    % call forever (XD29).
-    httpOpts = matlab.net.http.HTTPOptions(ConnectTimeout=opts.timeout, ...
-        ResponseTimeout=opts.timeout);
-    response = send(request,endpoint,httpOpts);
-    prodserver.mcp.internal.requireSuccess(response,endpoint, ...
-        request=handler);
+    % Through sendRequest, which sets a response timeout as well as a
+    % connect timeout (a server that accepts the connection and never
+    % answers would otherwise hang the call forever, XD29), and resends a
+    % request that got no answer: reading a signature changes nothing.
+    response = prodserver.mcp.internal.sendRequest(request, endpoint, ...
+        timeout=opts.timeout, label=handler, repeatable=true);
     sig = response.Body.Data;
 
     % Restore fields from their JSON types to the expected MATLAB types.

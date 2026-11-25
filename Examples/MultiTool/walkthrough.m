@@ -32,7 +32,8 @@ endpoint = prodserver.mcp.deploy(ctf, mpsServer);
 fprintf(1,"Finish deploy %s %f.2\n",endpoint,round(toc(t),2));
 
 %% Verify Deployment
-% List all seven tools on the server.
+% List the tools on the server: the seven fractal tools and
+% read_mcp_resource, which build adds to every server.
 
 fprintf(1,"Start ping %s %f.2\n",endpoint,round(toc(t),2));
 prodserver.mcp.ping(endpoint)

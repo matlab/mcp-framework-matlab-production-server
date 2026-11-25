@@ -37,10 +37,32 @@ function validateEnvelope(jrpc)
     end
 
     % A JSON-RPC request -- as opposed to a notification -- must carry an
-    % id. Notifications never reach this point.
-    if ~isfield(jrpc, "id") || isempty(jrpc.id)
+    % id. Notifications never reach this point. JSON null decodes to an
+    % empty double; an empty string, "", is an id like any other.
+    if ~isfield(jrpc, "id") || (isnumeric(jrpc.id) && isempty(jrpc.id))
         error("prodserver:mcp:InvalidRequest", ...
             "JSON-RPC request '%s' is missing the required 'id' member.", ...
             string(jrpc.method));
+    end
+    % And of a kind MCP allows: a string or an integer. An object, array,
+    % boolean or fraction used to be processed, and echoed back.
+    if ~prodserver.mcp.jsonrpc.isRequestId(jrpc.id)
+        error("prodserver:mcp:InvalidRequest", ...
+            "JSON-RPC request '%s' has an id that is %s. An MCP " + ...
+            "request's id must be a string or an integer.", ...
+            string(jrpc.method), idKind(jrpc.id));
+    end
+end
+
+function kind = idKind(id)
+% What ID is, in JSON terms, for the message.
+    if isstruct(id)
+        kind = "an object";
+    elseif islogical(id)
+        kind = "a boolean";
+    elseif isnumeric(id) && isscalar(id)
+        kind = "a number that isn't an integer";
+    else
+        kind = "an array";
     end
 end

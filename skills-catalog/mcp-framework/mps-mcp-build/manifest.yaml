@@ -7,7 +7,7 @@ license: MathWorks BSD-3-Clause
 
 scope: cross-product
 
-version: "1.0"
+version: "1.1"
 
 human-description: Create and deploy MCP tools from MATLAB functions to MATLAB Production Server
 

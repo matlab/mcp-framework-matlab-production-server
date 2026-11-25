@@ -3,7 +3,7 @@ name: mps-mcp-build
 description: Create and deploy MCP tools from MATLAB functions to MATLAB Production Server using the MCP Framework for MATLAB Production Server support package
 argument-hint: <function path(s), server address, optional files/resources>
 disable-model-invocation: true
-allowed-tools: Read Bash(matlab *) Bash(which matlab) Bash(ls *) Bash(grep *) Bash(sha256sum *) Bash(cat *) Bash(curl *) Bash(mkdir *) Bash(rm *) Bash(cd *) Bash(find *) Bash(sort *) Bash(xargs *) Bash(cut *)
+allowed-tools: Read Bash(matlab *) Bash(claude mcp *) Bash(which matlab) Bash(ls *) Bash(grep *) Bash(sha256sum *) Bash(cat *) Bash(curl *) Bash(mkdir *) Bash(rm *) Bash(cd *) Bash(find *) Bash(sort *) Bash(xargs *) Bash(cut *)
 ---
 
 # Create MCP Tool from MATLAB Function
@@ -27,9 +27,11 @@ Extract the following from the user's request:
 
 - **Function path(s)**: One or more paths to `.m` files (required)
 - **Server address**: Host and port of the MATLAB Production Server (required), e.g. `localhost:9910`
-- **Archive name**: The name of the archive on the server (optional). It is part of the endpoint URL, `<scheme>://<host>:<port>/<archiveName>/mcp`. If the user doesn't give one, use the name of the first function. A server holds one archive per name, so Step 5.0 checks that the name is free before deploying.
+- **Archive name**: The name of the archive on the server (optional). It is part of the endpoint URL, `<scheme>://<host>:<port>/<archiveName>/mcp`. If the user doesn't give one, use the name of the first function. A server holds one archive per name, so Step 5.0 checks that the name is free before deploying. An archive name may contain only letters (A-Z, a-z), digits and `_`, and may not be `Framework`: `build` refuses any other name. If the user's name breaks this rule, say so and ask for another before going on.
+- **Sample call**: A call of the function that the user writes out, such as `myFunc(3)` or `cleanSignal(noisy, 60)` (optional). The build runs it to learn the types and sizes of the inputs and outputs, which a function with no arguments block needs. Use it exactly as the user wrote it. **Never write a sample call yourself**, not even from the user's description of the function or its arguments: made-up values can give the wrong types or sizes, and those end up in the tool's published schema. With several functions, one sample call per function.
 - **Scheme**: `http` (default) or `https` if the user specifies it
 - **Additional files**: Extra files to include in the CTF archive (optional)
+- **MCP App view**: The path to a built HTML file to serve as the tools' interactive view, in hosts that support MCP Apps (optional). It must be one self-contained file, such as `app/dist/mcp-app.html` from a Vite build. Don't build or write the view: use the file the user names.
 - **Resources**: MCP resources to include (optional), specified in flexible formats such as:
   - `"add a resource at config://settings with the contents from settings.json"`
   - `"create the resource data://AuthorName with string value 'Mr. Author'"`
@@ -92,14 +94,14 @@ If the manifest does not exist, proceed to Step 5 (full build).
 
 ### 4.2: Compute current input hashes
 
-Compute SHA-256 hashes for all source files and additional files:
+Compute SHA-256 hashes for all source files, additional files and the MCP App view file:
 ```bash
 sha256sum "<source.m>" | cut -d' ' -f1
 ```
 
 For the framework fingerprint, hash all the framework `.m` files in the framework this build will use. Run this command in `<project-root>` (the directory containing the `+prodserver` package):
 ```bash
-cd "<project-root>" && find +prodserver -name "*.m" -print0 | sort -z | xargs -0 sha256sum | sort -k2 | sha256sum | cut -d' ' -f1
+cd "<project-root>" && find +prodserver server/tools -name "*.m" -print0 | sort -z | xargs -0 sha256sum | sort -k2 | sha256sum | cut -d' ' -f1
 ```
 
 If the command fails (e.g. the framework root no longer exists), treat as "framework changed" and proceed to full build. Compare the result with `framework_fingerprint` in the manifest. Step 5 records the value from this same command, so the two match whenever the framework is unchanged. The value depends on the platform and line endings, so it is compared only with manifests written on the same machine.
@@ -108,13 +110,13 @@ If you go straight to Step 5 (no manifest, or a forced rebuild), run this comman
 
 ### 4.3: Compare and decide
 
-Compare current values against the manifest:
+Compare current values against the manifest. The build inputs are the source hashes, the additional files and their hashes, the MCP App view file and its hash (`manifest.app`), the framework fingerprint, and the sample calls (`manifest.examples`). A file added or removed counts as a change. Take the first row that applies:
 
 | Current vs Manifest | Action |
 |:---|:---|
-| All source hashes match AND framework fingerprint matches AND server address and archive name match | **Skip** — report "Build is up to date. No changes detected." and jump to Step 7 (register/verify only) |
-| All source hashes match AND framework fingerprint matches AND server address or archive name changed | **Deploy only** — upload existing CTF to the server (Step 5b) |
-| Any source hash differs OR framework fingerprint differs | **Full rebuild** — proceed to Step 5 |
+| Any build input differs | **Full rebuild** — proceed to Step 5 |
+| All build inputs match AND server address or archive name changed | **Deploy only** — upload existing CTF to the server (Step 5b) |
+| All build inputs match AND server address and archive name match | **Skip** — report "Build is up to date. No changes detected." and jump to Step 7 (register/verify only) |
 
 ### 4.4: Verify outputs still exist
 
@@ -159,11 +161,14 @@ Arguments to `prodserver.mcp.build`:
 - `server`: Full server URL as `"<scheme>://<host>:<port>"` (default scheme is `http`)
 - `files`: String array of additional file paths (only if user specified them)
 - `resource`: Struct array of resources (only if user specified them)
+- `app`: The absolute path to the MCP App view's HTML file, only if the user gave one. One view serves every tool in the archive.
+- `example`: The user's sample call as a function handle, `example=@() <sample call>`, only if the user gave one. With several functions, a cell array with one handle per function: `example={@() fcn1(...), @() fcn2(...)}`. Write it into a script file (see below): it usually holds quotes.
 - `folder`: `<deploy-folder>`, never `<source-dir>` itself
 
 **Important:**
 - Do NOT specify the `wrapper` argument — accept the framework's default behavior
-- Do NOT read the MATLAB function or make any judgements about wrappers
+- Do NOT read the MATLAB function or make any judgements about wrappers. A function with no arguments block needs a sample call, but you don't need to read it to find out: the build says so (see Output parsing)
+- Never make up a sample call (see Step 2)
 - Always `cd` into `<source-dir>` before calling `build`, so that MATLAB finds the function. With several functions in different directories, also `addpath` each of the other directories. Don't copy or move the function files.
 - **Always use the `deploy` subfolder** for build output: pass `folder='<deploy-folder>'`. The build writes the generated wrappers there too, wherever MATLAB's current folder is. This keeps generated artifacts (CTF, wrappers, signatures) separate from the source `.m` files.
 - **All paths in `matlab -batch` scripts MUST be absolute paths** — after `cd` changes the working directory, relative paths will resolve incorrectly. This applies to the `cd` target, the `folder` argument, file paths, and any other path references.
@@ -203,7 +208,7 @@ try
     fprintf('===OK:build===\n');
     fprintf('CTF: %s\nEndpoint: %s\n', ctf, endpoint);
 catch e
-    fprintf('===FAIL:build===\n%s\n', e.message);
+    fprintf('===FAIL:build===\n%s\n%s\n', e.identifier, e.message);
     exit(1);
 end
 
@@ -220,6 +225,8 @@ try
     manifest.framework_fingerprint = fw_fp;
     manifest.sources = struct('<fcnName>', '<source-hash>');
     manifest.additional_files = struct('file', {}, 'hash', {});
+    manifest.app = struct('file', {}, 'hash', {});
+    manifest.examples = <sample-calls>;
     manifest.outputs = struct('ctf', ctf, 'endpoint', endpoint);
     manifest.deployed = true;
     json = jsonencode(manifest, PrettyPrint=true);
@@ -231,7 +238,10 @@ end
 "
 ```
 
-Where `<project-root>`, `<source-dir>` and `<deploy-folder>` are the absolute paths described in [Folders](#folders), `<archiveName>` is the archive name checked in Step 5.0, `<source-hash>` is the SHA-256 hash computed in Step 4 (or computed fresh if this is the first build), and `<framework-fingerprint>` is the framework fingerprint computed with the Step 4.2 command.
+Where `<project-root>`, `<source-dir>` and `<deploy-folder>` are the absolute paths described in [Folders](#folders), `<archiveName>` is the archive name checked in Step 5.0, `<source-hash>` is the SHA-256 hash computed in Step 4 (or computed fresh if this is the first build), `<framework-fingerprint>` is the framework fingerprint computed with the Step 4.2 command, and `<sample-calls>` is the cell array of the user's sample calls as text (`{}` if none). If the user gave a sample call, add it to the `build` call as `example=@() <sample call>`, for example:
+```matlab
+[ctf, endpoint] = prodserver.mcp.build('myFunc', example=@() myFunc(3), archive='<archiveName>', server='<scheme>://<host>:<port>', folder='<deploy-folder>');
+```
 
 **Manifest notes:**
 - The `sources` struct uses function names as field names and their SHA-256 hashes as values. Function names are always valid MATLAB identifiers, so this is safe.
@@ -242,6 +252,8 @@ Where `<project-root>`, `<source-dir>` and `<deploy-folder>` are the absolute pa
   manifest.additional_files(2).file = 'config.json';
   manifest.additional_files(2).hash = '<hash2>';
   ```
+- The `app` field has the same form as `additional_files`: one element for the view file, if there is one, or an empty struct array.
+- The `examples` field is a cell array of the user's sample calls, as text, exactly as written, such as `{'myFunc(3)'}`. With none, `{}`. Step 4.3 compares it with the sample calls of the next build.
 - The `===FAIL:manifest===` is non-fatal — the build succeeded even if the manifest write fails. Report a warning but do not retry.
 
 ### Output parsing
@@ -249,7 +261,9 @@ Where `<project-root>`, `<source-dir>` and `<deploy-folder>` are the absolute pa
 After the command completes, parse the output:
 
 - If `===FAIL:prerequisite===` is present → the MCP Framework support package is not installed or not on the path. Report this to the user and **stop**.
-- If `===OK:prerequisite===` is present but `===FAIL:build===` is present → the build failed. The error message follows the FAIL marker. Diagnose and report.
+- If `===FAIL:build===` is followed by the identifier `prodserver:mcp:InputArgBlockRequired` or `prodserver:mcp:OutputArgBlockRequired` → the function has no arguments block, so the build needs a sample call to learn its types. Don't suggest adding an arguments block, and don't make up a call. Ask the user: "`<fcnName>` has no arguments block, so the build needs a sample call to learn the types of its inputs and outputs. Give me a call of `<fcnName>` with typical arguments, such as `<fcnName>(...)`." Then build again with that call as `example` (Step 2), and record it in the manifest. If the user would rather add an arguments block to the function, wait until they have, then build again.
+- If `===FAIL:build===` is followed by the identifier `prodserver:mcp:ReservedToolName` → the function is named `uri2json` or `read_mcp_resource`, the names of the framework's own tools. Report this and **stop**: the user needs to rename the function.
+- If `===OK:prerequisite===` is present but `===FAIL:build===` is present → the build failed. The identifier and error message follow the FAIL marker. Diagnose and report.
 - If `===OK:build===` is present → extract the CTF path and endpoint URL from the lines following the OK marker.
 - If `===FAIL:manifest===` is present → warn the user that the build manifest could not be written (next build will not be incremental).
 
@@ -277,7 +291,7 @@ end
 
 ### Step 5b: Deploy Only (existing CTF, new server)
 
-When the incremental check determines only the server address or archive name changed, skip the full build and deploy the existing CTF directly. First run the check in Step 5.0: the server may already have an archive by that name.
+When the incremental check determines only the server address or archive name changed, skip the full build and deploy the existing CTF directly. First run the check in Step 5.0: the server may already have an archive by that name. The CTF isn't rebuilt, so `<sample-calls>` in the manifest below are the ones the existing manifest records.
 
 ```matlab
 matlab -batch "
@@ -305,6 +319,8 @@ try
     manifest.framework_fingerprint = fw_fp;
     manifest.sources = struct('<fcnName>', '<source-hash>');
     manifest.additional_files = struct('file', {}, 'hash', {});
+    manifest.app = struct('file', {}, 'hash', {});
+    manifest.examples = <sample-calls>;
     manifest.outputs = struct('ctf', '<deploy-folder>/<archiveName>.ctf', 'endpoint', endpoint);
     manifest.deployed = true;
     json = jsonencode(manifest, PrettyPrint=true);
@@ -322,22 +338,22 @@ In all examples below, `<project-root>`, `<source-dir>` and `<deploy-folder>` ar
 
 Single function, no extras:
 ```matlab
-matlab -batch "addpath('<project-root>'); fprintf('===STEP:prerequisite===\n'); try, help prodserver.mcp.build; fprintf('===OK:prerequisite===\n'); catch e, fprintf('===FAIL:prerequisite===\n%s\n', e.message); exit(1); end; fprintf('===STEP:build===\n'); try, cd('<source-dir>'); [ctf, endpoint] = prodserver.mcp.build('fcnName', archive='<archiveName>', server='http://localhost:9910', folder='<deploy-folder>'); fprintf('===OK:build===\n'); fprintf('CTF: %s\nEndpoint: %s\n', ctf, endpoint); catch e, fprintf('===FAIL:build===\n%s\n', e.message); exit(1); end; fprintf('===STEP:manifest===\n'); try, fw_root = prodserver.mcp.internal.packageFolder(); fw_fp = '<framework-fingerprint>'; manifest = struct(); manifest.version = 1; manifest.timestamp = string(datetime('now', 'TimeZone', 'UTC', 'Format', 'yyyy-MM-dd''T''HH:mm:ss''Z''')); manifest.server = 'http://localhost:9910'; manifest.archive = '<archiveName>'; manifest.framework_root = fw_root; manifest.framework_fingerprint = fw_fp; manifest.sources = struct('fcnName', '<hash>'); manifest.additional_files = struct('file', {}, 'hash', {}); manifest.outputs = struct('ctf', ctf, 'endpoint', endpoint); manifest.deployed = true; json = jsonencode(manifest, PrettyPrint=true); writelines(json, fullfile('<deploy-folder>', '.mcp-build-manifest.json')); fprintf('===OK:manifest===\n'); catch e, fprintf('===FAIL:manifest===\n%s\n', e.message); end"
+matlab -batch "addpath('<project-root>'); fprintf('===STEP:prerequisite===\n'); try, help prodserver.mcp.build; fprintf('===OK:prerequisite===\n'); catch e, fprintf('===FAIL:prerequisite===\n%s\n', e.message); exit(1); end; fprintf('===STEP:build===\n'); try, cd('<source-dir>'); [ctf, endpoint] = prodserver.mcp.build('fcnName', archive='<archiveName>', server='http://localhost:9910', folder='<deploy-folder>'); fprintf('===OK:build===\n'); fprintf('CTF: %s\nEndpoint: %s\n', ctf, endpoint); catch e, fprintf('===FAIL:build===\n%s\n%s\n', e.identifier, e.message); exit(1); end; fprintf('===STEP:manifest===\n'); try, fw_root = prodserver.mcp.internal.packageFolder(); fw_fp = '<framework-fingerprint>'; manifest = struct(); manifest.version = 1; manifest.timestamp = string(datetime('now', 'TimeZone', 'UTC', 'Format', 'yyyy-MM-dd''T''HH:mm:ss''Z''')); manifest.server = 'http://localhost:9910'; manifest.archive = '<archiveName>'; manifest.framework_root = fw_root; manifest.framework_fingerprint = fw_fp; manifest.sources = struct('fcnName', '<hash>'); manifest.additional_files = struct('file', {}, 'hash', {}); manifest.app = struct('file', {}, 'hash', {}); manifest.examples = {}; manifest.outputs = struct('ctf', ctf, 'endpoint', endpoint); manifest.deployed = true; json = jsonencode(manifest, PrettyPrint=true); writelines(json, fullfile('<deploy-folder>', '.mcp-build-manifest.json')); fprintf('===OK:manifest===\n'); catch e, fprintf('===FAIL:manifest===\n%s\n', e.message); end"
 ```
 
 With additional files:
 ```matlab
-matlab -batch "addpath('<project-root>'); fprintf('===STEP:prerequisite===\n'); try, help prodserver.mcp.build; fprintf('===OK:prerequisite===\n'); catch e, fprintf('===FAIL:prerequisite===\n%s\n', e.message); exit(1); end; fprintf('===STEP:build===\n'); try, cd('<source-dir>'); [ctf, endpoint] = prodserver.mcp.build('fcnName', archive='<archiveName>', server='http://localhost:9910', folder='<deploy-folder>', files=[""data.mat"", ""config.json""]); fprintf('===OK:build===\n'); fprintf('CTF: %s\nEndpoint: %s\n', ctf, endpoint); catch e, fprintf('===FAIL:build===\n%s\n', e.message); exit(1); end; fprintf('===STEP:manifest===\n'); try, fw_root = prodserver.mcp.internal.packageFolder(); fw_fp = '<framework-fingerprint>'; manifest = struct(); manifest.version = 1; manifest.timestamp = string(datetime('now', 'TimeZone', 'UTC', 'Format', 'yyyy-MM-dd''T''HH:mm:ss''Z''')); manifest.server = 'http://localhost:9910'; manifest.archive = '<archiveName>'; manifest.framework_root = fw_root; manifest.framework_fingerprint = fw_fp; manifest.sources = struct('fcnName', '<hash>'); manifest.additional_files(1).file = 'data.mat'; manifest.additional_files(1).hash = '<hash1>'; manifest.additional_files(2).file = 'config.json'; manifest.additional_files(2).hash = '<hash2>'; manifest.outputs = struct('ctf', ctf, 'endpoint', endpoint); manifest.deployed = true; json = jsonencode(manifest, PrettyPrint=true); writelines(json, fullfile('<deploy-folder>', '.mcp-build-manifest.json')); fprintf('===OK:manifest===\n'); catch e, fprintf('===FAIL:manifest===\n%s\n', e.message); end"
+matlab -batch "addpath('<project-root>'); fprintf('===STEP:prerequisite===\n'); try, help prodserver.mcp.build; fprintf('===OK:prerequisite===\n'); catch e, fprintf('===FAIL:prerequisite===\n%s\n', e.message); exit(1); end; fprintf('===STEP:build===\n'); try, cd('<source-dir>'); [ctf, endpoint] = prodserver.mcp.build('fcnName', archive='<archiveName>', server='http://localhost:9910', folder='<deploy-folder>', files=[""data.mat"", ""config.json""]); fprintf('===OK:build===\n'); fprintf('CTF: %s\nEndpoint: %s\n', ctf, endpoint); catch e, fprintf('===FAIL:build===\n%s\n%s\n', e.identifier, e.message); exit(1); end; fprintf('===STEP:manifest===\n'); try, fw_root = prodserver.mcp.internal.packageFolder(); fw_fp = '<framework-fingerprint>'; manifest = struct(); manifest.version = 1; manifest.timestamp = string(datetime('now', 'TimeZone', 'UTC', 'Format', 'yyyy-MM-dd''T''HH:mm:ss''Z''')); manifest.server = 'http://localhost:9910'; manifest.archive = '<archiveName>'; manifest.framework_root = fw_root; manifest.framework_fingerprint = fw_fp; manifest.sources = struct('fcnName', '<hash>'); manifest.additional_files(1).file = 'data.mat'; manifest.additional_files(1).hash = '<hash1>'; manifest.additional_files(2).file = 'config.json'; manifest.additional_files(2).hash = '<hash2>'; manifest.app = struct('file', {}, 'hash', {}); manifest.examples = {}; manifest.outputs = struct('ctf', ctf, 'endpoint', endpoint); manifest.deployed = true; json = jsonencode(manifest, PrettyPrint=true); writelines(json, fullfile('<deploy-folder>', '.mcp-build-manifest.json')); fprintf('===OK:manifest===\n'); catch e, fprintf('===FAIL:manifest===\n%s\n', e.message); end"
 ```
 
 With resources:
 ```matlab
-matlab -batch "addpath('<project-root>'); fprintf('===STEP:prerequisite===\n'); try, help prodserver.mcp.build; fprintf('===OK:prerequisite===\n'); catch e, fprintf('===FAIL:prerequisite===\n%s\n', e.message); exit(1); end; fprintf('===STEP:build===\n'); try, cd('<source-dir>'); r(1).uri='config://settings'; r(1).contents='settings.json'; [ctf, endpoint] = prodserver.mcp.build('fcnName', archive='<archiveName>', server='http://localhost:9910', folder='<deploy-folder>', resource=r); fprintf('===OK:build===\n'); fprintf('CTF: %s\nEndpoint: %s\n', ctf, endpoint); catch e, fprintf('===FAIL:build===\n%s\n', e.message); exit(1); end; fprintf('===STEP:manifest===\n'); try, fw_root = prodserver.mcp.internal.packageFolder(); fw_fp = '<framework-fingerprint>'; manifest = struct(); manifest.version = 1; manifest.timestamp = string(datetime('now', 'TimeZone', 'UTC', 'Format', 'yyyy-MM-dd''T''HH:mm:ss''Z''')); manifest.server = 'http://localhost:9910'; manifest.archive = '<archiveName>'; manifest.framework_root = fw_root; manifest.framework_fingerprint = fw_fp; manifest.sources = struct('fcnName', '<hash>'); manifest.additional_files = struct('file', {}, 'hash', {}); manifest.outputs = struct('ctf', ctf, 'endpoint', endpoint); manifest.deployed = true; json = jsonencode(manifest, PrettyPrint=true); writelines(json, fullfile('<deploy-folder>', '.mcp-build-manifest.json')); fprintf('===OK:manifest===\n'); catch e, fprintf('===FAIL:manifest===\n%s\n', e.message); end"
+matlab -batch "addpath('<project-root>'); fprintf('===STEP:prerequisite===\n'); try, help prodserver.mcp.build; fprintf('===OK:prerequisite===\n'); catch e, fprintf('===FAIL:prerequisite===\n%s\n', e.message); exit(1); end; fprintf('===STEP:build===\n'); try, cd('<source-dir>'); r(1).uri='config://settings'; r(1).contents='settings.json'; [ctf, endpoint] = prodserver.mcp.build('fcnName', archive='<archiveName>', server='http://localhost:9910', folder='<deploy-folder>', resource=r); fprintf('===OK:build===\n'); fprintf('CTF: %s\nEndpoint: %s\n', ctf, endpoint); catch e, fprintf('===FAIL:build===\n%s\n%s\n', e.identifier, e.message); exit(1); end; fprintf('===STEP:manifest===\n'); try, fw_root = prodserver.mcp.internal.packageFolder(); fw_fp = '<framework-fingerprint>'; manifest = struct(); manifest.version = 1; manifest.timestamp = string(datetime('now', 'TimeZone', 'UTC', 'Format', 'yyyy-MM-dd''T''HH:mm:ss''Z''')); manifest.server = 'http://localhost:9910'; manifest.archive = '<archiveName>'; manifest.framework_root = fw_root; manifest.framework_fingerprint = fw_fp; manifest.sources = struct('fcnName', '<hash>'); manifest.additional_files = struct('file', {}, 'hash', {}); manifest.app = struct('file', {}, 'hash', {}); manifest.examples = {}; manifest.outputs = struct('ctf', ctf, 'endpoint', endpoint); manifest.deployed = true; json = jsonencode(manifest, PrettyPrint=true); writelines(json, fullfile('<deploy-folder>', '.mcp-build-manifest.json')); fprintf('===OK:manifest===\n'); catch e, fprintf('===FAIL:manifest===\n%s\n', e.message); end"
 ```
 
 Multiple functions:
 ```matlab
-matlab -batch "addpath('<project-root>'); fprintf('===STEP:prerequisite===\n'); try, help prodserver.mcp.build; fprintf('===OK:prerequisite===\n'); catch e, fprintf('===FAIL:prerequisite===\n%s\n', e.message); exit(1); end; fprintf('===STEP:build===\n'); try, cd('<source-dir>'); [ctf, endpoint] = prodserver.mcp.build([""fcn1"", ""fcn2""], archive='<archiveName>', server='http://localhost:9910', folder='<deploy-folder>'); fprintf('===OK:build===\n'); fprintf('CTF: %s\nEndpoint: %s\n', ctf, endpoint); catch e, fprintf('===FAIL:build===\n%s\n', e.message); exit(1); end; fprintf('===STEP:manifest===\n'); try, fw_root = prodserver.mcp.internal.packageFolder(); fw_fp = '<framework-fingerprint>'; manifest = struct(); manifest.version = 1; manifest.timestamp = string(datetime('now', 'TimeZone', 'UTC', 'Format', 'yyyy-MM-dd''T''HH:mm:ss''Z''')); manifest.server = 'http://localhost:9910'; manifest.archive = '<archiveName>'; manifest.framework_root = fw_root; manifest.framework_fingerprint = fw_fp; manifest.sources = struct('fcn1', '<hash1>', 'fcn2', '<hash2>'); manifest.additional_files = struct('file', {}, 'hash', {}); manifest.outputs = struct('ctf', ctf, 'endpoint', endpoint); manifest.deployed = true; json = jsonencode(manifest, PrettyPrint=true); writelines(json, fullfile('<deploy-folder>', '.mcp-build-manifest.json')); fprintf('===OK:manifest===\n'); catch e, fprintf('===FAIL:manifest===\n%s\n', e.message); end"
+matlab -batch "addpath('<project-root>'); fprintf('===STEP:prerequisite===\n'); try, help prodserver.mcp.build; fprintf('===OK:prerequisite===\n'); catch e, fprintf('===FAIL:prerequisite===\n%s\n', e.message); exit(1); end; fprintf('===STEP:build===\n'); try, cd('<source-dir>'); [ctf, endpoint] = prodserver.mcp.build([""fcn1"", ""fcn2""], archive='<archiveName>', server='http://localhost:9910', folder='<deploy-folder>'); fprintf('===OK:build===\n'); fprintf('CTF: %s\nEndpoint: %s\n', ctf, endpoint); catch e, fprintf('===FAIL:build===\n%s\n%s\n', e.identifier, e.message); exit(1); end; fprintf('===STEP:manifest===\n'); try, fw_root = prodserver.mcp.internal.packageFolder(); fw_fp = '<framework-fingerprint>'; manifest = struct(); manifest.version = 1; manifest.timestamp = string(datetime('now', 'TimeZone', 'UTC', 'Format', 'yyyy-MM-dd''T''HH:mm:ss''Z''')); manifest.server = 'http://localhost:9910'; manifest.archive = '<archiveName>'; manifest.framework_root = fw_root; manifest.framework_fingerprint = fw_fp; manifest.sources = struct('fcn1', '<hash1>', 'fcn2', '<hash2>'); manifest.additional_files = struct('file', {}, 'hash', {}); manifest.app = struct('file', {}, 'hash', {}); manifest.examples = {}; manifest.outputs = struct('ctf', ctf, 'endpoint', endpoint); manifest.deployed = true; json = jsonencode(manifest, PrettyPrint=true); writelines(json, fullfile('<deploy-folder>', '.mcp-build-manifest.json')); fprintf('===OK:manifest===\n'); catch e, fprintf('===FAIL:manifest===\n%s\n', e.message); end"
 ```
 
 ## Step 6: Verify Deployment
@@ -392,40 +408,34 @@ If verification fails after the retry, report an error to the user explaining th
 
 After successful deployment verification, register the new MCP server so the tool is available to Claude.
 
-By default, register at **user scope** in `~/.claude.json`. If the user explicitly requests project-level registration, use `.mcp.json` in the project root instead.
+Register it with Claude Code's own `claude mcp` commands. **Never read or edit Claude Code's configuration files yourself** — not `~/.claude.json`, not `.mcp.json`, nothing in `CLAUDE_CONFIG_DIR`. Claude Code owns them: it may be writing them while it runs, and `CLAUDE_CONFIG_DIR` can put them somewhere other than your home folder.
 
-Add an entry using the deployed endpoint URL. The server name should be the archive name (typically the function name for single-tool deployments).
+- **Server name**: `<archiveName>`
+- **URL**: `<scheme>://<host>:<port>/<archiveName>/mcp`
+- **Scope**: `user` by default. If the user asks for project-level registration, `project`: Claude Code then writes `.mcp.json` in the project.
 
-### User scope (default): `~/.claude.json`
-
-Read `~/.claude.json`. If it does not exist, create it. If it already has an `mcpServers` object, add the new entry to it. If not, create the `mcpServers` key. The format is:
-
-```json
-{
-  "mcpServers": {
-    "<serverName>": {
-      "type": "http",
-      "url": "<scheme>://<host>:<port>/<archiveName>/mcp"
-    }
-  }
-}
-```
+1. Check whether the name is already registered:
+   ```bash
+   claude mcp get <archiveName>
+   ```
+2. **Not registered** (the command fails): add it.
+   ```bash
+   claude mcp add --transport http --scope <scope> <archiveName> <URL>
+   ```
+3. **Registered with this URL**: nothing to do. This is the usual case after a rebuild or redeploy.
+4. **Registered with another URL**: it may be an earlier deployment of this archive to another server, or a different server the user registered under this name. Ask the user: "`<archiveName>` is already registered in Claude Code for `<other URL>`. Replace it with `<URL>`?" Only if they agree, replace it:
+   ```bash
+   claude mcp remove --scope <scope> <archiveName>
+   claude mcp add --transport http --scope <scope> <archiveName> <URL>
+   ```
+   If they decline, leave the registration alone and tell them the command to run later.
 
 For example, after deploying `cleanSignal` to `http://localhost:9910`:
-```json
-{
-  "mcpServers": {
-    "cleanSignal": {
-      "type": "http",
-      "url": "http://localhost:9910/cleanSignal/mcp"
-    }
-  }
-}
+```bash
+claude mcp add --transport http --scope user cleanSignal http://localhost:9910/cleanSignal/mcp
 ```
 
-### Project scope: `.mcp.json`
-
-If the user requests project-level registration, read `.mcp.json` in the project root. If it does not exist, create it. Add the server entry under the `mcpServers` key using the same format as above.
+If the `claude` command isn't available, don't register the server any other way. Show the user the `claude mcp add` command to run themselves.
 
 ## Step 8: Report Results
 
@@ -434,12 +444,12 @@ Report to the user based on which path was taken:
 ### Full build or deploy-only:
 - The endpoint URL
 - The tool name(s) and description(s) deployed
-- That the MCP server has been registered in Claude Code settings
-- **Inform the user that they must restart Claude Code (or start a new session) for the new MCP tool to become available**
+- Whether Step 7 registered the server in Claude Code, and at which scope, found it already registered, or left it for the user to register
+- **If the server was newly registered, inform the user that they must restart Claude Code (or start a new session) for the new MCP tool to become available**
 
 ### Up-to-date (skipped):
 - Report: "Build is up to date. No changes detected since last build at `<manifest.timestamp>`."
 - Show the endpoint URL and confirm the server is responding
-- If the MCP server is already registered, confirm it. If not, register it and inform about restart.
+- Run Step 7. If it found the server already registered, confirm that. If it registered it, inform the user about the restart.
 
 --- Copyright 2026 The MathWorks, Inc. ---

@@ -134,12 +134,14 @@ function definition = defineParameters(definition,tool,io,descriptions, ...
     end
 
     % Collect argument information from metafunction data.
-    [parameters,required,kind,order,group,validation,default] = ...
+    [parameters,required,kind,order,group,validation,default,type] = ...
         argumentDeclaration(signature,descriptions,encoding,stage,typemap,io);
-    
-    % Populate MATLAB signature structure with MATLAB native types.
+
+    % Populate MATLAB signature structure with MATLAB native types: the
+    % declared classes, "" where there is none.
     if ~isempty(parameters)
-        [name,type] = mpsArguments(parameters);
+        name = string(fieldnames(parameters));
+        type = type(:);
         definition.signatures.(tool).(io).name = name;
         definition.signatures.(tool).(io).type = type;
         definition.signatures.(tool).(io).kind = kind;
@@ -149,8 +151,31 @@ function definition = defineParameters(definition,tool,io,descriptions, ...
         definition.signatures.(tool).(io).default = default;
     end
 
+    % A %#schema that replaces the generated one is the user's alone (see
+    % below). mcpArgumentTypes removes the record of where it came from.
+    replaced = string.empty;
+    if ~isempty(parameters)
+        for name = string(fieldnames(parameters))'
+            if prodserver.mcp.internal.hasField(parameters.(name), "schema.origin") && ...
+                    parameters.(name).schema.origin == prodserver.mcp.internal.SchemaOrigin.Client
+                replaced(end+1) = name; %#ok<AGROW>
+            end
+        end
+    end
+
     % Convert MATLAB types to compatible JSON types
     parameters = mcpArgumentTypes(parameters,typemap);
+
+    % Plain JSON writes an output's NaN as null, and Inf and -Inf as text,
+    % so its numbers may be either. (The invertible encoding has its own
+    % forms for them.)
+    if strcmp(io,"output") && encoding == prodserver.mcp.WireEncoding.JSON && ...
+            ~isempty(parameters)
+        for name = setdiff(string(fieldnames(parameters))', replaced)
+            parameters.(name) = prodserver.mcp.jsonrpc.allowNonFiniteNumbers( ...
+                parameters.(name));
+        end
+    end
 
     % A wrapped parameter that may be a scalar may also be sent bare, as the
     % wire-encoding rules say -- and a scalar output is. Now, not in
@@ -236,11 +261,6 @@ function pt = parameterTypeName(param,name)
     end
 end
 
-function [name,type] = mpsArguments(schema)
-    name = string(fieldnames(schema));
-    type = arrayfun(@(i)string(parameterTypeName(schema.(i))), name);
-end
-
 function parameters = mcpArgumentTypes(parameters,typemap)
 % Final adjustment to create MCP-compatible schema. 
 
@@ -253,6 +273,23 @@ function parameters = mcpArgumentTypes(parameters,typemap)
         % A schema for a class JSON can't describe already has JSON types.
         if isfield(parameters.(name(n)).schema,"matlabClass")
             parameters.(name(n)) = rmfield(parameters.(name(n)),"schema");
+            continue
+        end
+
+        % A %#schema with no single type -- a union, or a list of types --
+        % has none to reconcile with the declaration: it is used as given.
+        % (Under plain JSON only: argumentDeclaration refuses it under the
+        % invertible encoding.)
+        % Its items, if the argument block's size gave it some, still name
+        % the declared class, which must become a JSON type.
+        if ~hasSingleType(parameters.(name(n)))
+            p = rmfield(parameters.(name(n)),"schema");
+            if prodserver.mcp.internal.hasField(p, "items.type") && ...
+                    (ischar(p.items.type) || isStringScalar(p.items.type)) && ...
+                    ~prodserver.mcp.validation.isJsonSchemaType(p.items.type)
+                p.items.type = jsonParameterType(p.items.type, typemap);
+            end
+            parameters.(name(n)) = p;
             continue
         end
 
@@ -292,3 +329,19 @@ function parameters = mcpArgumentTypes(parameters,typemap)
     end
 end
 
+
+function tf = hasSingleType(param)
+% True if PARAM's schema names one type: its own, or, invertibly encoded,
+% its wrapper's data's. An array's items, if they name a type, must name
+% one too.
+    s = param;
+    if prodserver.mcp.jsonrpc.isInvertibleSchema(param) && ...
+            prodserver.mcp.internal.hasField(param, "properties.data")
+        s = param.properties.data;
+    end
+    single = @(t) ischar(t) || (isstring(t) && isscalar(t));
+    tf = isstruct(s) && isfield(s, 'type') && single(s.type);
+    if tf && prodserver.mcp.internal.hasField(s, "items.type")
+        tf = single(s.items.type);
+    end
+end

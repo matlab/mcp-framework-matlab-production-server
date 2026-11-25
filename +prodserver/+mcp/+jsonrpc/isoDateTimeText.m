@@ -12,6 +12,9 @@ function s = isoDateTimeText(d, natText)
 %   s = isoDateTimeText(d, natText) writes NaT elements as NATTEXT instead,
 %   as the invertible encoding does with "NaT".
 %
+%   A datetime of Inf or -Inf, which ISO 8601 has no form for, is an
+%   error, prodserver:mcp:IncompatibleArgumentType.
+%
 %   parseISODateTime reads every form this writes.
 
 % Copyright 2026 The MathWorks, Inc.
@@ -19,6 +22,16 @@ function s = isoDateTimeText(d, natText)
     arguments
         d datetime
         natText string = missing
+    end
+
+    % ISO 8601 has no form for an infinite datetime: string() writes it as
+    % 0InfInf, which no client reads as a date-time, and which the
+    % invertible encoding would read back as text.
+    if any(isinf(d), "all")
+        error("prodserver:mcp:IncompatibleArgumentType", ...
+            "A datetime of Inf or -Inf can't be sent: ISO 8601 text has " + ...
+            "no form for it, in either wire encoding. Use NaT, or a " + ...
+            "finite date.");
     end
 
     tz = d.TimeZone;

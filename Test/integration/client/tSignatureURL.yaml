@@ -1,0 +1,85 @@
+# Fixture for tSignatureURL. One tool, mcpAdd, in an archive whose name starts
+# with mcp, at two addresses:
+#
+#   /mcpAdd/mcp        -- the archive's endpoint, as deploy returns it.
+#   /mcpgw/mcpAdd/mcp  -- the same, behind a proxy whose path starts with mcp.
+#
+# The signature is at /mcpAdd/signature and /mcpgw/mcpAdd/signature. The client
+# used to replace every /mcp in the endpoint, so it asked for
+# /signatureAdd/signature and /signaturegw/signatureAdd/signature, which don't
+# exist.
+#
+# mcpAdd needn't exist as a MATLAB function: prodserver.mcp.call learns
+# everything it knows about a tool from tools/list and /signature.
+routes:
+  - path: /mcpAdd/mcp
+    methods:
+      - POST
+      - DELETE
+    request: &mcp
+      - jrpc: initialize
+        response:
+          status: 201
+          headers:
+            Content-Type: application/json
+            Mcp-Session-Id: alpha
+          body:
+            result:
+              capabilities:
+                tools:
+                   listChanged: false
+      - jrpc: notifications/initialized
+        response:
+          status: 200
+          headers:
+            Mcp-Session-Id: alpha
+      - jrpc: tools/list
+        response:
+          status: 200
+          headers:
+            Content-Type: application/json
+            Mcp-Session-Id: alpha
+          body:
+            result:
+              tools: [
+                {"name":"mcpAdd","description":"Add two numbers and return their sum.","inputSchema":{"type":"object","properties":{"a":{"type":"number","description":"Input a."},"b":{"type":"number","description":"Input b."}},"required":["a","b"],"additionalProperties":false},"outputSchema":{"type":"object","properties":{"c":{"type":"number","description":"Output c."}},"required":[],"additionalProperties":false}}
+                ]
+      - jrpc: tools/call
+        call:
+          name: "mcpAdd"
+          input:
+            a: 2
+            b: 3
+        response:
+          status: 200
+          headers:
+            Content-Type: application/json
+            Mcp-Session-Id: alpha
+          body:
+            result: { "structuredContent": { "c": 5 }, "content": [ { "type": "text", "text": "{\"c\":5}" } ] }
+      # Terminate (DELETE, empty body) succeeds.
+      - body: ""
+        response:
+          status: 204
+          headers:
+            Mcp-Session-Id: alpha
+  - path: /mcpAdd/signature
+    methods:
+      - POST
+    request: &signature
+      - body: "mcpAdd"
+        response:
+          status: 200
+          headers:
+            Content-Type: application/json
+            Mcp-Session-Id: alpha
+          body: {"mcpAdd":{"function":"mcpAdd","input":{"name":["a","b"],"type":["double","double"],"kind":["Required","Required"],"order":["a","b"]},"output":{"name":"c","type":"double","kind":"Required","order":"c"}}}
+  - path: /mcpgw/mcpAdd/mcp
+    methods:
+      - POST
+      - DELETE
+    request: *mcp
+  - path: /mcpgw/mcpAdd/signature
+    methods:
+      - POST
+    request: *signature

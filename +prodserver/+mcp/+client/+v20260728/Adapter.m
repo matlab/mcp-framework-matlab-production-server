@@ -21,8 +21,10 @@ classdef Adapter < prodserver.mcp.client.Adapter
                 ~
                 opts.require = "None"
                 opts.timeout = 60
-                opts.retry = 30
-                opts.delay = 2
+                opts.retry = ...
+                    prodserver.mcp.internal.Constants.ArchiveRetry
+                opts.delay = ...
+                    prodserver.mcp.internal.Constants.ArchiveDelay
             end
         end
 

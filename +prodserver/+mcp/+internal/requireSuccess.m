@@ -15,6 +15,10 @@ function requireSuccess(response,uri,opts)
     import prodserver.mcp.MCPConstants
     C = prodserver.mcp.protocol.v20260728.Constants;
 
+    % As the messages show it: without user information or query, which
+    % may hold a password or a token.
+    shown = prodserver.mcp.io.redactURI(uri);
+
     sc = response.StatusCode;
 
     % The body is inspected at ANY status, not only a failing one. A JSON-RPC
@@ -52,7 +56,7 @@ function requireSuccess(response,uri,opts)
         end
         ex = MException(id, ...
             "Request %s to %s generated JSON-RPC protocol " + ...
-            "error: %s (code %s).", opts.request, uri, ...
+            "error: %s (code %s).", opts.request, shown, ...
             string(data.error.message), string(code));
         throwAsCaller(ex);
     end
@@ -67,7 +71,7 @@ function requireSuccess(response,uri,opts)
         % and a retry would run it again.
         ex = MException("prodserver:mcp:ToolError", ...
             "Request %s to %s generated tool error: %s", opts.request, ...
-            uri, contentText(content));
+            shown, contentText(content));
         throwAsCaller(ex);
     end
 
@@ -87,11 +91,11 @@ function requireSuccess(response,uri,opts)
         if strlength(body) > 0
             ex = MException(id,...
                 "Request %s to %s failed with error code %s: %s\nBody: %s", ...
-                opts.request,uri,string(sc),getReasonPhrase(sc),body);
+                opts.request,shown,string(sc),getReasonPhrase(sc),body);
         else
             ex = MException(id,...
                 "Request %s to %s failed with error code %s: %s", ...
-                opts.request,uri,string(sc),getReasonPhrase(sc));
+                opts.request,shown,string(sc),getReasonPhrase(sc));
         end
         throwAsCaller(ex);
     end

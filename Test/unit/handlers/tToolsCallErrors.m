@@ -36,8 +36,19 @@ classdef tToolsCallErrors < prodserver.mcp.test.base.MCPHandlerBase
             % arguments object and none needed".
             % toyPositiveTwo has constraints MATLAB enforces but the schema
             % can't express; toyUnsized has an input with no declared size.
+            % toyComplexOutput returns a complex value for a negative input,
+            % which plain JSON can't carry; toyInfiniteOutput returns Inf
+            % for 0, which it can't carry either. toyEnum's input has a
+            % numeric enum; toyLiteralLimit's suffixes are from 2 to 32;
+            % toyTotal's input is a oneOf of a number and an array;
+            % toyNonFinite returns NaN, Inf, or a vector of one element;
+            % toyEmptyOutput returns [] for 0, under a schema of one number.
+            % toyTextOrNumber returns text, a number or -Inf, under a schema
+            % of text or a number.
             test.fcnNames = ["toyScalarTwo","toyZeroInputs", ...
-                "toyPositiveTwo","toyUnsized"];
+                "toyPositiveTwo","toyUnsized","toyComplexOutput", ...
+                "toyInfiniteOutput","toyEnum","toyLiteralLimit","toyTotal", ...
+                "toyNonFinite","toyEmptyOutput","toyTextOrNumber"];
             test.toolNames = test.fcnNames;
 
             defineTools(test,test.fcnNames,test.toolNames, ...
@@ -252,6 +263,144 @@ classdef tToolsCallErrors < prodserver.mcp.test.base.MCPHandlerBase
                 "The tool's message must reach the model");
         end
 
+        function complexOutputUnderJSONIsInBandError(test)
+            % The tool ran, but plain JSON can't carry its complex result.
+            % An in-band tool error, with the framework's message rather
+            % than jsonencode's.
+            p.name = "toyComplexOutput";
+            p.arguments = struct('x', -4);
+            [response, decoded] = test.post(p);
+            test.verifyEqual(response.HttpCode, 200);
+            test.assertTrue(isfield(decoded,'result') && ...
+                isfield(decoded.result,'isError') && ...
+                logical(decoded.result.isError));
+            msg = string(decoded.result.content(1).text);
+            test.verifySubstring(msg, "complex values");
+            test.verifyFalse(contains(msg, "Unable to encode"), ...
+                "jsonencode's own message: " + msg);
+            % A real result still returns.
+            p.arguments = struct('x', 4);
+            [~, decoded] = test.post(p);
+            test.verifyEqual(decoded.result.structuredContent.y, 2);
+        end
+
+        function infiniteOutputUnderJSONIsText(test)
+            % jsonencode writes Inf as null, which the client would read as
+            % NaN. 1.7 gave a tool error instead, which a division by zero
+            % reaches easily, losing every output. Now Inf is "Inf", as the
+            % output's schema allows, and the client reads it as Inf.
+            p.name = "toyInfiniteOutput";
+            p.arguments = struct('x', 0);
+            [response, decoded] = test.post(p);
+            test.verifyEqual(response.HttpCode, 200);
+            test.assertFalse(isfield(decoded.result,'isError') && ...
+                logical(decoded.result.isError), ...
+                string(decoded.result.content(1).text));
+            test.verifySubstring(string(native2unicode(response.Body, "UTF-8")), ...
+                """structuredContent"":{""y"":""Inf""}");
+            d = prodserver.mcp.internal.mcpDefinition("toyInfiniteOutput", ...
+                "toyInfiniteOutput", encoding="JSON");
+            back = prodserver.mcp.jsonrpc.decodeJSONValues( ...
+                d.tools.outputSchema, decoded.result.structuredContent, "Output");
+            test.verifyEqual(back.y, Inf);
+            % A finite result still returns.
+            p.arguments = struct('x', 4);
+            [~, decoded] = test.post(p);
+            test.verifyEqual(decoded.result.structuredContent.y, 0.25);
+        end
+
+        function scalarNaNInAndOut(test)
+            % A scalar NaN argument, sent as [null] as prodserver.mcp.call
+            % sends it, reaches a (1,1) double parameter as NaN. The NaN
+            % result returns as null, as its schema, ["number", "null"],
+            % allows: [null] is an array, which a client that checks the
+            % result rejected. The client reads null back as NaN by the
+            % schema.
+            p.name = "toyInfiniteOutput";
+            p.arguments = struct('x', {{NaN}});
+            [response, decoded] = test.post(p);
+            test.verifyEqual(response.HttpCode, 200);
+            test.assertFalse(isfield(decoded.result, 'isError') && ...
+                logical(decoded.result.isError), ...
+                string(decoded.result.content(1).text));
+            test.verifySubstring(string(native2unicode(response.Body, "UTF-8")), ...
+                """structuredContent"":{""y"":null}");
+            d = prodserver.mcp.internal.mcpDefinition("toyInfiniteOutput", ...
+                "toyInfiniteOutput", encoding="JSON");
+            test.verifyEqual(string(d.tools.outputSchema.properties.y.type(:))', ...
+                ["number" "null" "string"]);
+            back = prodserver.mcp.jsonrpc.decodeJSONValues( ...
+                d.tools.outputSchema, decoded.result.structuredContent, "Output");
+            test.verifyEqual(back.y, NaN);
+        end
+
+        function outputsAreSentAsTheirSchemasDescribe(test)
+            % structuredContent must match outputSchema for a client that
+            % checks it: a scalar NaN as null, Inf as "Inf", and a
+            % one-element value of a (1,:) output as a one-element array,
+            % not bare.
+            p.name = "toyNonFinite";
+            cases = {"finite", "{""s"":1,""v"":[1,2]}", 1, [1 2]
+                     "nan",    "{""s"":null,""v"":[1,2]}", NaN, [1 2]
+                     "inf",    "{""s"":""Inf"",""v"":[1,2]}", Inf, [1 2]
+                     "vecnan", "{""s"":1,""v"":[1,null]}", 1, [1 NaN]
+                     "vecinf", "{""s"":1,""v"":[""-Inf"",1,""Inf"",null]}", 1, [-Inf 1 Inf NaN]
+                     "one",    "{""s"":1,""v"":[5]}", 1, 5};
+            d = prodserver.mcp.internal.mcpDefinition("toyNonFinite", ...
+                "toyNonFinite", encoding="JSON");
+            for k = 1:size(cases, 1)
+                p.arguments = struct('kind', cases{k,1});
+                [response, decoded] = test.post(p);
+                test.verifyEqual(response.HttpCode, 200, cases{k,1});
+                test.verifySubstring(string(native2unicode(response.Body, "UTF-8")), ...
+                    """structuredContent"":" + cases{k,2}, cases{k,1});
+                back = prodserver.mcp.jsonrpc.decodeJSONValues( ...
+                    d.tools.outputSchema, decoded.result.structuredContent, "Output");
+                test.verifyEqual(back.s, cases{k,3}, cases{k,1});
+                test.verifyEqual(back.v(:)', cases{k,4}, cases{k,1});
+            end
+        end
+
+        function emptyOutputUnderAScalarSchemaIsInBandError(test)
+            % [] would arrive as NaN, as null does: a tool error that names
+            % the output, instead.
+            p.name = "toyEmptyOutput";
+            p.arguments = struct('n', 0);
+            [response, decoded] = test.post(p);
+            test.verifyEqual(response.HttpCode, 200);
+            test.assertTrue(isfield(decoded, 'result') && ...
+                isfield(decoded.result, 'isError') && ...
+                logical(decoded.result.isError));
+            msg = string(decoded.result.content(1).text);
+            test.verifySubstring(msg, "Output 'y': The value is empty");
+            test.verifySubstring(msg, "arguments (Output)");
+            p.arguments = struct('n', 1);
+            [~, decoded] = test.post(p);
+            test.verifyEqual(decoded.result.structuredContent.y, 1);
+        end
+
+        function infiniteBesideTextIsInBandError(test)
+            % Under anyOf [string, number], a client would read "-Inf" back
+            % as text: a tool error that names the output, instead.
+            p.name = "toyTextOrNumber";
+            p.arguments = struct('kind', "inf");
+            [response, decoded] = test.post(p);
+            test.verifyEqual(response.HttpCode, 200);
+            test.assertTrue(isfield(decoded, 'result') && ...
+                isfield(decoded.result, 'isError') && ...
+                logical(decoded.result.isError));
+            msg = string(decoded.result.content(1).text);
+            test.verifySubstring(msg, "Output 'y': Plain JSON can't carry Inf");
+            test.verifySubstring(msg, "read them back as text");
+            for kind = ["text" "number"]
+                p.arguments = struct('kind', kind);
+                [~, decoded] = test.post(p);
+                test.verifyFalse(isfield(decoded.result, 'isError') && ...
+                    logical(decoded.result.isError), kind);
+            end
+            test.verifyEqual(decoded.result.structuredContent.y, 5);
+        end
+
         function toolErrorTextHasNoSourceLocation(test)
             % The model reads the tool's message, not a "file:line : "
             % location. 1.5 prefixed one; dropping it is deliberate (see
@@ -304,7 +453,8 @@ classdef tToolsCallErrors < prodserver.mcp.test.base.MCPHandlerBase
                 };
             for k = 1:size(cases,1)
                 jrpc.params.arguments = cases{k,1};
-                result = prodserver.mcp.handler.tools.call(jrpc, test.protocol);
+                result = prodserver.mcp.handler.tools.call(jrpc, ...
+                    prodserver.mcp.protocol.RequestContext(test.protocol));
                 test.assertTrue(isfield(result.result,'isError') && ...
                     logical(result.result.isError), cases{k,3});
                 msg = string(result.result.content{1}.text);
@@ -393,6 +543,68 @@ classdef tToolsCallErrors < prodserver.mcp.test.base.MCPHandlerBase
             msg = test.verifyInputError(p, "a number among the names");
             test.verifySubstring(msg, ...
                 "at index 2: expected string, got number");
+        end
+
+        function numericEnumMemberRuns(test)
+            % jsondecode stacks "enum": [1, 2, 3] into one column; a call
+            % with a member was compared with the whole column and
+            % rejected, so the tool could never run.
+            p.name = "toyEnum";
+            for level = 1:3
+                p.arguments = struct('level', level);
+                [response, decoded] = test.post(p);
+                test.verifyEqual(response.HttpCode, 200);
+                test.verifyFalse(isfield(decoded,'error'));
+                test.assertTrue(isfield(decoded,'result') && ...
+                    isfield(decoded.result,'structuredContent'), ...
+                    "toyEnum should have run for " + level);
+                test.verifyEqual(decoded.result.structuredContent.y, level);
+            end
+        end
+
+        function numericEnumNonMemberIsRejected(test)
+            p.name = "toyEnum";
+            p.arguments = struct('level', 4);
+            msg = test.verifyInputError(p, "level = 4");
+            test.verifySubstring(msg, ...
+                "Argument 'level': value 4 is not one of 1, 2, 3");
+        end
+
+        function oneOfNumberOrArrayRuns(test)
+            % 7 matched both branches of the oneOf, a number and an array
+            % of numbers, and was refused: total(7) never ran.
+            p.name = "toyTotal";
+            values = {7, [1 2]};
+            totals = [7 3];
+            for k = 1:numel(values)
+                p.arguments = struct('x', values{k});
+                [response, decoded] = test.post(p);
+                test.verifyEqual(response.HttpCode, 200);
+                test.verifyFalse(isfield(decoded,'error'));
+                test.assertTrue(isfield(decoded,'result') && ...
+                    isfield(decoded.result,'structuredContent'), ...
+                    "toyTotal should have run for " + jsonencode(values{k}));
+                test.verifyEqual(decoded.result.structuredContent.t, totals(k));
+            end
+        end
+
+        function schemaBoundsChecked(test)
+            % A %#schema's minimum and maximum were published but not
+            % checked, so a value outside them reached the tool.
+            p.name = "toyLiteralLimit";
+            p.arguments = struct('str', "x", 'suffix', [2 32]);
+            [response, decoded] = test.post(p);
+            test.verifyEqual(response.HttpCode, 200);
+            test.assertTrue(isfield(decoded,'result') && ...
+                isfield(decoded.result,'structuredContent'), ...
+                "toyLiteralLimit should have run");
+            test.verifyEqual(string(decoded.result.structuredContent.z), ...
+                ["x2"; "x32"]);
+
+            p.arguments = struct('str', "x", 'suffix', [2 40]);
+            msg = test.verifyInputError(p, "suffix 40");
+            test.verifySubstring(msg, "Argument 'suffix': at index 2: " + ...
+                "value 40 is greater than the maximum, 32");
         end
 
     end

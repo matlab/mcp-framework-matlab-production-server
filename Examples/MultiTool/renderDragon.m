@@ -5,12 +5,16 @@ function sz = renderDragon(dragon, color1, color2, jpg)
 
     arguments(Input)
         dragon double % Coordinates of the twin-dragon's points.
-        % Color of the first of the twin dragons. A six-digit hexadecimal
-        % number, as a string.
-        color1 (1,1) string 
-        % Color of the first of the twin dragons. A six-digit hexadecimal
-        % number, as a string.
-        color2 (1,1) string 
+        % Color of the first of the twin dragons. A hexadecimal color
+        % code: "#" followed by six hexadecimal digits, such as "#FF0000"
+        % for red.
+        %#schema { "pattern": "^#[0-9A-Fa-f]{6}$" }
+        color1 (1,1) string
+        % Color of the second of the twin dragons. A hexadecimal color
+        % code: "#" followed by six hexadecimal digits, such as "#0000FF"
+        % for blue.
+        %#schema { "pattern": "^#[0-9A-Fa-f]{6}$" }
+        color2 (1,1) string
         jpg (1,1) string   % Path to output JPEG file.
     end
     arguments(Output)

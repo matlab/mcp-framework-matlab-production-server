@@ -231,6 +231,59 @@ classdef tInitialize < matlab.unittest.TestCase
                 Constants.SessionId)));
         end
 
+        function tAdvertisesUIExtension(test)
+        % With the app flag set, initialize advertises io.modelcontextprotocol/ui.
+
+            import prodserver.mcp.MCPConstants
+
+            % Through mcpHandler: the protocol adapter renames the field to
+            % its wire name only on the way out.
+            seedAppFlag(test);
+            response = test.post("2025-06-18");
+            body = string(native2unicode(response.Body, "UTF-8"));
+
+            test.verifyTrue(contains(body, MCPConstants.UIExtension_JSON), ...
+                "Response must contain " + MCPConstants.UIExtension_JSON);
+            test.verifyFalse(contains(body, MCPConstants.UIExtension_Field), ...
+                "The MATLAB field name must not appear in JSON output");
+        end
+
+        function tNoExtensionWithoutApp(test)
+        % Without the app flag, no extensions in capabilities.
+
+            prodserver.mcp.handler.toolServices(action="clear");
+            test.addTeardown(@() prodserver.mcp.handler.toolServices(action="clear"));
+            result = prodserver.mcp.protocol.v20250618.initialize(test.request("2025-06-18"));
+            r = result.result;
+            test.verifyFalse(isfield(r.capabilities, "extensions"), ...
+                "No extensions expected without app flag");
+        end
+
+    end
+
+    methods (Access = private)
+
+        function seedAppFlag(test)
+        % Create a definition file with the app flag and make it loadable.
+
+            import prodserver.mcp.MCPConstants
+            import matlab.unittest.fixtures.PathFixture
+            import matlab.unittest.fixtures.TemporaryFolderFixture
+
+            tFolder = TemporaryFolderFixture;
+            test.applyFixture(tFolder);
+            test.applyFixture(PathFixture(tFolder.Folder));
+
+            def.(MCPConstants.AppResourceVariable) = true;
+            save(fullfile(tFolder.Folder, MCPConstants.DefinitionFile), ...
+                "-struct", "def");
+
+            % The definitions are cached; clear them now and afterwards, so
+            % the app flag reaches only this test.
+            prodserver.mcp.handler.toolServices(action="clear");
+            test.addTeardown(@() prodserver.mcp.handler.toolServices(action="clear"));
+        end
+
     end
 
 end

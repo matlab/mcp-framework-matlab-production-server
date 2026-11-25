@@ -41,7 +41,7 @@ imshow(img);
 Publish `plotTrajectories` as an MCP tool by building it into a deployable archive and uploading that archive to an instance of MATLAB Production Server.
 ```MATLAB
 ctf = prodserver.mcp.build("plotTrajectories",wrapper="plotTrajectoriesMCP.m")
-endpoint = prodserver.mcp.deploy(ctf,"localhost",9910)
+endpoint = prodserver.mcp.deploy(ctf, "http://localhost:9910")
 ```
 The MCP tool definition is automatically generated from the handwritten wrapper function. The file `plotTrajectories.json` in the example folder contains the definition this build generates: the tool `plotTrajectories`, with the wrapper's inputs and outputs, in the default JSON encoding. The file `plotTrajectoriesMCP.json` is the wrapper's definition under `encoding="Invertible"`, used as a test reference.
 

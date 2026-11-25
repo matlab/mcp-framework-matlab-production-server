@@ -1,7 +1,9 @@
 %% Removing Periodic Noise
 % Build an MCP tool that removes periodic noise from a signal. This example
 % demonstrates how the framework auto-generates a wrapper function when
-% parameters are large.
+% parameters are large. |cleanSignal| filters with |designfilt| and
+% |filtfilt|, so it needs Signal Processing Toolbox in the MATLAB that
+% runs this walkthrough.
 
 % Copyright 2025-2026 The MathWorks, Inc.
 
@@ -25,7 +27,7 @@ title("Open-Loop Voltage: 60 Hz Noise Removal");
 %% Build the MCP Tool
 % The |noisy| input is a large array (no size constraint in arguments block),
 % so the framework auto-generates a wrapper that externalizes it as a file URL.
-% The scalar |period| passes directly. Argument blocks fully specify types, so
+% The scalar |frequency| passes directly. Argument blocks fully specify types, so
 % no example call is needed.
 
 [ctf, endpoint] = prodserver.mcp.build("cleanSignal", server=mpsServer);

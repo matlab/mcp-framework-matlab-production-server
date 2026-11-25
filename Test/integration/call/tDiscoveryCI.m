@@ -68,12 +68,27 @@ classdef tDiscoveryCI < prodserver.mcp.test.base.MCPCaller
             hasMcpHandler = any(contains(fcnFields, "mcpHandler"));
             test.verifyTrue(hasMcpHandler, ...
                 "mcpHandler not listed in discoverable functions");
+
+            % From R2027a every archive is listed, mcpHandler included, so
+            % the listing alone doesn't show the signatures file arrived.
+            % Its help does: it names the MCP revisions the server speaks.
+            help = discoveryHelp(response, archive);
+            test.verifyTrue(any(contains(help, "MCP-Versions:")), ...
+                "mcpHandler's discovery help should name the MCP " + ...
+                "revisions. Help found: " + strjoin(help, " | "));
         end
 
-        function discoveryDisabledArchiveNotDiscoverable(test)
-        % A deployed archive built with discovery=false has no function signatures.
-
-            import prodserver.mcp.MCPConstants
+        function discoveryDisabledArchiveHasNoFrameworkMetadata(test)
+        % A deployed archive built with discovery=false carries none of the
+        % framework's discovery metadata.
+        %
+        % Whether it's listed at all is the server's business. Up to
+        % R2026b, MPS lists only an archive that has function signatures,
+        % so this one isn't. From R2027a discovery is on for every
+        % archive: MPS lists this one, with a stand-in entry for each
+        % exported function that has its argument names but empty help,
+        % types and sizes. Neither has the MCP-Versions: help of the
+        % signatures file build writes when discovery=true.
 
             fcn = "toyToolOne";
             archive = "noDiscovIT";
@@ -90,18 +105,42 @@ classdef tDiscoveryCI < prodserver.mcp.test.base.MCPCaller
             test.assertTrue(prodserver.mcp.ping(endpoint), ...
                 "Archive should be deployed and responsive");
 
-            discoveryUrl = test.server + "/api/discovery";
-            response = webread(discoveryUrl);
-
-            if isfield(response, "archives") && ...
-                    isfield(response.archives, archive)
-                archiveInfo = response.archives.(archive);
-                if isfield(archiveInfo, "functions")
-                    test.verifyTrue(isempty(fieldnames(archiveInfo.functions)), ...
-                        "Archive built with discovery=false should have no function signatures");
-                end
-            end
+            response = webread(test.server + "/api/discovery");
+            help = discoveryHelp(response, archive);
+            test.verifyFalse(any(contains(help, "MCP-Versions:")), ...
+                "Archive built with discovery=false should have no " + ...
+                "framework metadata. Help found: " + strjoin(help, " | "));
         end
 
+    end
+end
+
+function help = discoveryHelp(response, archive)
+% The help text of every function signature /api/discovery lists for
+% ARCHIVE: string.empty if the archive isn't listed. jsondecode makes the
+% signatures of a function a struct, a struct array or a cell array,
+% depending on how many there are and whether their fields agree.
+    help = string.empty;
+    if ~isfield(response, "archives") || ~isfield(response.archives, archive) ...
+            || ~isfield(response.archives.(archive), "functions")
+        return
+    end
+    fcns = response.archives.(archive).functions;
+    for f = string(fieldnames(fcns))'
+        if ~isfield(fcns.(f), "signatures")
+            continue
+        end
+        sigs = fcns.(f).signatures;
+        if isstruct(sigs)
+            sigs = num2cell(sigs);
+        end
+        for s = sigs(:)'
+            % Appended, not assigned to help(end+1): "help": null decodes
+            % as [], and string([]) is empty, which can't fill one element.
+            if isfield(s{1}, "help")
+                h = string(s{1}.help);
+                help = [help, h(:)']; %#ok<AGROW>
+            end
+        end
     end
 end

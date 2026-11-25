@@ -172,7 +172,8 @@ classdef tSchemaSizePrecedence < matlab.unittest.TestCase
                 encoding="JSON");
 
             prop = defs.tools.outputSchema.properties.mag;
-            test.verifyEqual(prop.type, "number", ...
+            % A number that may be NaN or Inf: plain JSON writes null or text.
+            test.verifyEqual(string(prop.type(:))', ["number" "null" "string"], ...
                 "Output declared (1,1) double should be scalar number.");
         end
 

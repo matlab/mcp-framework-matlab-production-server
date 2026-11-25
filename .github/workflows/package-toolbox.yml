@@ -54,7 +54,10 @@ jobs:
             opts.AuthorCompany = "MathWorks";
             opts.Readme = fullfile(root, "README.md");
             opts.MinimumMatlabRelease = "R2025b";
-            dropFolders = fullfile(root, [".git", ".github", ".claude", ".claude-plugin", "Test"]) + filesep;
+            % Keep .claude-plugin: prodserver.mcp.agent.setup registers its
+            % marketplace.json with Claude Code. Without it, every Add-Ons
+            % install's setup failed.
+            dropFolders = fullfile(root, [".git", ".github", ".claude", "Test"]) + filesep;
             dropFiles = fullfile(root, [".copyright-ignore", ".gitattributes", ".gitignore"]);
             files = string(opts.ToolboxFiles);
             opts.ToolboxFiles = files(~startsWith(files, dropFolders) & ~ismember(files, dropFiles));

@@ -36,7 +36,8 @@ classdef tClientV20260728 < MockCaller
             % The mock answers 404 for any path it has no route for.
             missing = replace(test.Endpoint, "/mcp", "/missing/mcp");
             test.verifyError(@()prodserver.mcp.list(missing, "Tool", ...
-                protocol="2026-07-28"), "prodserver:mcp:UnknownServer");
+                protocol="2026-07-28", retry=2, delay=0.1), ...
+                "prodserver:mcp:UnknownArchive");
         end
 
         function tReadResource(test)

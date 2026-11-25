@@ -1,0 +1,78 @@
+name: Bash Finding
+description: Report an issue found during an MCP Framework for MATLAB Production Server bash
+labels: ["found_in_bash"]
+body:
+  - type: input
+    id: summary
+    attributes:
+      label: Summary
+      description: Short description of the problem.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: OS and Release
+      description: Please provide the versions of MATLAB, MPS and platform used.
+      placeholder: i.e. R202Xx, Debian 13
+    validations:
+      required: true
+
+  - type: dropdown
+    id: framework-version
+    attributes:
+      label: Framework Version
+      options:
+        - v1.5.2
+        - v1.6.0
+        - v1.7.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: mps-instance
+    attributes:
+      label: MPS instance
+      options:
+        - own
+        - shared
+    validations:
+      required: true
+
+  - type: dropdown
+    id: client
+    attributes:
+      label: Client Used
+      options:
+        - Claude Code
+        - Codex
+        - Other (describe in Repro Steps)
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Repro Steps
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Include the actual error message and then what you expected to see (if applicable) for a bug. Provide description of change wanted for enhancements/doc issues.
+    validations:
+      required: true
+
+  - type: textarea
+    id: attachments
+    attributes:
+      label: Attachments
+      description: |
+        Function file, example call, main.log excerpt, and the full HTTP request/response for protocol bugs.
+        Drag files here or paste text inside code fences.

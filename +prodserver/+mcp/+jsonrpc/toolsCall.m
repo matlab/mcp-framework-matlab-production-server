@@ -6,7 +6,6 @@ function body = toolsCall(tool,id,def,sig,varargin)
     import prodserver.mcp.MCPConstants
     import prodserver.mcp.internal.ParameterKind
     import prodserver.mcp.internal.hasField
-    import prodserver.mcp.jsonrpc.mcpEncode
 
     body.id = id;
     body.method = "tools/call";
@@ -31,7 +30,7 @@ function body = toolsCall(tool,id,def,sig,varargin)
     end
 
     for k = 1:numel(req)
-        encoded = mcpEncode(encoding, varargin{k});
+        encoded = encodeArgument(tool, encoding, req(k), varargin{k});
         body.params.arguments.(req(k)) = encoded{1};
     end
 
@@ -52,7 +51,7 @@ function body = toolsCall(tool,id,def,sig,varargin)
     % Optional positional
     while n <= numel(varargin) && n <= numel(kind) && ...
             kind(n) == ParameterKind.Optional
-        encoded = mcpEncode(encoding, varargin{n});
+        encoded = encodeArgument(tool, encoding, names(n), varargin{n});
         body.params.arguments.(names(n)) = encoded{1};
         n = n + 1;
     end
@@ -71,7 +70,7 @@ function body = toolsCall(tool,id,def,sig,varargin)
                 numel(nv));
         end
         for k = 1:numel(nv)/2
-            encoded = mcpEncode(encoding, nv{k*2});
+            encoded = encodeArgument(tool, encoding, nv{k*2-1}, nv{k*2});
             body.params.arguments.(nv{k*2-1}) = encoded{1};
         end
     end
@@ -79,5 +78,21 @@ function body = toolsCall(tool,id,def,sig,varargin)
     % A tool called with no arguments still sends an arguments object.
     if ~isfield(body.params, "arguments")
         body.params.arguments = struct();
+    end
+end
+
+function encoded = encodeArgument(tool, encoding, name, value)
+%encodeArgument Encode argument NAME of TOOL, as mcpEncode does. When the
+%   tool's encoding can't carry the value, say which argument it is and
+%   what the tool needs, not only what the encoding lacks.
+    try
+        encoded = prodserver.mcp.jsonrpc.mcpEncode(encoding, value);
+    catch me
+        if me.identifier ~= "prodserver:mcp:IncompatibleArgumentType"
+            rethrow(me);
+        end
+        error(me.identifier, "Argument '%s' of tool %s: %s Build the " + ...
+            "tool with encoding=""Invertible"" to pass it this value.", ...
+            name, tool, me.message);
     end
 end

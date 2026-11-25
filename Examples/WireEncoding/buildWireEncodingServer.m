@@ -13,13 +13,13 @@ function [ctf,endpoint] = buildWireEncodingServer(opts)
 %       folder F instead of "./deploy", in the current folder, as build
 %       does.
 %
-% This example demonstrates five engineering tools that require the MCP
-% Framework wire encoding format to function correctly. Each tool showcases
-% a different limitation of plain JSON for MATLAB numeric data:
+% This example demonstrates five engineering tools that rely on the MCP
+% Framework wire encoding. Each tool showcases a different limitation of
+% plain JSON for MATLAB numeric data:
 %
 %   matrixMultiply         - vector/matrix orientation
 %   analyzeACCircuit       - complex number output
-%   interpolateWithMissing - NaN (missing data) preservation
+%   interpolateWithMissing - NaN (missing data) as a documented value
 %   fuseSensors            - integer type dispatch (heterogeneous types)
 %   blendImages            - integer type dispatch (saturation semantics)
 

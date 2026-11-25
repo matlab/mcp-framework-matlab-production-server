@@ -100,7 +100,7 @@ classdef tTerminateFailed < MockCaller
 
             test.assertNotEmpty(err,"Calling an unlisted tool must fail");
             test.verifyEqual(string(err.identifier), ...
-                "prodserver:mcp:NonUniqueTool",err.message);
+                "prodserver:mcp:UnknownTool",err.message);
 
             % Tool error should have sent another DELETE to terminate
             % session.

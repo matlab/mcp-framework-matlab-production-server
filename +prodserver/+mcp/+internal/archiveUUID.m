@@ -41,7 +41,8 @@ end
 function uuid = ctfUUID(ctf)
 %ctfUUID The UUID in a .ctf file's manifest. unzip extracts every file in
 %   the archive, which takes time and space in proportion to its size; the
-%   internal extractArchive, which unzip calls, extracts the manifest alone.
+%   internal extractArchive, which unzip calls, extracts the manifest alone
+%   (extractManifest).
     uuid = "";
     if ~isfile(ctf)
         return
@@ -50,15 +51,36 @@ function uuid = ctfUUID(ctf)
     mkdir(out);
     cleanup = onCleanup(@() rmdir(out, "s"));
     try
-        % char only, and the entry's name with forward slashes: a string,
-        % or a backslash, extracts nothing.
-        matlab.io.internal.archive.extractArchive(char(ctf), char(out), ...
-            'zip', {'.META/manifest.xml'}, char.empty);
+        extractManifest(ctf, out);
     catch
         % Not a zip file: not an archive mcc built.
         return
     end
     uuid = manifestUUID(fullfile(out, ".META", "manifest.xml"));
+end
+
+
+function extractManifest(ctf, out)
+%extractManifest Extract .META/manifest.xml from the zip file CTF into OUT.
+%   The extractArchive that unzip calls is internal, and its name differs by
+%   release: R2026a moved it out of the core.builtin namespace R2025b has.
+%   Try each; where neither exists, unzip, which extracts every file. Any
+%   other error, such as CTF not being a zip file, is the caller's.
+    names = ["matlab.io.internal.archive.extractArchive", ...          % R2026a on
+             "matlab.io.internal.archive.core.builtin.extractArchive"]; % R2025b
+    for name = names
+        try
+            % char only, and the entry's name with forward slashes: a
+            % string, or a backslash, extracts nothing.
+            feval(name, char(ctf), char(out), 'zip', {'.META/manifest.xml'}, char.empty);
+            return
+        catch e
+            if e.identifier ~= "MATLAB:UndefinedFunction"
+                rethrow(e);
+            end
+        end
+    end
+    unzip(ctf, out);
 end
 
 

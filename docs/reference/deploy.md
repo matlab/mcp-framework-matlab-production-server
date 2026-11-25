@@ -7,7 +7,7 @@ Upload a Model Context Protocol-enabled CTF archive to an active MATLAB Producti
 ### Inputs 
 | Argument | Type | Description | Example
 | :---     | :--- | :---        | :---    |
-| archive | string | Path to the `.ctf` file to upload. The archive's base name becomes the endpoint's archive segment. | "/work/deploy/primeSequence.ctf" |
+| archive | string | Path to the `.ctf` file to upload. The archive's base name becomes the endpoint's archive segment, so it may contain only letters (A-Z, a-z), digits and `_`. It may not be `Framework`, which the framework's own request metric uses (`MCP_Framework_Request`). `deploy` raises `InvalidArchiveName` for a name that breaks these rules, before it contacts the server. | "/work/deploy/primeSequence.ctf" |
 | host | string | Name of the network host running MATLAB Production Server, or a full server address such as `"https://mps.mathworks.com:9920"`. Optional; default `"localhost"`. With a full address, don't also give `port` or `scheme`. | "mps.mathworks.com" |
 | port | double | Port number on host. Optional; default 9910. | 9910 |
 ### Outputs
@@ -30,7 +30,7 @@ If `verify` is non-zero, `deploy` sends a `ping` to the uploaded archive to veri
 
 Replacing an archive takes longer to show: for several seconds after the upload returns, the server goes on answering with the archive it replaces. So `deploy` waits until the archive answering `ping` is the one it uploaded. The archive names its build in the `MATLAB-MCP-Archive-UUID` header of its `ping` answer: the UUID the compiler gave it, which `deploy` reads from the `.ctf` file. When it has seen that build answer twice, with no answer from the old build in between, `deploy` returns. If the old build is still answering when verification runs out, `deploy` raises `prodserver:mcp:DeployedArchiveStale`. If no `pong` arrives at all, it raises `prodserver:mcp:DeployedArchiveUnresponsive`.
 
-A 404, or an HTTP 500 whose reason phrase or body says "End of file", means the server is still loading the archive, so `deploy` pings again. If `deploy` can't read the UUID from the `.ctf` file, any `pong` counts.
+A 404, or an HTTP 500 whose reason phrase or body says "End of file", means the server is still loading the archive, so `deploy` pings again. So does a refused connection, as while the server restarts a worker. A `ping` that times out ends verification at once: it has already waited `timeout` seconds, and waiting that long on every attempt could take hours. If no `pong` arrives and verification ends on a refused connection or a timeout, the `DeployedArchiveUnresponsive` message says which. If `deploy` can't read the UUID from the `.ctf` file, any `pong` counts.
 
 An archive built with an earlier version of the framework doesn't send the header. Then `deploy` asks the server's discovery API (`/api/discovery`, turned on with `--enable-discovery`) which build is installed, waiting at most 10 seconds for the answer. If discovery is off, any `pong` counts, as it always did.
 
@@ -60,7 +60,14 @@ In the last two cases, the error message reports an internal error loading the a
 
 # Examples
 
-Upload `primeSequence.ctf` to a MATLAB Production Server instance running at `localhost:9910` using HTTPS.
+Upload `primeSequence.ctf` to the MATLAB Production Server at a URL: here a shared server that uses HTTPS on port 9920.
+
+```MATLAB
+endpoint = prodserver.mcp.deploy("/work/deploy/primeSequence.ctf","https://mps.example.com:9920");
+```
+***
+
+Upload `primeSequence.ctf` to a MATLAB Production Server instance running at `localhost:9910` using HTTPS, giving the host, port and scheme separately.
 
 ```MATLAB
 endpoint = prodserver.mcp.deploy("/work/deploy/primeSequence.ctf","localhost",9910,scheme="https");

@@ -40,6 +40,9 @@ python mock_server.py config.yaml --host 0.0.0.0 --port 3000
 - `config`: Path to configuration file (required)
 - `--host`: Host to bind to (default: localhost)
 - `--port`: Port to bind to (default: 8080)
+- `--threaded`: Answer requests at the same time, not one after another
+- `--lifetime`: Seconds before the server stops itself, so one a test lost track of doesn't run on; 0 for never (default: 900)
+- `--log`: Log to a file (default name: mock_server.log)
 
 ## Configuration Format
 
@@ -148,6 +151,7 @@ A request that matches no route, or no entry in its route, gets a 404.
 - **headers** (object, optional): Response headers as key-value pairs
 - **body** (string or object, optional): Response body. Objects are sent as JSON, with `Content-Type: application/json` unless `headers` sets it. A top-level array is not supported; wrap it in an object.
 - **delay** (number, optional): Delay in seconds before sending response (default: 0)
+- **stop** (boolean, optional): Stop the server once this response is sent, so every later connection is refused (default: false)
 
 ### Built-in Routes
 

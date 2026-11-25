@@ -4,7 +4,8 @@ function [rows, body] = protocolEnvelope(protocol, body)
 %   (an Nx2 cell, the shape request.Headers uses) and the updated decoded
 %   JSON-RPC BODY for a request sent under PROTOCOL.
 %
-%     2025-06-18  a fresh Mcp-Session-Id row; BODY unchanged.
+%     2025-06-18  a fresh Mcp-Session-Id row, with a session ID as
+%                 initialize issues it; BODY unchanged.
 %     2026-07-28  params._meta added to BODY; MCP-Protocol-Version,
 %                 Mcp-Method and (where the method names a thing) Mcp-Name.
 %
@@ -33,7 +34,7 @@ function [rows, body] = protocolEnvelope(protocol, body)
 
     if protocol == prodserver.mcp.protocol.v20250618.Constants.Version
         rows = {prodserver.mcp.protocol.v20250618.Constants.SessionId, ...
-            matlab.lang.internal.uuid};
+            prodserver.mcp.test.sessionToken()};
         return
     end
 

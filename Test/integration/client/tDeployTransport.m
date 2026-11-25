@@ -13,8 +13,9 @@ classdef tDeployTransport < MockCaller
         % Every slow route sleeps 5 s, and a request bounded at 2 s must raise
         % a response timeout. Without the bound, each of those requests would
         % wait and then succeed, so the error identifier is the evidence.
-        % Elapsed time is not: connecting to the mock on localhost costs up
-        % to ~2 s on top of the timeout, which says nothing about the code.
+        % Elapsed time is not: each request to the mock costs a varying
+        % fraction of a second on top of the timeout, which says nothing
+        % about the code.
         Timeout = 2
         TimedOut = "MATLAB:webservices:Timeout"
     end
@@ -146,6 +147,43 @@ classdef tDeployTransport < MockCaller
             test.verifyEqual(test.requestCount("GET", "/stale/ping"), 3);
         end
 
+        function uploadedBuildSeenOnceIsNotStale(test)
+            % The uploaded build answered, then nothing did. Stale would
+            % name the same build as both the old and the new one.
+            err = captureError(@() prodserver.mcp.deploy(test.build("once"), ...
+                test.url, retry=3, verify=1, delay=0.1, timeout=5), 0);
+            test.assertNotEmpty(err, "Expected DeployedArchiveUnresponsive.");
+            test.verifyEqual(string(err.identifier), ...
+                "prodserver:mcp:DeployedArchiveUnresponsive", err.message);
+            test.verifySubstring(err.message, "answered once");
+            test.verifySubstring(err.message, "HTTP 404");
+            test.verifyEqual(test.requestCount("GET", "/once/ping"), 3);
+        end
+
+        function refusedPingIsRetriedThenUnresponsive(test)
+            % A refused ping is the server not ready yet: pinged again,
+            % within the budget, and reported when the budget runs out.
+            % The mock stops after the first ping, so no count can be read;
+            % the time says the refusals were retried with their pauses.
+            % The pauses must outweigh everything else timed: on Windows a
+            % refused connection alone takes over 2 s, so with short
+            % pauses, a deploy that stopped at the first refusal took as
+            % long. Four attempts are three pauses of DELAY, 12 s; stopping
+            % at the first refusal takes one pause and one refusal, about 7.
+            ctf = test.build("gone");
+            delay = 4;
+            t = tic;
+            err = captureError(@() prodserver.mcp.deploy(ctf, ...
+                test.url, retry=4, verify=1, delay=delay, timeout=5), 0);
+            elapsed = toc(t);
+            test.assertNotEmpty(err, "Expected DeployedArchiveUnresponsive.");
+            test.verifyEqual(string(err.identifier), ...
+                "prodserver:mcp:DeployedArchiveUnresponsive", err.message);
+            test.verifySubstring(err.message, "The connection was refused.");
+            test.verifyGreaterThanOrEqual(elapsed, 3 * delay, ...
+                "Three pauses: the refusals were pinged again.");
+        end
+
         function buildWithoutHeaderIsToldByDiscovery(test)
             % Built before ping named its build: discovery says which build
             % is live, and is old for the first ping.
@@ -179,6 +217,21 @@ classdef tDeployTransport < MockCaller
 
         % A 500 says why in its status line's reason phrase -- all that
         % webread's error message, which deploy used to read, contains.
+
+        function verifyTimeoutIsUnresponsive(test)
+            % A ping that times out during verification is the documented
+            % error, not matlab.net's, and isn't sent again: it has
+            % already waited the whole timeout.
+            err = captureError(@() prodserver.mcp.deploy( ...
+                test.archive("slowping"), test.url, retry=5, delay=0.1, ...
+                timeout=test.Timeout), 0);
+            test.assertNotEmpty(err, "Expected DeployedArchiveUnresponsive.");
+            test.verifyEqual(string(err.identifier), ...
+                "prodserver:mcp:DeployedArchiveUnresponsive", err.message);
+            test.verifySubstring(err.message, sprintf( ...
+                "No answer came within the %d second timeout.", test.Timeout));
+            test.verifyEqual(test.requestCount("GET", "/slowping/ping"), 1);
+        end
 
         function endOfFileIsRetried(test)
             % The archive is still being loaded.
@@ -312,9 +365,12 @@ classdef tDeployTransport < MockCaller
                 test.url + "/slow/mcp", protocol="2025-06-18");
             test.addTeardown(@() prodserver.mcp.client.Adapter.create( ...
                 test.url + "/slow/mcp", action="clear"));
+            % Through sendRequest, which resends it (reading a signature
+            % changes nothing) and then raises the framework's error, not
+            % the transport's.
             test.verifyError(@() prodserver.mcp.internal.signature("toy", ...
                 test.url + "/slow/signature", client, timeout=test.Timeout), ...
-                test.TimedOut);
+                "prodserver:mcp:RequestTimeout");
         end
 
         function terminateIsBounded(test)

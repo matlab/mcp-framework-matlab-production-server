@@ -86,8 +86,10 @@ classdef File < prodserver.mcp.io.Scheme
         %A URI whose path has a .. segment, or an encoded separator (%2F, or
         %%5C on Windows), is an error, prodserver:mcp:BadFilePath: no file
         %name needs either, and a client could use them to reach a file
-        %outside the folder it names.
-            
+        %outside the folder it names. So is one whose host isn't empty or
+        %localhost, or that has user information or a port: a file: URI
+        %names a file on this machine, and file://host/x named the local /x.
+
             import prodserver.mcp.validation.istext
 
             persistent driveLetter
@@ -133,6 +135,26 @@ classdef File < prodserver.mcp.io.Scheme
                 encodedSeparator = [encodedSeparator "%5C" "%5c"];
             end
             for n = 1:numel(uri)
+                % A file: URI's host names the machine the file is on, and
+                % this reads files on the server only: no host, or
+                % localhost (RFC 8089). Ignoring any other read the
+                % server's own /share/x.mat for file://evilhost/share/x.mat.
+                % A share on another machine is a UNC path,
+                % file:////server/share/x.mat, which has no host.
+                % Each part is [] or "" if absent, and the port -1.
+                host = textOf(uri(n).host);
+                hasUser = strlength(textOf(uri(n).userInfo)) > 0;
+                hasPort = ~isequal(uri(n).port, -1) && ...
+                    strlength(textOf(uri(n).port)) > 0;
+                if (strlength(host) > 0 && ~strcmpi(host, "localhost")) || ...
+                        hasUser || hasPort
+                    error("prodserver:mcp:BadFilePath", ...
+                        "Cannot read file URI %s: it names the host " + ...
+                        "'%s'. A file: URI's host must be empty or " + ...
+                        "localhost. For a share on another machine, " + ...
+                        "write its UNC path, as file:////server/share/file.", ...
+                        prodserver.mcp.io.redactURI(uri(n).uri), host);
+                end
                 rawPath = regexprep(uri(n).uri, "[?#].*$", "");
                 if contains(rawPath, encodedSeparator) || ...
                         any(split(pth(n), "/") == "..")
@@ -515,5 +537,15 @@ function root = driveRoot(folder)
         root = extractBefore(folder, 3);
     else
         root = share;
+    end
+end
+
+function t = textOf(v)
+% V as a string scalar: "" if it is empty.
+    if isempty(v)
+        t = "";
+    else
+        t = string(v);
+        t = t(1);
     end
 end

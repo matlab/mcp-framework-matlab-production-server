@@ -27,7 +27,7 @@ The framework maps MATLAB classes to JSON Schema base types:
 
 | MATLAB | JSON Schema | Notes |
 | :--- | :--- | :--- |
-| `double`, `single` | `"number"` | Floating-point types |
+| `double`, `single` | `"number"` | Floating-point types. An output under `encoding="JSON"` also allows `null` and the text `"Inf"` and `"-Inf"`: see [NaN, Inf and One-Element Outputs](#nan-inf-and-one-element-outputs) |
 | `int*`, `uint*` | `"integer"` | All integer bit-widths |
 | `char`, `string` | `"string"` | |
 | `logical` | `"boolean"` | |
@@ -52,9 +52,39 @@ An input must be strict ISO 8601: a date (`2026-01-02`), or a date and time (`20
 
 A datetime in a named time zone, such as `America/New_York`, goes out with its offset, and comes back as a datetime fixed at that offset: the same instant, without the zone's daylight-saving rules. An array in any zone other than UTC goes out in UTC, because an array that crosses a daylight-saving change has more than one offset, and comes back in UTC. The [invertible wire encoding](./wire-encoding.md) keeps the zone name.
 
+### NaN, Inf and One-Element Outputs
+
+```json
+// [s, v] = f(...) with s (1,1) double and v (1,:) double, returning s = 1/0, v = [NaN -Inf]
+"outputSchema": {"properties": {
+  "s": {"type": ["number", "null", "string"], "pattern": "^-?Inf$"},
+  "v": {"type": "array", "items": {"type": ["number", "null", "string"], "pattern": "^-?Inf$"}}}}
+"structuredContent": {"s": "Inf", "v": [null, "-Inf"]}
+```
+
+Plain JSON has no NaN, `Inf` or `-Inf`. Under `encoding="JSON"`, a `double` or `single` output sends NaN as `null`, and `Inf` and `-Inf` as the text `"Inf"` and `"-Inf"`, the forms the [invertible encoding](./wire-encoding.md) uses. The output's schema allows both. The `pattern` constrains only strings, so these two are the only text it allows. `prodserver.mcp.call` reads them back as NaN, `Inf` and `-Inf`, by the schema. A model reading the result sees `"Inf"`. The same applies to an element of an array, and to a struct field that the output's schema describes, from an example call or an additive `%#schema`.
+
+A replacing `%#schema =` is published as written, so it gets none of this. Under `{"type": "number"}`, a NaN goes out as `[null]`, which `prodserver.mcp.call` still reads as NaN, and an `Inf` gives a tool error. To send `Inf` as text, write the forms into the schema yourself: `{"type": ["number", "null", "string"], "pattern": "^-?Inf$"}`.
+
+An output that may be an array is sent as one, even with a single element: `[5]`, not `5`. The exception is a `%#schema` whose `anyOf` also allows a single value, such as a number or an array of numbers: there, one element goes out as `5`. `prodserver.mcp.call` returns an array of strings as a `string` array, whatever its length. A client that checks `structuredContent` against `outputSchema`, as the MCP specification recommends, accepts all of these, except a matrix. Plain JSON sends a matrix as an array of its rows, `[[1,3],[4,2]]`, but the schema describes an array of numbers, so such a client rejects it. Use `encoding="Invertible"` for a tool that returns a matrix.
+
+Inputs keep `"type": "number"`. A NaN argument from `prodserver.mcp.call` still arrives as NaN, but an `Inf` argument is refused, as plain JSON can't carry it. Some outputs can't send `Inf` as text, so it gives a tool error:
+
+- an element of a cell, unless a `%#schema` describes its items with the text forms
+- a `duration`
+- a struct field the schema doesn't describe, such as a field of a `(1,1) struct` output with no example call
+- an output whose `%#schema =` doesn't allow the text
+- an output that may be text or a number, such as one whose example calls returned both, where a client would read `"Inf"` back as text
+
+The first four have schemas that don't allow the text. `[1,"Inf"]` can't be text, so an array that holds a finite number still sends it. If one example call returns text and another a scalar `Inf`, `build` stops with an `IncompatibleArgumentType` error. It does the same for a struct field that is text in one example call and `Inf` in another. So does an example call that returns a cell holding `Inf`, which would otherwise give a tool error at run time.
+
+An empty output gives a tool error where its schema describes one value. Plain JSON would send `[]`, which a client reads as it reads `null`, so it would arrive as NaN. That happens to an output whose example calls all returned a single value. If it may be empty, declare its size, such as `(1,:)`, in an `arguments (Output)` block. An empty struct field gives the same error where the field's schema describes one value. If the field may be empty, add an example call that returns it empty, or describe the output with a `%#schema`.
+
+`prodserver.mcp.call` before version 1.7 reads a NaN output from a tool built with version 1.7 or later as `[]`, and an `Inf` as the text `'Inf'`.
+
 ### Classes Plain JSON Can't Carry
 
-Plain JSON has no representation for `categorical`, `table` or `timetable`. Only the [invertible wire encoding](./wire-encoding.md) carries them, so `build` stops with an `IncompatibleArgumentType` error if a parameter has one of these classes and the tool uses `encoding="JSON"`. With `encoding="Invertible"`, the parameter's schema describes the encoded value itself: for example, a table is an object with `"type": {"enum": ["table"]}` and a `"variables"` array, and a scalar datetime is an ISO 8601 string, `"NaT"`, or, in a named time zone, the datetime wrapper with a `"tz"` field.
+Plain JSON has no representation for `categorical`, `table` or `timetable`, or for complex numbers. Only the [invertible wire encoding](./wire-encoding.md) carries them, so `build` stops with an `IncompatibleArgumentType` error if a parameter has one of these classes, or an example call passes or returns a complex value, and the tool uses `encoding="JSON"`. The same goes for an example call that passes `Inf` or `-Inf`; an output's are sent as text (see above). With `encoding="Invertible"`, the parameter's schema describes the encoded value itself: for example, a table is an object with `"type": {"enum": ["table"]}` and a `"variables"` array, and a scalar datetime is an ISO 8601 string, `"NaT"`, or, in a named time zone, the datetime wrapper with a `"tz"` field.
 
 No wire encoding carries function handles, `containers.Map`, `calendarDuration` or other classes, so `build` always stops with the same error for them. That includes a value of such a class inside a struct field or a cell. To pass one anyway, convert it in a [wrapper function](./wrapper-functions.md), or map its class to a JSON type with the `typemap` option and convert the value yourself.
 
@@ -82,7 +112,7 @@ function sigma = principalStress(stressState, component)
 end
 ```
 
-The framework produces this JSON Schema tool definition. Because `stressState` is declared `(1,3)`, its schema has `"minItems": 3` and `"maxItems": 3`:
+The framework produces this JSON Schema tool definition. Because `stressState` is declared `(1,3)`, its schema has `"minItems": 3` and `"maxItems": 3`. Because `sigma` is a `double` output, its schema also allows `null` and the text `"Inf"` and `"-Inf"`:
 
 ```json
 {
@@ -111,8 +141,9 @@ The framework produces this JSON Schema tool definition. Because `stressState` i
     "type": "object",
     "properties": {
       "sigma": {
-        "type": "number",
-        "description": "Computed principal stress in MPa"
+        "type": ["number", "null", "string"],
+        "description": "Computed principal stress in MPa",
+        "pattern": "^-?Inf$"
       }
     },
     "required": [],

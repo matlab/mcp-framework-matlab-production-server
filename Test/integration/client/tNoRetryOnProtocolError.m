@@ -20,8 +20,10 @@ classdef tNoRetryOnProtocolError < MockCaller
 % Copyright 2026 The MathWorks, Inc.
 
     properties (Constant)
-        % sendRequest defaults to retry=3, so a retryable status (404, 408,
-        % 429) arrives 1 + 3 = 4 times.
+        % Each test passes retry=Retry rather than relying on sendRequest's
+        % default of 30, which takes a minute: a retryable status (404,
+        % 408, 429) arrives 1 + Retry times.
+        Retry = 3;
         RetriedAttempts = 4;
     end
 
@@ -47,7 +49,7 @@ classdef tNoRetryOnProtocolError < MockCaller
 
             try
                 prodserver.mcp.internal.sendRequest( ...
-                    test.toolsListRequest(), uri, delay=0.1);
+                    test.toolsListRequest(), uri, retry=test.Retry, delay=0.1);
                 test.verifyFail("Expected the 400 to surface as an error.");
             catch err
                 test.verifyEqual(string(err.identifier), ...
@@ -76,7 +78,7 @@ classdef tNoRetryOnProtocolError < MockCaller
             uri = matlab.net.URI(replace(endpoint,"/mcp","/opaque"));
 
             test.verifyError(@() prodserver.mcp.internal.sendRequest( ...
-                test.toolsListRequest(), uri, delay=0.1), ...
+                test.toolsListRequest(), uri, retry=test.Retry, delay=0.1), ...
                 "prodserver:mcp:HttpError", ...
                 "A bare 400 has no JSON-RPC error to report");
 
@@ -92,7 +94,7 @@ classdef tNoRetryOnProtocolError < MockCaller
             uri = matlab.net.URI(replace(endpoint,"/mcp","/throttled"));
 
             test.verifyError(@() prodserver.mcp.internal.sendRequest( ...
-                test.toolsListRequest(), uri, delay=0.1), ...
+                test.toolsListRequest(), uri, retry=test.Retry, delay=0.1), ...
                 "prodserver:mcp:HttpError");
 
             attempts = test.requestCount("POST","/throttled");
@@ -103,13 +105,15 @@ classdef tNoRetryOnProtocolError < MockCaller
         function missingArchiveIsRetried(test)
             % 404 is Production Server's answer while an archive is still
             % being unpacked. The mock answers an unrouted path with 404 and
-            % a JSON body that is not a JSON-RPC error, as close as it gets
-            % to Production Server's empty-bodied 404.
+            % no body, as Production Server does. When the retries run out,
+            % the archive is unknown: not an HttpError, which would send
+            % prodserver.mcp.list round the protocol recovery for nothing.
             endpoint = startMcpServer(test,"tNoRetryOnProtocolError.yaml");
             uri = matlab.net.URI(replace(endpoint,"/mcp","/absent"));
 
             test.verifyError(@() prodserver.mcp.internal.sendRequest( ...
-                test.toolsListRequest(), uri, delay=0.1), ?MException);
+                test.toolsListRequest(), uri, retry=test.Retry, delay=0.1), ...
+                "prodserver:mcp:UnknownArchive");
 
             attempts = test.requestCount("POST","/absent");
             test.verifyEqual(attempts, test.RetriedAttempts, ...

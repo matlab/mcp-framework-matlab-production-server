@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<!-- Copyright 2026 The MathWorks, Inc. -->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Clean Signal</title>
+  <link rel="stylesheet" href="./src/global.css" />
+</head>
+<body>
+  <div id="app">
+    <div id="status">Waiting for connection...</div>
+
+    <div id="controls" class="hidden">
+      <div class="control-group">
+        <label for="file-url">Signal file</label>
+        <input type="text" id="file-url" placeholder="file:///path/to/signal.csv" readonly />
+      </div>
+
+      <div class="control-group">
+        <label for="frequency">Frequency (Hz)</label>
+        <div class="frequency-row">
+          <input type="number" id="frequency" min="2" max="498" step="1" value="60" />
+          <button id="add-pass">Add pass</button>
+        </div>
+      </div>
+
+      <div id="pass-list"></div>
+
+      <fieldset id="display-mode">
+        <legend>Display</legend>
+        <label><input type="radio" name="mode" value="both" checked /> Both</label>
+        <label><input type="radio" name="mode" value="original" /> Original</label>
+        <label><input type="radio" name="mode" value="clean" /> Clean</label>
+      </fieldset>
+    </div>
+
+    <canvas id="chart"></canvas>
+  </div>
+
+  <script type="module" src="./src/main.ts"></script>
+</body>
+</html>

@@ -21,8 +21,11 @@ function id = responseId(jrpc)
 
 % Copyright 2026 The MathWorks, Inc.
 
+    % Echo only an id MCP allows (isRequestId). validateEnvelope rejects a
+    % request whose id is an object, boolean or fraction, and the error
+    % for it has a null id.
     if ~isempty(jrpc) && isstruct(jrpc) && isscalar(jrpc) && ...
-            isfield(jrpc, "id") && ~isempty(jrpc.id)
+            isfield(jrpc, "id") && prodserver.mcp.jsonrpc.isRequestId(jrpc.id)
         id = jrpc.id;
     else
         id = NaN;

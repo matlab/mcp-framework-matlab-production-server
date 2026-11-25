@@ -1,6 +1,7 @@
 %% Wire Encoding for Numeric Data
 % Build a five-tool MCP server demonstrating how wire encoding preserves
-% vector orientation, complex numbers, NaN, and integer types.
+% vector orientation, complex numbers and integer types, and gives NaN a
+% documented form.
 
 % Copyright 2026 The MathWorks, Inc.
 
@@ -40,7 +41,7 @@ xlabel("Hz"); ylabel("Ohms");
 subplot(2,1,2); plot(freq, angle(Z)*180/pi); title("Phase vs Frequency");
 xlabel("Hz"); ylabel("Degrees");
 
-%% Interpolation: NaN Preservation
+%% Interpolation: NaN Dropouts
 % Vibration sensor signal with NaN dropout bursts.
 
 dataDir = fullfile(fileparts(mfilename("fullpath")), "data");

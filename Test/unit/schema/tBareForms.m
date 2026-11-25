@@ -107,6 +107,26 @@ classdef tBareForms < matlab.unittest.TestCase
             end
         end
 
+        function bareStructAcceptsItsOwnEncoding(test)
+            % The example describes the fields as plain JSON, but each field
+            % of a bare struct is wire-encoded: the bare form must not
+            % describe them.
+            value = struct('x', [1 2 3], 't', 5, 'n', "hi");
+            d = prodserver.mcp.schema("schemaStructInput", ...
+                @() schemaStructInput(value), encoding="Invertible");
+            tools = jsondecode(jsonencode(d.tools));
+            enc = prodserver.mcp.jsonrpc.mcpWireEncodeValue(value);
+            args = jsondecode(jsonencode(struct('s', enc)));
+            test.verifyEqual(prodserver.mcp.validation.toolArgumentError( ...
+                tools, args, prodserver.mcp.WireEncoding.Invertible), "");
+            [~, bare] = prodserver.mcp.jsonrpc.bareOrWrapped( ...
+                d.tools.inputSchema.properties.s);
+            isObject = cellfun(@(b) isfield(b, 'type') && ...
+                isequal(string(b.type), "object"), bare);
+            test.verifyEqual(nnz(isObject), 1);
+            test.verifyFalse(isfield(bare{isObject}, 'properties'));
+        end
+
         function genericWrapperNeedsTypeAndData(test)
             f = @prodserver.mcp.jsonrpc.isGenericWrapper;
             dataOnly = struct('type', "object", 'properties', ...
@@ -130,7 +150,87 @@ classdef tBareForms < matlab.unittest.TestCase
             test.verifyEqual([lo2 hi2], [lo1 hi1]);
         end
 
+        % A %#schema's constraints on a scalar
+
+        function bareFormsKeepTheEnum(test)
+            % The bare form was the element's type alone, so a bare value
+            % escaped the enum the wrapper's data carried.
+            p = invertibleInputs("schemaEnums");
+            [~, bare] = prodserver.mcp.jsonrpc.bareOrWrapped(p.level);
+            test.verifyEqual(bare, {struct('type', "number", 'enum', {{1; 2; 3}})}, ...
+                "No NaN, Inf or -Inf: the enum admits none of them");
+            [~, bare] = prodserver.mcp.jsonrpc.bareOrWrapped(p.flag);
+            test.verifyEqual(bare, {struct('type', "boolean", 'enum', {{true}})});
+            [~, bare] = prodserver.mcp.jsonrpc.bareOrWrapped(p.mode);
+            test.verifyEqual(string(bare{1}.enum)', ["fast" "slow"]);
+            [~, data] = prodserver.mcp.test.wrapperOf(p.level);
+            test.verifyFalse(isfield(data, 'anyOf'), ...
+                "Nor among the wrapper's data");
+        end
+
+        function bareValuesCheckedAgainstTheEnum(test)
+            d = prodserver.mcp.internal.mcpDefinition("schemaEnums", ...
+                "schemaEnums", encoding="Invertible");
+            f = @(n, v) prodserver.mcp.validation.toolArgumentError(d.tools, ...
+                struct(n, v), prodserver.mcp.WireEncoding.Invertible);
+            w = @(v) struct('type', "double", 'size', [1 1], 'data', v);
+            test.verifyEqual(f("level", 2), "");
+            test.verifyEqual(f("level", w(2)), "");
+            test.verifySubstring(f("level", 4), "is not one of 1, 2, 3");
+            test.verifyGreaterThan(strlength(f("level", "NaN")), 0);
+            test.verifyGreaterThan(strlength(f("level", w(4))), 0);
+            test.verifyGreaterThan(strlength(f("level", w("NaN"))), 0);
+            test.verifyEqual(f("mode", "fast"), "");
+            test.verifySubstring(f("mode", "medium"), "is not one of");
+            test.verifySubstring(f("flag", false), "is not one of true");
+        end
+
+        function boundsLimitSpecialFloats(test)
+            % "Inf" is at least 0, "-Inf" at most 10; NaN is neither.
+            p = invertibleInputs("schemaBounds");
+            cases = {"lower", "minimum", "Inf"
+                     "upper", "maximum", "-Inf"
+                     "both",  "minimum", strings(1, 0)};
+            for k = 1:size(cases, 1)
+                [~, bare] = prodserver.mcp.jsonrpc.bareOrWrapped(p.(cases{k,1}));
+                test.verifyTrue(isfield(bare{1}, cases{k,2}), cases{k,1});
+                [~, data] = prodserver.mcp.test.wrapperOf(p.(cases{k,1}));
+                [~, wrapped] = prodserver.mcp.jsonrpc.wrapperAlternatives( ...
+                    prodserver.mcp.test.wrapperOf(p.(cases{k,1})));
+                items = wrapped.properties.data.items;
+                if isempty(cases{k,3})
+                    test.verifyEqual(numel(bare), 1, cases{k,1});
+                    test.verifyFalse(isfield(items, 'anyOf'), cases{k,1});
+                else
+                    test.verifyEqual(string(bare{2}.enum), cases{k,3}, cases{k,1});
+                    test.verifyEqual(string(items.anyOf{2}.enum), cases{k,3}, ...
+                        cases{k,1} + " among the data");
+                end
+                test.verifyTrue(isfield(data, cases{k,2}), cases{k,1});
+            end
+        end
+
+        function noBareFormsForSeveralElements(test)
+            % No bare value has the three elements minItems requires.
+            d = prodserver.mcp.internal.mcpDefinition("schemaBounds", ...
+                "schemaBounds", encoding="Invertible");
+            many = d.tools.inputSchema.properties.many;
+            test.verifyFalse(prodserver.mcp.jsonrpc.bareOrWrapped(many));
+            test.verifyTrue(prodserver.mcp.jsonrpc.isGenericWrapper(many));
+            f = @(v) prodserver.mcp.validation.toolArgumentError(d.tools, ...
+                struct('many', v), prodserver.mcp.WireEncoding.Invertible);
+            test.verifyGreaterThan(strlength(f(5)), 0);
+            test.verifyEqual(f(struct('type', "double", 'size', [1 3], ...
+                'data', [1; 2; 3])), "");
+        end
+
     end
+end
+
+function p = invertibleInputs(fcn)
+% The input schemas of FCN, built under the invertible encoding.
+    d = prodserver.mcp.internal.mcpDefinition(fcn, fcn, encoding="Invertible");
+    p = d.tools.inputSchema.properties;
 end
 
 function exercise(fcn, nout, args)

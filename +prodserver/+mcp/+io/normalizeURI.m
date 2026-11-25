@@ -16,10 +16,14 @@ function uri = normalizeURI(uri)
 
     persistent authorityPattern
     if isempty(authorityPattern)
-        % Authority is the characters between the first :// and the next /.
-        % 
+        % Authority is the characters between the first :// and the path,
+        % query or fragment that follows it -- or the end, for an address
+        % with none of them. Ending it only at a /, as this did, took the
+        % // of http://localhost:9910 for an empty segment, and collapsed
+        % it: http:/localhost:9910.
         authorityPattern = "://"+asManyOfPattern( ...
-            wildcardPattern(1,Except=characterListPattern("?#/")))+"/";
+            wildcardPattern(1,Except=characterListPattern("?#/"))) + ...
+            (characterListPattern("/?#") | textBoundary("end"));
     end
 
     if istext(uri)

@@ -41,7 +41,8 @@ jobs:
           cd pr-head
           BASE="origin/${{ github.event.pull_request.base.ref }}"
           CHANGED=$(git diff --name-only "$BASE"...HEAD)
-          if echo "$CHANGED" | grep -qE '^[+]prodserver/|^server/|^src/|^Test/|^Examples/|^Utilities/|^\.github/'; then
+          CHANGED=$(echo "$CHANGED" | grep -vE '^\.github/ISSUE_TEMPLATE/' || true)
+          if echo "$CHANGED" | grep -qE '^[+]prodserver/|^server/|^src/|^Test/|^Examples/|^Utilities/|^scripts/|^\.github/|^\.claude-plugin/'; then
             echo "code=true" >> "$GITHUB_OUTPUT"
           else
             echo "code=false" >> "$GITHUB_OUTPUT"

@@ -28,6 +28,9 @@ classdef tParseURI < matlab.unittest.TestCase
                 test.verifyEqual(u.host, cases{k,2}, cases{k,1});
                 test.verifyEqual(u.port, cases{k,3}, cases{k,1});
                 test.verifyEqual(u.path, cases{k,4}, cases{k,1});
+                % The copy keeps its // too: it lost a slash when nothing
+                % followed the authority (http:/localhost:9910).
+                test.verifyEqual(u.uri, cases{k,1}, cases{k,1});
             end
             u = prodserver.mcp.io.parseURI("http://localhost");
             test.verifyEqual(u.host, "localhost");
@@ -36,6 +39,23 @@ classdef tParseURI < matlab.unittest.TestCase
             test.verifyEqual(u.userInfo, "user");
             u = prodserver.mcp.io.parseURI("http://localhost:9910?x=1");
             test.verifyEqual(u.query, "x=1");
+        end
+
+        function authorityKeepsItsSlashes(test)
+            % normalizeURI collapses // in a path, but never the // before
+            % an authority, however the authority ends: at a path, query,
+            % fragment or the end. It took only a following / for the end
+            % of an authority, so a bare server address lost a slash.
+            N = @prodserver.mcp.io.normalizeURI;
+            kept = ["http://localhost:9910", "https://mps.example.com:9920", ...
+                "http://localhost:9910?x=1", "http://localhost:9910#top", ...
+                "http://localhost:9910/a/b", "file:///tmp/x.csv", ...
+                "file:////mathworks/file.data"];
+            for k = kept
+                test.verifyEqual(N(k), k, k);
+            end
+            test.verifyEqual(N("http://localhost:9910/a//b"), ...
+                "http://localhost:9910/a/b", "Still collapses // in a path.");
         end
 
         function encodedBackslashIsData(test)

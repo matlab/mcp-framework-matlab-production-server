@@ -1,6 +1,6 @@
 # Wire Encoding
 
-JSON was designed for web data interchange, not scientific computing. It lacks features that MATLAB numeric code relies on: vector orientation, complex numbers, NaN values, and integer type identity. The MCP Framework wire encoding solves this by wrapping MATLAB values with explicit type and shape metadata.
+JSON was designed for web data interchange, not scientific computing. It lacks features that MATLAB numeric code relies on: vector orientation, complex numbers, NaN and infinite values, and integer type identity. The MCP Framework wire encoding solves this by wrapping MATLAB values with explicit type and shape metadata.
 
 ## The Problem
 
@@ -8,7 +8,8 @@ JSON was designed for web data interchange, not scientific computing. It lacks f
 | :--- | :--- | :--- |
 | Vector orientation | `[1,2,3]` has no shape — `jsondecode` always produces a column | Row vectors become columns; matrix operations give wrong results |
 | Complex numbers | No JSON type exists | Cannot represent phasors, FFT output, eigenvalues |
-| NaN (missing data) | Not a valid JSON literal | Sensor dropouts become 0; interpolation fits wrong curves |
+| NaN (missing data) | Not a valid JSON literal | Sent as `null`, which reads back as NaN, but a number schema gives a model no documented form for a gap |
+| Inf and -Inf | Not valid JSON literals: `jsonencode` writes them as `null`, as it does NaN | An output's are sent as the text `"Inf"` and `"-Inf"`; an argument can't carry them. See [NaN, Inf and One-Element Outputs](./schemas.md#nan-inf-and-one-element-outputs) |
 | Integer types | One `number` type (float64) | `uint8(200)` and `double(200)` are indistinguishable; type-dependent code gives wrong answers |
 
 These are not edge cases. Any function that operates on matrices, processes sensor data, or dispatches on numeric type will produce wrong results if the encoding discards this information.
@@ -53,6 +54,13 @@ Under `encoding="Invertible"`, a parameter that may hold a scalar is published a
 ```
 
 It is `anyOf`, not `oneOf`, because a scalar struct's bare form and the wrapper are both objects. The description, annotation and `x-call-by` stay at the top level, not inside the alternatives. The wrapper's `data` is always an array, even for a scalar: a scalar's has exactly one element (`"minItems": 1, "maxItems": 1`). Under `encoding="JSON"` there is no wrapper, and none of this applies.
+
+A [`%#schema`](../reference/schema-format.md) constraint on a scalar, such as `"enum": [1, 2, 3]` or `"minimum": 0`, applies to the bare form as well as to the wrapper's data. `"NaN"`, `"Inf"` and `"-Inf"` are offered only where the constraints admit them:
+
+- An `enum`, `const` or `multipleOf` rules out all three.
+- A `minimum` leaves only `"Inf"`, and a `maximum` only `"-Inf"`.
+
+A parameter whose `%#schema` requires more than one element (`"minItems": 3`) has no bare forms.
 
 ## Encoding Rules
 
@@ -129,13 +137,17 @@ ctf = prodserver.mcp.build("analyzeACCircuit", encoding="Invertible");
 Request it for a tool whose parameters would lose their type or shape in plain JSON:
 
 - A parameter is a non-scalar array (any shape beyond 1x1)
-- The output contains complex values, NaN, or specific integer types
+- The output contains complex values or specific integer types
 - The function dispatches on `class()` — accepting different numeric types at the same position
-- A parameter is a `categorical`, `table` or `timetable`. Plain JSON can't carry these, so `build` requires Invertible encoding for them.
+- A parameter is a `categorical`, `table` or `timetable`, or an example call passes or returns a complex value, or passes `Inf` or `-Inf`. Plain JSON can't carry these, so `build` requires Invertible encoding for them.
 
 Plain JSON does carry `datetime` and `duration` parameters, as ISO 8601 text and as seconds: see [Dates and Durations](./schemas.md#dates-and-durations). Invertible encoding keeps more: a datetime's time zone name, not just its offset. Neither encoding keeps a datetime's display format.
 
 `build` can only refuse what it can see: a declared class, or a value in an example call. A timetable can still reach a JSON tool's output at run time, such as in an output with no declared class, in a struct field, or in a cell. JSON sends it as a table whose first column is its row times. Datetimes and durations reaching an output that way are converted as usual.
+
+A complex value can also reach a JSON tool at run time, because its class is `double`: `sqrt` of a negative number, for example. JSON can't send it at all. The call returns a tool error saying that plain JSON can't carry complex values, and `prodserver.mcp.call` refuses a complex argument to a JSON tool, naming the argument, before it sends the request. Both are `IncompatibleArgumentType` errors.
+
+`Inf` and `-Inf` can reach a JSON tool at run time too, because their class is `double`: `1/0`, for example. `jsonencode` writes them as `null`, as it does NaN, so they would silently arrive as NaN. A JSON tool's output sends them as the text `"Inf"` and `"-Inf"` instead, which its schema allows, and `prodserver.mcp.call` returns them as `Inf` and `-Inf`: see [NaN, Inf and One-Element Outputs](./schemas.md#nan-inf-and-one-element-outputs). That includes an array element of an output, and a struct field its schema describes. An element of a cell, an infinite `duration`, and a struct field with no schema of its own give a tool error. So does an output that may be text or a number, as a client would read `"Inf"` as text. `prodserver.mcp.call` refuses an argument to a JSON tool that holds `Inf` or `-Inf`. NaN in an array is sent as `null`, and arrives as NaN. So does a scalar NaN output. A scalar NaN argument or struct field from `prodserver.mcp.call` is sent as `[null]`, which `jsondecode` reads as NaN, but `null` as an empty array.
 
 When at least one tool uses Invertible encoding, the framework includes a wire-encoding resource at `mcp://protocol/tools/wire-format/parameters/encoding_rules`. LLMs read this resource to learn the encoding rules before calling tools that require them. Other servers don't include it.
 
@@ -161,7 +173,7 @@ The MATLAB `arguments` block can coerce type and shape:
 This works only when the function always expects one specific type or shape. It fails when:
 - Both orientations are valid inputs (matrix multiplication)
 - The function dispatches on type (sensor fusion accepting `uint8`, `uint16`, or `double`)
-- The data contains values unrepresentable in JSON regardless of coercion (NaN, complex)
+- The data holds values plain JSON can't send as numbers: complex values, and `Inf` or `-Inf` in an argument
 
 ## Decoding Order
 

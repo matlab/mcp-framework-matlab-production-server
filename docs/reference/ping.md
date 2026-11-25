@@ -19,7 +19,7 @@ Pass optional arguments with *argument=value* syntax following required inputs. 
 | Argument | Type | Description | Default |
 | :---     | :--- | :---        | :---    |
 | delay | integer | Number of seconds to pause between retries | 2 |
-| retry | integer | Number of times to retry after a refused connection, a timeout or HTTP 404 (an archive still being unpacked). Any other failure returns false at once. A dead endpoint takes about `retry*delay` seconds to report false. | 30 |
+| retry | integer | Number of times to retry after a refused connection, a timeout or HTTP 404 (an archive still being unpacked). Any other failure returns false at once. An endpoint that refuses connections takes about `retry*delay` seconds to report false. One that never answers takes up to `(retry+1)*timeout` seconds: about 31 minutes with the defaults. Lower `timeout` or `retry` to find out sooner. | 30 |
 | timeout | integer | Number of seconds to wait for each reply | 60 |
 
 # Examples

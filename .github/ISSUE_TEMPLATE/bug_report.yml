@@ -1,0 +1,67 @@
+name: Bug Report
+description: Report an issue in the MCP Framework for MATLAB Production Server
+labels: ["bug"]
+body:
+  - type: input
+    id: summary
+    attributes:
+      label: Summary
+      description: Short description of the problem.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: OS and Release
+      description: Please provide the versions of MATLAB, MPS and platform used.
+      placeholder: i.e. R202Xx, Debian 13
+    validations:
+      required: true
+
+  - type: dropdown
+    id: mps-instance
+    attributes:
+      label: MPS instance
+      options:
+        - own
+        - shared
+    validations:
+      required: true
+
+  - type: dropdown
+    id: client
+    attributes:
+      label: Client
+      options:
+        - Claude Code
+        - Codex
+        - Other (describe in Repro Steps)
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Repro Steps
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Include the actual error message and what you expected to see (if applicable)
+    validations:
+      required: true
+
+  - type: textarea
+    id: attachments
+    attributes:
+      label: Attachments
+      description: |
+        Function file, example call, main.log excerpt, and the full HTTP request/response for protocol bugs.
+        Drag files here or paste text inside code fences.

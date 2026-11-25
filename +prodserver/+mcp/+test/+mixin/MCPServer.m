@@ -34,7 +34,8 @@ classdef MCPServer < handle
                 mcp prodserver.mcp.test.mixin.MCPServer
                 server string
                 opts.body = []
-                opts.sessionID string = matlab.lang.internal.uuid
+                % A session ID the server issued: it answers others with 404.
+                opts.sessionID string = prodserver.mcp.test.sessionToken()
                 opts.protocol string = prodserver.mcp.protocol.v20250618.Constants.Version
             end
 

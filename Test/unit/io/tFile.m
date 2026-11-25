@@ -58,12 +58,13 @@ classdef tFile < matlab.unittest.TestCase
             p = prodserver.mcp.io.uri.File.FileURI2Path(u);
             test.verifyEqual(p,f);
 
-            % Relative path on host "high". Probably unexpected, but the
-            % standard is the standard...
+            % A path on host "high", another machine. It used to read the
+            % local /speed/storage/data.csv, dropping the host; it's
+            % refused (see fileURIRefusesOtherHosts).
             % file://high/speed/storage/data.csv
             u = "file:/"+f;
-            p = prodserver.mcp.io.uri.File.FileURI2Path(u);
-            test.verifyEqual(p,extractAfter(f,textBoundary("start")+"/high"));
+            test.verifyError(@() prodserver.mcp.io.uri.File.FileURI2Path(u), ...
+                "prodserver:mcp:BadFilePath");
 
         end
 
@@ -240,6 +241,34 @@ classdef tFile < matlab.unittest.TestCase
             u = prodserver.mcp.io.uri.File.Path2FileURI("x.json");
             test.verifyEqual(lower(prodserver.mcp.io.uri.File.FileURI2Path(u)), ...
                 lower(replace(unc, "\", "/") + "/x.json"));
+        end
+
+        function fileURIRefusesOtherHosts(test)
+            % file://evilhost/share/x.mat named the server's own
+            % /share/x.mat: the host was dropped. A file: URI names a file
+            % on this machine, so its host is empty or localhost.
+            U2P = @prodserver.mcp.io.uri.File.FileURI2Path;
+            for u = ["file://evilhost/share/x.mat", "file://evilhost//share/x.mat", ...
+                    "file://127.0.0.1/x", "file://user@localhost/x", ...
+                    "file://localhost:445/x"]
+                test.verifyError(@() U2P(u), "prodserver:mcp:BadFilePath", u);
+            end
+            try
+                U2P("file://alice:secret@evilhost/x");
+                test.verifyFail("Expected BadFilePath.");
+            catch me
+                test.verifyFalse(contains(me.message, "secret"), me.message);
+            end
+            % These name no other host.
+            test.verifyEqual(U2P("file://localhost/x/y.mat"), "/x/y.mat");
+            test.verifyEqual(U2P("file://LOCALHOST/x/y.mat"), "/x/y.mat");
+            test.verifyEqual(U2P("file:////server/share/x.mat"), "//server/share/x.mat", ...
+                "A UNC path has no host.");
+            test.verifyEqual(U2P("file:///x/y"), "/x/y");
+            if ispc
+                test.verifyEqual(U2P("file://C:/x/y.mat"), "C:/x/y.mat");
+                test.verifyEqual(U2P("file://localhost/C:/x.mat"), "C:/x.mat");
+            end
         end
 
         function fileURIRefusesEscapes(test)

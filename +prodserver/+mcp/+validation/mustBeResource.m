@@ -38,6 +38,15 @@ function mustBeResource(x)
             end
         end
      end
+
+     % Each is valid; together, no two may share a URI.
+     if numel(x) > 1
+         try
+             prodserver.mcp.validation.mustHaveDistinctURIs(x);
+         catch me
+             throwAsCaller(me);
+         end
+     end
 end
 
 function validateResource(x)

@@ -55,7 +55,7 @@ The framework runs your example, observes that `stressState` is a 3-element nume
 Upload the archive to a running MATLAB Production Server instance.
 
 ```MATLAB
-endpoint = prodserver.mcp.deploy(ctf, "localhost", 9910);
+endpoint = prodserver.mcp.deploy(ctf, "http://localhost:9910");
 ```
 
 `deploy` returns the MCP endpoint URL: `http://localhost:9910/principalStress/mcp`.

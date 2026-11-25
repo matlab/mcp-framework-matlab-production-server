@@ -11,7 +11,7 @@ Call each function with its full namespace prefix, for example `prodserver.mcp.b
 | [agent.setup](./agent-setup.md) | Install MCP Framework skills for AI coding agents | `agent.setup` |
 | [build](./build.md) | Package function as MCP tool | `build("principalStress", example=@() principalStress([1 2 3], "max"))` |
 | [call](./call.md) | Invoke a deployed tool (for testing) | `call(endpoint, "principalStress", [1 2 3], "max")` |
-| [deploy](./deploy.md) | Upload archive to MATLAB Production Server | `deploy(ctf, "localhost", 9910)` |
+| [deploy](./deploy.md) | Upload archive to MATLAB Production Server | `deploy(ctf, "http://localhost:9910")` |
 | [exist](./exist.md) | Check existence of a tool on the server | `exist(endpoint, "principalStress", "tool")` |
 | [list](./list.md) | List MCP primitives at an endpoint | `list(endpoint, "Tool")` |
 | [metrics](./metrics.md) | Retrieve server metrics catalog | `metrics(endpoint)` |

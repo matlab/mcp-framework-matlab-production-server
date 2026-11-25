@@ -2,28 +2,39 @@
 
 Build an MCP tool that removes periodic noise from a signal. This example demonstrates how the framework **auto-generates** a wrapper function when parameters are large — routing array data through file storage instead of JSON.
 
+## Requirements
+
+- [Signal Processing Toolbox](https://www.mathworks.com/products/signal.html), in the MATLAB that runs the walkthrough. `cleanSignal` filters with `designfilt` and `filtfilt`; without the toolbox, the walkthrough stops at its first step with `Undefined function 'designfilt'`.
+- A MATLAB Production Server instance, at `http://localhost:9910` unless you set `mpsServer` before running the walkthrough.
+
 ## The Function
 
 `cleanSignal` accepts a noisy signal vector and a noise frequency, and returns the filtered signal:
 
 ```MATLAB
-function clean = cleanSignal(noisy, period)
+function clean = cleanSignal(noisy, frequency)
     arguments (Input)
-        noisy double         % Noisy signal
-        period (1,1) double  % Frequency of the noise to remove
+        % Noisy signal
+        noisy double
+        % Noise frequency to remove, in Hz: between 1 and 499
+        %#schema { "exclusiveMinimum": 1, "exclusiveMaximum": 499 }
+        frequency (1,1) double {mustBeGreaterThan(frequency,1), mustBeLessThan(frequency,499)}
     end
     arguments (Output)
-        clean double         % Filtered signal
+        % Filtered signal
+        clean double
     end
     ...
 end
 ```
 
+The `%#schema` line puts the frequency range into the tool's schema, so the LLM knows it. Validators in an arguments block are enforced when the tool runs, but don't appear in the schema: see [Schemas](../../docs/concepts/schemas.md).
+
 ## Why a Wrapper?
 
 The `noisy` input might be 10,000 samples. Encoding that as JSON consumes ~100,000 tokens. The LLM doesn't need to see the data — it only needs to tell the tool *where* the data lives.
 
-The framework detects this automatically: `noisy double` has no size constraint, so it is assumed large. `period (1,1) double` is scalar, so it passes directly. The framework generates a wrapper that replaces large parameters with file URLs.
+The framework detects this automatically: `noisy double` has no size constraint, so it is assumed large. `frequency (1,1) double` is scalar, so it passes directly. The framework generates a wrapper that replaces large parameters with file URLs.
 
 ## Build
 
@@ -35,6 +46,8 @@ The framework inspects argument blocks and auto-generates the wrapper. Since arg
 
 On a shared server, give the archive a name of your own with `build`'s `archive` option, for example by adding your user name: `deploy` replaces an archive with the same name, even one someone else deployed.
 
+The [Signal Filter App](../SignalFilterApp/walkthrough.md) example also deploys an archive named `cleanSignal`. If you've already run it on this server, give this archive another name with `archive`, such as `cleanSignalNoise`: unless the server is in [multi-MCOS mode](../../docs/reference/deploy.md#several-archives-on-one-server), `deploy` can't replace an archive a worker has loaded, and fails with `prodserver:mcp:NeedMultiMCOSMode`.
+
 The default `wrapper="Auto"` triggers generation because `noisy` has no size constraint (assumed large, exceeds the 64-element threshold).
 
 ## The Generated Wrapper
@@ -42,17 +55,17 @@ The default `wrapper="Auto"` triggers generation because `noisy` has no size con
 The framework produces `cleanSignalMCP.m` automatically:
 
 ```MATLAB
-function cleanSignalMCP(noisyURL, period, out)
+function cleanSignalMCP(noisyURL, frequency, out)
     arguments (Input)
         noisyURL (1,1) string  % file: URL pointing to input signal
-        period (1,1) double    % Frequency of the noise to remove
+        frequency (1,1) double {mustBeGreaterThan(frequency,1), mustBeLessThan(frequency,499)}  % Noise frequency to remove, in Hz
         out.cleanURL (1,1) string = ""  % file: URL where clean signal is saved
     end
 
     marshaller = prodserver.mcp.io.MarshallURI();
     noisy = deserialize(marshaller, noisyURL);
     noisy = noisy{1};
-    clean = cleanSignal(noisy, period);
+    clean = cleanSignal(noisy, frequency);
     if strlength(out.cleanURL) > 0
         serialize(marshaller, out.cleanURL, {clean});
     end
@@ -104,5 +117,7 @@ These `file:` URLs name files on the server's machine: MATLAB Production Server 
 > Remove the 60 Hz periodic noise from the signal in openloopVoltage.csv in my working directory. Save the result as openloopVoltage_clean.csv.
 
 The LLM reads the tool description, constructs file URLs for the input and output, and calls `cleanSignal` with the noise frequency.
+
+To see the result as an interactive plot in the chat, give the tool a view: see [Signal Filter App](../SignalFilterApp/walkthrough.md).
 
 --- Copyright 2025-2026 The MathWorks, Inc. ---

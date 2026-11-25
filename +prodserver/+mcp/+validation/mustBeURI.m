@@ -19,6 +19,10 @@ function mustBeURI(x)
             bad = sprintf("struct with fields: %s", ...
                 strjoin(fieldnames(bad),","));
         end
+        % Without user information or query, which may hold a secret.
+        if prodserver.mcp.validation.istext(bad) && isscalar(string(bad))
+            bad = prodserver.mcp.io.redactURI(string(bad));
+        end
         throwAsCaller(MException("prodserver:mcp:BadURI", "Invalid URI: %s", bad(1)));
     end
 

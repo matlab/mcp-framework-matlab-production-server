@@ -20,7 +20,9 @@ Quick reference for experienced users. All functions live in the `prodserver.mcp
 
 % Build only (deploy later)
 ctf = prodserver.mcp.build("myFunc", example=@() myFunc(x));
-endpoint = prodserver.mcp.deploy(ctf, "localhost", 9910);
+endpoint = prodserver.mcp.deploy(ctf, "http://localhost:9910");
+endpoint = prodserver.mcp.deploy(ctf, "https://mps.example.com:9920");   % HTTPS
+endpoint = prodserver.mcp.deploy(ctf, "localhost", 9910);                % host and port
 
 % With resources
 ctf = prodserver.mcp.build("myFunc", ...
@@ -52,7 +54,7 @@ ctf = prodserver.mcp.build("myFunc", ...
 ```MATLAB
 prodserver.mcp.ping(endpoint)                          % true if live
 prodserver.mcp.call(endpoint, "myFunc", arg1, arg2)    % direct invocation
-prodserver.mcp.list(endpoint, "Tool")                  % list tools
+prodserver.mcp.list(endpoint, "Tool")                  % list tools, and the built-in read_mcp_resource
 prodserver.mcp.list(endpoint, "Resource")              % list resources
 prodserver.mcp.exist(endpoint, "myFunc", "Tool")       % check specific tool
 prodserver.mcp.exist(endpoint, uri, "Resource")        % check specific resource
@@ -71,6 +73,7 @@ catalog.name("Request", match="Contains")              % substring search
 catalog.archive("myServer")                            % all metrics from archive
 catalog.type(prodserver.mcp.metrics.Type.Counter)      % counters only
 catalog.scope(prodserver.mcp.metrics.Scope.MCP)        % framework metrics
+catalog.filter(scope=prodserver.mcp.metrics.Scope.Tool, archive="myServer")  % one archive's tool counters
 catalog.filter(archive="myServer", type=prodserver.mcp.metrics.Type.Counter)
 ```
 
@@ -98,9 +101,12 @@ ctf = prodserver.mcp.build("myFunc", definition=defs);
 
 ## Argument Block Patterns
 
+Every tool needs a help comment after its `function` line: it becomes the tool's description. Without one, `build` stops with `EmptyToolDescription`, unless you build with `example`, which describes the tool by its name instead.
+
 ```MATLAB
 % Complete declaration — no example needed
 function out = myFunc(a, b)
+% Analyze a column of measurements with the named method.
     arguments
         a (:,1) double  % Column vector of measurements
         b (1,1) string  % Analysis method
@@ -112,6 +118,7 @@ end
 
 % Comments only — relies on example for types
 function out = myFunc(reading, channel)
+% Convert a sensor reading to engineering units.
     arguments
         reading  % Raw counts (uint16) or voltages (double)
         channel  % Sensor channel name
@@ -120,6 +127,7 @@ end
 
 % Structured input with %#schema
 function out = myFunc(spec)
+% Run the analysis a configuration specification describes.
     arguments
         %#schema =spec_schema.json
         spec (1,1) struct  % Configuration specification
@@ -207,8 +215,11 @@ Then in Claude Code: install plugin, `/reload-plugins`, use `/mps-mcp-build`.
 | `server` | string | none | Deploy immediately to this address |
 | `archive` | string | function name | CTF archive name |
 | `resource` | struct array | `[]` | MCP resources to embed |
+| `app` | string | none | HTML file of an [MCP App](./guides/mcp-apps.md) view, linked to every tool |
+| `tool` | string | function name | Tool name on the server, one per function. Not `uri2json` or `read_mcp_resource`. |
+| `encoding` | WireEncoding | `"JSON"` | Wire encoding: "JSON" or "Invertible". One for all tools, or one per function. |
 | `wrapper` | string | `"Auto"` | Wrapper mode: "Auto", "None", "" (always generate), or path to custom wrapper. With `example`, only "Auto" or "None". |
-| `discovery` | logical | `true` | Include in MPS discovery |
+| `discovery` | logical | `true` | Include in MPS discovery (from R2027a, every archive is listed) |
 | `folder` | string | `"./deploy"` | Output directory for CTF |
 | `files` | string vector | none | Extra files to include in archive |
 | `timeout` | integer | `30` | Not used; the upload uses `deploy`'s defaults |

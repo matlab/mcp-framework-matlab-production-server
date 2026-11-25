@@ -98,6 +98,16 @@ function data = decodeBody(msg, opts)
                         "Request body is a JSON array; JSON-RPC batches " + ...
                         "are not supported.");
                 end
+                % The same collapse hides an array id: [7] and [[7]] decode
+                % to 7, which the id rules would accept, and the response
+                % would carry 7, an id the client never sent.
+                if isstruct(data) && isscalar(data) && isfield(data, "id") && ...
+                        isnumeric(data.id) && isscalar(data.id) && ...
+                        idIsArray(text)
+                    error("prodserver:mcp:InvalidRequest", ...
+                        "The request's id is an array. It must be a " + ...
+                        "string or an integer.");
+                end
             else
                 data = jsondecode(data);
             end
@@ -147,6 +157,63 @@ function tf = isBlank(data)
         tf = all(ismember(data, [32 9 10 13]), "all");
     else
         tf = false;
+    end
+end
+
+function tf = idIsArray(text)
+%idIsArray True if the value of the top-level member "id" of TEXT, a JSON
+%   object, is an array. Keys are compared as decoded, so "\u0069d" is
+%   "id"; of several, the last counts, as jsondecode keeps the last.
+    if isnumeric(text)
+        text = native2unicode(reshape(text, 1, []), "UTF-8");
+    end
+    c = char(text);
+    tf = false;
+    % Quick, for the usual body: no key that is "id", or has an escape,
+    % followed by an array. The walk below is character by character.
+    if isempty(regexp(c, '"(id|[^"]*\\u[^"]*)"\s*:\s*\[', "once"))
+        return
+    end
+    n = numel(c);
+    depth = 0;
+    i = 1;
+    while i <= n
+        switch c(i)
+            case '"'
+                j = stringEnd(c, i);
+                if depth == 1
+                    % A key, if a colon follows.
+                    k = j + 1;
+                    while k <= n && any(c(k) == [32 9 10 13]), k = k + 1; end
+                    if k <= n && c(k) == ':'
+                        try
+                            key = jsondecode(c(i:j));
+                        catch
+                            key = "";
+                        end
+                        if isequal(string(key), "id")
+                            k = k + 1;
+                            while k <= n && any(c(k) == [32 9 10 13]), k = k + 1; end
+                            tf = k <= n && c(k) == '[';
+                        end
+                    end
+                end
+                i = j;
+            case {'{', '['}
+                depth = depth + 1;
+            case {'}', ']'}
+                depth = depth - 1;
+        end
+        i = i + 1;
+    end
+end
+
+function j = stringEnd(c, i)
+% The index of the quote that closes the string opening at C(I).
+    j = i + 1;
+    while j <= numel(c) && c(j) ~= '"'
+        if c(j) == '\', j = j + 1; end
+        j = j + 1;
     end
 end
 

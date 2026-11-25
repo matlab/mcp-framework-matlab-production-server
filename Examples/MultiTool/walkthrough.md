@@ -33,7 +33,7 @@ On a shared server, give the archive a name of your own with `build`'s `archive`
 ## Deploy
 
 ```MATLAB
-endpoint = prodserver.mcp.deploy(ctf, "localhost", 9910);
+endpoint = prodserver.mcp.deploy(ctf, "http://localhost:9910");
 ```
 
 ## Verify
@@ -44,7 +44,7 @@ ans =
     true
 
 tools = prodserver.mcp.list(endpoint, "Tool");
-{tools.name}'
+cellfun(@(t) t.name, tools, UniformOutput=false)
 ```
 
 ## Test with MCP Protocol

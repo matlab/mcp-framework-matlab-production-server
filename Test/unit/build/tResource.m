@@ -191,6 +191,53 @@ classdef tResource < matlab.unittest.TestCase
                 "prodserver:mcp:InvalidResourceFieldType");
         end
 
+        function duplicateURIsRejected(test)
+            % A URI identifies one resource. Two under one URI used to
+            % build, and then no client could read either.
+            v = @prodserver.mcp.validation.mustBeResource;
+            a = struct('uri', 'mcp://test/r', 'contents', "one");
+            b = struct('uri', 'mcp://test/s', 'contents', "two");
+            c = struct('uri', 'mcp://test/r', 'contents', "three");
+            test.verifyWarningFree(@() v([a b]), "Distinct URIs");
+            try
+                v([a b c]);
+                test.verifyFail("Expected DuplicateResourceURI.");
+            catch me
+                test.verifyEqual(me.identifier, ...
+                    'prodserver:mcp:DuplicateResourceURI');
+                test.verifySubstring(me.message, "'mcp://test/r'");
+                test.verifySubstring(me.message, "1 and 3");
+            end
+            test.verifyError(@() v({a, c}), ...
+                "prodserver:mcp:DuplicateResourceURI", "A cell array");
+        end
+
+        function buildRejectsDuplicateURIs(test)
+            % At the call, before anything is built.
+            a = struct('uri', 'mcp://test/r', 'contents', "one");
+            c = struct('uri', 'mcp://test/r', 'contents', "three");
+            test.applyFixture(prodserver.mcp.test.mixin.RequireToyTools());
+            test.verifyError(@() prodserver.mcp.build("toyScalarOne", ...
+                resource=[a c], folder=test.tempFolder, stop="Definition"), ...
+                "prodserver:mcp:DuplicateResourceURI");
+        end
+
+        function frameworkURIReserved(test)
+            % An Invertible tool's server has the wire-encoding rules at
+            % their URI, so a resource of yours can't have it too. A JSON
+            % tool's server doesn't, so it can.
+            import prodserver.mcp.MCPConstants
+            r = struct('uri', MCPConstants.WireEncodingResourceURI, ...
+                'contents', "mine");
+            test.applyFixture(prodserver.mcp.test.mixin.RequireToyTools());
+            test.verifyError(@() prodserver.mcp.build("toyScalarOne", ...
+                resource=r, encoding="Invertible", folder=test.tempFolder, ...
+                stop="Definition"), "prodserver:mcp:DuplicateResourceURI");
+            % Raises if it's refused, which fails the test.
+            prodserver.mcp.build("toyScalarOne", resource=r, ...
+                encoding="JSON", folder=test.tempFolder, stop="Definition");
+        end
+
         function binaryFunctionAndEmptyMIMEType(test)
             import prodserver.mcp.MCPConstants
             import prodserver.mcp.internal.Constants

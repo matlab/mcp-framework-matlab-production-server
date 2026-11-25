@@ -84,19 +84,22 @@ function [status, detail] = uploadCTF(ctf, url, opts)
         if contains(ex.message,"Archive Management Disabled")
             error("prodserver:mcp:ArchiveManagementDisabled", ...
     "Cannot upload to %s because that server has archive management " + ...
-    "disabled. Enable archive management and try again.", url);
+    "disabled. Add --enable-archive-management to the instance's " + ...
+    "config/main_config file, restart the server, and try again.", prodserver.mcp.io.redactURI(url));
         end
-        rethrow(ex);
+        % MATLAB's own error quotes the address as given, password
+        % included: redacted, as every client message is.
+        throw(prodserver.mcp.internal.redactedError(ex));
     end
     % Out of attempts. A last attempt that failed is reported as itself.
     if ~isempty(lastError)
-        rethrow(lastError);
+        throw(prodserver.mcp.internal.redactedError(lastError));
     end
     if ~validListing(list_response)
         error("prodserver:mcp:ArchiveListFailed", ...
             "Could not list the archives on %s after %d attempt(s), so " + ...
             "cannot tell whether %s is already installed.", ...
-            url, opts.retry, ctfName);
+            prodserver.mcp.io.redactURI(url), opts.retry, ctfName);
     end
  
     % Read the bytes of the CTF archive. All of them. This may result in a
@@ -122,7 +125,7 @@ function [status, detail] = uploadCTF(ctf, url, opts)
     if alreadyThere && opts.overwrite == false
         error("prodserver:mcp:ArchiveOverwriteDisabled", ...
             "Archive %s already installed on %s. Set overwrite to " + ...
-            "true to replace the existing archive.", ctfName, url);
+            "true to replace the existing archive.", ctfName, prodserver.mcp.io.redactURI(url));
     end
 
     % If the archive is already present, we must use PUT to overwrite it.
@@ -168,9 +171,9 @@ function [status, detail] = uploadCTF(ctf, url, opts)
             % connection used to be rethrown here, although the listing
             % above -- moments earlier -- retries it.
             if ~prodserver.mcp.internal.isTransientError(ex, status=[])
-                rethrow(ex);
+                throw(prodserver.mcp.internal.redactedError(ex));
             end
-            detail = string(ex.message);
+            detail = string(prodserver.mcp.internal.redactedError(ex).message);
         end
 
         % Pause only when another attempt is actually coming.

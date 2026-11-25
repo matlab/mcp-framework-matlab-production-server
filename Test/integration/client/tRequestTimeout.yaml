@@ -1,0 +1,127 @@
+# Fixture for tRequestTimeout. A 2026-07-28 server that is slow to answer,
+# as one is while a worker loads an archive after a restart. Each case has
+# a path of its own, so the mock's request counts don't mix.
+#
+#   /slowlist/mcp       tools/list: the first answer comes after 6 s,
+#                       later ones at once.
+#   /neverlist/mcp      tools/list: every answer comes after 6 s.
+#   /slowcall/mcp       tools/call: the answer comes after 6 s.
+#   /slowdiscover/mcp   server/discover: the answer comes after 6 s.
+#   /discover/mcp       server/discover: answered at once.
+#   /api/metrics        GET: every answer comes after 6 s.
+#
+# The tests time out after 2 s; MATLAB's timeouts are coarse, so a slow
+# answer takes 6 s to be sure of missing them. The tests start the mock
+# threaded, so a retry is answered while the slow answer still sleeps, as
+# MATLAB Production Server answers while a worker loads an archive.
+# An entry with "from: 2" answers the second and later requests, and is
+# listed first so that it wins once it applies.
+routes:
+  - path: /slowlist/mcp
+    methods:
+      - POST
+    request:
+      - jrpc: tools/list
+        from: 2
+        response: &list
+          status: 200
+          headers:
+            Content-Type: application/json
+            MCP-Protocol-Version: "2026-07-28"
+          body:
+            jsonrpc: "2.0"
+            id: 2
+            result:
+              resultType: complete
+              tools:
+                - name: "f1"
+                  description: "Square the input."
+                  inputSchema:
+                    type: object
+                    properties:
+                      x:
+                        type: number
+                        description: "Input x."
+                    required: ["x"]
+      - jrpc: tools/list
+        response: &slowList
+          delay: 6
+          status: 200
+          headers:
+            Content-Type: application/json
+            MCP-Protocol-Version: "2026-07-28"
+          body:
+            jsonrpc: "2.0"
+            id: 2
+            result:
+              resultType: complete
+              tools: []
+  - path: /neverlist/mcp
+    methods:
+      - POST
+    request:
+      - jrpc: tools/list
+        response: *slowList
+  - path: /slowcall/mcp
+    methods:
+      - POST
+    request:
+      - jrpc: tools/call
+        call:
+          name: "f1"
+          input:
+            x: 3
+        response:
+          delay: 6
+          status: 200
+          headers:
+            Content-Type: application/json
+            MCP-Protocol-Version: "2026-07-28"
+          body:
+            jsonrpc: "2.0"
+            id: 3
+            result: { "structuredContent": { "y": 9 }, "content": [ { "type": "text", "text": "{\"y\":9}" } ] }
+  - path: /slowdiscover/mcp
+    methods:
+      - POST
+    request:
+      - jrpc: server/discover
+        response:
+          delay: 6
+          status: 200
+          headers:
+            Content-Type: application/json
+            MCP-Protocol-Version: "2026-07-28"
+          body: &discovered
+            jsonrpc: "2.0"
+            id: 1
+            result:
+              supportedVersions:
+                - "2026-07-28"
+                - "2025-06-18"
+              capabilities:
+                tools:
+                  listChanged: false
+  - path: /discover/mcp
+    methods:
+      - POST
+    request:
+      - jrpc: server/discover
+        response:
+          status: 200
+          headers:
+            Content-Type: application/json
+            MCP-Protocol-Version: "2026-07-28"
+          body: *discovered
+  - path: /api/metrics
+    methods:
+      - GET
+    request:
+      - method: GET
+        anybody: true
+        response:
+          delay: 6
+          status: 200
+          headers:
+            Content-Type: text/plain
+          body: "matlabprodserver_up_time_seconds 12"

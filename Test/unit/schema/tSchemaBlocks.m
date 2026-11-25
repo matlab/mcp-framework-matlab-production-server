@@ -84,7 +84,9 @@ classdef tSchemaBlocks < matlab.unittest.TestCase
                 defs.tools.outputSchema.properties.total.description) > 0);
 
             % Output types from observation
-            test.verifyEqual(defs.tools.outputSchema.properties.total.type, "number");
+            % A number output may be NaN or Inf: plain JSON writes null or text.
+            test.verifyEqual(string(defs.tools.outputSchema.properties.total.type(:))', ...
+                ["number" "null" "string"]);
             test.verifyEqual(defs.tools.outputSchema.properties.report.type, "string");
         end
 

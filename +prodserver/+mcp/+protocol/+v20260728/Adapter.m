@@ -19,7 +19,9 @@ classdef Adapter < prodserver.mcp.protocol.Adapter
 
             C = prodserver.mcp.protocol.v20260728.Constants;
 
-            [version, ~, ~] = ...
+            % The client's capabilities and identity come from the same
+            % _meta, read once.
+            [version, declared, info] = ...
                 prodserver.mcp.protocol.v20260728.validateMeta(jrpc);
             prodserver.mcp.protocol.v20260728.validateHeaders( ...
                 request, jrpc, version);
@@ -42,7 +44,9 @@ classdef Adapter < prodserver.mcp.protocol.Adapter
             else
                 [result, httpCode, httpMsg, msgHeaders] = ...
                     prodserver.mcp.handler.ProtocolDispatcher.instance( ...
-                        ).dispatch(jrpc, obj.Version);
+                        ).dispatch(jrpc, obj.requestContext(request, jrpc, ...
+                            Capabilities=prodserver.mcp.protocol.ClientCapabilities(declared), ...
+                            ClientInfo=info));
             end
 
             % resultType goes on every result, cacheable or not. It is not a
@@ -77,6 +81,19 @@ classdef Adapter < prodserver.mcp.protocol.Adapter
             % errorResponse owns the envelope, shared with every protocol.
             [result, httpCode, httpMsg] = prodserver.mcp.jsonrpc.errorResponse( ...
                 me, jrpc, @prodserver.mcp.protocol.v20260728.mapErrorCode);
+        end
+
+        function caps = clientCapabilities(~, ~, jrpc)
+        %clientCapabilities This revision restates the client's capabilities
+        %   in every request's params._meta. validateMeta has already
+        %   checked they are there by the time a handler is reached.
+            [~, declared, ~] = prodserver.mcp.protocol.v20260728.validateMeta(jrpc);
+            caps = prodserver.mcp.protocol.ClientCapabilities(declared);
+        end
+
+        function info = clientInfo(~, ~, jrpc)
+        %clientInfo From params._meta, if the client sent it.
+            [~, ~, info] = prodserver.mcp.protocol.v20260728.validateMeta(jrpc);
         end
 
         function version = statedVersion(~, jrpc)

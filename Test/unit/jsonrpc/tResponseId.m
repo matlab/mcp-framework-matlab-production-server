@@ -28,6 +28,21 @@ classdef tResponseId < matlab.unittest.TestCase
             test.verifyEqual(prodserver.mcp.jsonrpc.responseId(jrpc), NaN);
         end
 
+        function tIdMCPForbidsIsNaN(test)
+            % An object, boolean or fraction isn't echoed: the error for it
+            % has a null id. (Echoing {"a":1} used to answer it as though
+            % it were a valid request.)
+            for id = {struct('a', 1), true, 1.5}
+                jrpc = struct('jsonrpc', '2.0', 'id', id, 'method', 'ping');
+                test.verifyEqual(prodserver.mcp.jsonrpc.responseId(jrpc), NaN);
+            end
+        end
+
+        function tEmptyStringIdEchoed(test)
+            jrpc = struct('jsonrpc', '2.0', 'id', '', 'method', 'ping');
+            test.verifyEqual(prodserver.mcp.jsonrpc.responseId(jrpc), '');
+        end
+
         function tEmptyJrpcIsNaN(test)
             % A parse failure never produces a struct, so responseId must
             % cope with the [] that mcpHandler initializes jrpc to.

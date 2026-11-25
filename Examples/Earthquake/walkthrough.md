@@ -7,14 +7,14 @@ Build an MCP tool that generates 3x3 trajectory plots from 3-axis seismometer da
 `plotTrajectories` accepts earthquake acceleration data as a MATLAB table and produces a JPEG plot of axis-vs-axis trajectories with histograms on the diagonal.
 
 ```MATLAB
-function plotTrajectories(quakeData, sampleRate, correction, start, stop, plotFile)
+function plotTrajectories(quakeData,sampleRate,correction,start,stop,plotFile)
     arguments
         quakeData   % Table of uncorrected 3-axis seismometer accelerations
         sampleRate  % Seismometer sample rate in Hertz
-        correction  % Instrument correction factor
-        start       % Start offset in seconds
-        stop        % Stop offset in seconds
-        plotFile    % File path for the output JPEG
+        correction  % Instrument correction: apply to quakeData
+        start       % Start offset, in seconds, for trajectory data
+        stop        % Stop offset, in seconds, for trajectory data
+        plotFile    % Name of the file to save the plot into
     end
 ```
 
@@ -57,7 +57,7 @@ On a shared server, give the archive a name of your own with `build`'s `archive`
 ## Deploy
 
 ```MATLAB
-endpoint = prodserver.mcp.deploy(ctf, "localhost", 9910);
+endpoint = prodserver.mcp.deploy(ctf, "http://localhost:9910");
 ```
 
 ## Verify

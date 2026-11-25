@@ -1,4 +1,4 @@
-function [result, httpCode, httpMsg, msgHeaders] = list(jrpc, ~)
+function [result, httpCode, httpMsg, msgHeaders] = list(jrpc, ctx)
 %list Handle MCP tools/list request. Returns all tool definitions from the
 %   definition file as a JSON array.
 %
@@ -21,6 +21,14 @@ function [result, httpCode, httpMsg, msgHeaders] = list(jrpc, ~)
     % scalar structures in a cell array.
     if iscell(r.tools) == false
         r.tools = { r.tools };
+    end
+
+    % uri2json is for an MCP App's view, which only a client that supports
+    % MCP Apps has: no other client is offered it. tools/call refuses it to
+    % them too.
+    if ~supports(ctx.Capabilities, MCPConstants.UIExtension_JSON)
+        app = cellfun(@(t) string(t.name) == MCPConstants.Uri2JsonTool, r.tools);
+        r.tools = r.tools(~app);
     end
 
     result.result = r;

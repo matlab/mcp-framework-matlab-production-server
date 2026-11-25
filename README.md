@@ -8,6 +8,7 @@ Publish MATLAB&reg; functions as [Model Context Protocol](https://modelcontextpr
 - [MATLAB Compiler&trade;](https://www.mathworks.com/products/compiler.html), which MATLAB Compiler SDK requires
 - [MATLAB Compiler SDK&trade;](https://www.mathworks.com/products/matlab-compiler-sdk.html)
 - [MATLAB Production Server](https://www.mathworks.com/products/matlab-production-server.html) R2025b or later. Archives built in R2025b need the R2025b MATLAB Runtime, and a server can host runtimes from its own release or earlier.
+  - With archive management turned on (`--enable-archive-management` in the instance's `main_config`), so that `prodserver.mcp.deploy` can upload archives. Discovery (`--enable-discovery`) and metrics (`--enable-metrics`) are optional. See [Set Up a Server](./docs/getting-started.md#set-up-a-server).
 - An [MCP client](https://modelcontextprotocol.io/clients) (Claude Desktop, Claude Code, VS Code with Copilot, or any HTTP-capable client)
 
 ## Install
@@ -44,6 +45,7 @@ Your function is now available to any MCP client connected to that server. See t
 
 - **[Building MCP tools](./docs/guides/building-tools.md)** — The framework packages your functions and deploys them to MPS. Supports [single functions](./Examples/Primes/walkthrough.md), [multi-tool servers](./Examples/MultiTool/walkthrough.md), [large data](./Examples/Periodic%20Noise/walkthrough.md), and [structured inputs](./Examples/StructuredData/walkthrough.md).
 - **[MCP Resources](./docs/guides/resources.md)** — Serve read-only reference data (material properties, calibration tables) alongside your tools, so the LLM uses real values instead of guessing. [Materials example](./Examples/Materials/walkthrough.md)
+- **[MCP Apps](./docs/guides/mcp-apps.md)** — Give your tools an interactive view, such as a plot, that hosts supporting MCP Apps show in the chat. [Signal Filter App example](./Examples/SignalFilterApp/walkthrough.md)
 - **[Server metrics](./docs/guides/server-metrics.md)** — Monitor deployed tools with built-in counters at framework, server, and tool level.
 - **[AI agent skills](./docs/guides/agent-skills.md)** — Let Claude Code build and deploy tools on your behalf from natural language.
 - **[Discovery](./docs/concepts/discovery.md)** — Deployed tools register with the MPS discovery endpoint so clients can find them automatically.

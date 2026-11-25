@@ -2,8 +2,8 @@ classdef (Abstract) tLLMProtocol < prodserver.mcp.test.base.MCPCaller
 %tLLMProtocol Verify that a live LLM agent session negotiates and uses
 %   each supported MCP protocol to call a deployed tool.
 %
-%   Subclasses implement writeMCPConfig and runAgent for each LLM CLI.
-%   Requires MW_MCP_MPS_TEST_SERVER and devai on PATH.
+%   Subclasses implement agentFor, which makes the AgentFixture for each
+%   LLM CLI. Requires MW_MCP_MPS_TEST_SERVER and devai on PATH.
 
 % Copyright 2026 The MathWorks, Inc.
 
@@ -12,8 +12,7 @@ classdef (Abstract) tLLMProtocol < prodserver.mcp.test.base.MCPCaller
         archive
         toolName
         serverName
-        configFile
-        configFolder
+        agent
         sequence
         seqLen = 13
         seqType = "Eisenstein"
@@ -22,8 +21,7 @@ classdef (Abstract) tLLMProtocol < prodserver.mcp.test.base.MCPCaller
     methods (TestClassSetup)
 
         function requireDevai(test)
-            [status, ~] = system('devai version');
-            test.assumeTrue(status == 0, ...
+            test.assumeTrue(prodserver.mcp.test.mixin.AgentFixture.available(), ...
                 'devai is not available on PATH');
         end
 
@@ -34,10 +32,11 @@ classdef (Abstract) tLLMProtocol < prodserver.mcp.test.base.MCPCaller
             % sections together.
             %
             % Also, Gemini restricts tool names to 64 characters, and adds
-            % some of its own, so shorten the UUID.
+            % some of its own, so shorten the UUID. The server name is
+            % unique too, as Codex also reads the user's own MCP servers.
             uuid = replace(string(matlab.lang.internal.uuid), "-","");
             uuid = extractBefore(uuid,9);
-            test.serverName = "primes";
+            test.serverName = "primes" + uuid;
             test.toolName = "primeSequence" + uuid;
             test.archive = "LLMProtocol" + uuid;
 
@@ -65,14 +64,9 @@ classdef (Abstract) tLLMProtocol < prodserver.mcp.test.base.MCPCaller
                 ctf, test.host, test.port);
         end
 
-        function setupConfig(test)
-            import matlab.unittest.fixtures.TemporaryFolderFixture
-
-            cfgFolder = TemporaryFolderFixture;
-            applyFixture(test, cfgFolder);
-            test.configFolder = cfgFolder.Folder;
-
-            test.writeMCPConfig();
+        function startAgent(test)
+            test.agent = test.applyFixture( ...
+                test.agentFor(test.serverName, test.endpoint));
         end
 
     end
@@ -86,7 +80,7 @@ classdef (Abstract) tLLMProtocol < prodserver.mcp.test.base.MCPCaller
                 "Use the %s tool to determine the first %d Eisenstein primes. " + ...
                 "Return only the numeric result. %s", ...
                 test.toolName, test.seqLen, augmentPrompt(test));
-            output = test.runAgent(prompt);
+            result = test.agent.run(prompt);
 
             seqPat = wildcardPattern;
             for n = 1:test.seqLen
@@ -94,8 +88,9 @@ classdef (Abstract) tLLMProtocol < prodserver.mcp.test.base.MCPCaller
                     wildcardPattern(Except=digitsPattern);
             end
 
-            test.verifyTrue(contains(output, seqPat), ...
-                "Output should contain the Eisenstein prime sequence");
+            % The answer, not all the output: that has the tool's result too.
+            test.verifyTrue(contains(result.answer, seqPat), ...
+                "The answer should contain the Eisenstein prime sequence");
         end
 
         function tProtocolMetricIncremented(test)
@@ -119,7 +114,7 @@ classdef (Abstract) tLLMProtocol < prodserver.mcp.test.base.MCPCaller
             prompt = sprintf( ...
                 "Use the %s tool to determine the first %d Eisenstein primes. %s", ...
                 test.toolName, test.seqLen, augmentPrompt(test));
-            test.runAgent(prompt);
+            test.agent.run(prompt);
 
             after = before;
             for attempt = 1:20 
@@ -147,7 +142,7 @@ classdef (Abstract) tLLMProtocol < prodserver.mcp.test.base.MCPCaller
             prompt = sprintf( ...
                 "Use the %s tool to determine the first %d Gaussian primes. %s", ...
                 test.toolName, test.seqLen, augmentPrompt(test));
-            test.runAgent(prompt);
+            test.agent.run(prompt);
 
             toolMetric = MCPConstants.MCPMetricPrefix + ...
                 test.toolName + MCPConstants.MCPToolCallSuffix;
@@ -176,8 +171,8 @@ classdef (Abstract) tLLMProtocol < prodserver.mcp.test.base.MCPCaller
     end
 
     methods (Abstract, Access = protected)
-        writeMCPConfig(test)
-        output = runAgent(test, prompt)
+        % The agent fixture, not yet applied, for SERVER at ENDPOINT.
+        agent = agentFor(test, server, endpoint)
     end
 
     methods (Access = protected)

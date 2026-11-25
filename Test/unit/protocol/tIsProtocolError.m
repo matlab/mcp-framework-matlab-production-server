@@ -45,6 +45,13 @@ classdef tIsProtocolError < matlab.unittest.TestCase
             test.verifyTrue(test.check('prodserver:mcp:MethodNotFound'));
         end
 
+        function tUnknownArchiveIsNot(test)
+            % Production Server's 404 for an archive it doesn't have comes
+            % before any archive code runs: no protocol revision changes it.
+            % Forgetting the revision only repeated the whole wait.
+            test.verifyFalse(test.check('prodserver:mcp:UnknownArchive'));
+        end
+
         function tUnrelatedErrorIsNot(test)
             % The retry must not fire for a failure that clearing the cache
             % cannot possibly fix.

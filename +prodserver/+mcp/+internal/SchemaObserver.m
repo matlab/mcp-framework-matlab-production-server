@@ -256,14 +256,25 @@ classdef SchemaObserver < handle
                     merged = obj.mergeFragments(fragments);
                 end
 
-                % Determine MATLAB type name for signatures
+                % The MATLAB type the schema is built from.
                 matlabType = MCPConstants.DefaultArgType;
                 declaredClass = hasField(signature(i), "Validation.Class") && ...
                     ~isempty(signature(i).Validation.Class);
                 if declaredClass
                     matlabType = string(signature(i).Validation.Class.Name);
                 end
-                types(i) = matlabType;
+
+                % The signature's type: the declared class, else the classes
+                % the examples passed, joined with | if they differ, else ""
+                % for unknown. Not matlabType, whose default is a guess.
+                if declaredClass
+                    types(i) = matlabType;
+                elseif isKey(obj.Classes, key)
+                    seen = obj.Classes(key);
+                    types(i) = strjoin(seen{1}, "|");
+                else
+                    types(i) = "";
+                end
 
                 declaredSize = [];
                 if hasField(signature(i), "Validation.Size")
@@ -303,7 +314,7 @@ classdef SchemaObserver < handle
                     complete = true;
                 else
                     [merged, complete] = resolveWireTypes(merged, argName, ...
-                        encoding, obj.TypeMap, declaredSize);
+                        encoding, obj.TypeMap, declaredSize, io == "output");
                 end
 
                 % Apply size constraints from argument block validation,
@@ -323,10 +334,22 @@ classdef SchemaObserver < handle
                         && isfield(descriptions(argName), 'schema') ...
                         && descriptions(argName).schema.origin ~= SchemaOrigin.Introspection
                     [merged, replaced] = prodserver.mcp.jsonrpc.injectSchema( ...
-                        merged, descriptions(argName).schema, argName);
+                        merged, descriptions(argName).schema, argName, encoding);
                     if replaced
                         complete = false;
                     end
+                end
+
+                % Plain JSON writes an output's NaN as null, and Inf and
+                % -Inf as text, so its numbers may be either -- unless a
+                % %#schema replaced the generated schema, which is then the
+                % user's alone. (The invertible encoding has its own forms
+                % for them.)
+                if io == "output" && encoding == prodserver.mcp.WireEncoding.JSON && ...
+                        ~(~isempty(descriptions) && isKey(descriptions, argName) && ...
+                        isfield(descriptions(argName), 'schema') && ...
+                        descriptions(argName).schema.origin == SchemaOrigin.Client)
+                    merged = prodserver.mcp.jsonrpc.allowNonFiniteNumbers(merged);
                 end
 
                 % Determine requiredness and ParameterKind
@@ -346,9 +369,15 @@ classdef SchemaObserver < handle
                 % Group membership
                 group.(char(argName)) = string(signature(i).Identifier.GroupName);
 
-                % Validation and default (from argument block if available)
+                % Validation and default, from the argument block if there
+                % is one: read as the declared path reads them.
                 validation{i} = [];
                 default.(char(argName)) = "";
+                if ~isempty(descriptions) && isKey(descriptions, argName)
+                    [validation{i}, default.(char(argName))] = ...
+                        prodserver.mcp.jsonrpc.argumentSignature( ...
+                            descriptions(argName));
+                end
 
                 % Compose description
                 hasComment = ~isempty(descriptions) && isKey(descriptions, argName);
@@ -473,20 +502,51 @@ function tf = isTextScalar(matlabType, schema, declaredSize)
          strcmpi(schema.type, "string"));
 end
 
-function [node, complete] = resolveWireTypes(node, path, encoding, typemap, declaredSize)
+function [node, complete] = resolveWireTypes(node, path, encoding, typemap, declaredSize, output)
 % Resolve the class tags schemaFromValue leaves for values JSON can't
 % describe. Error if the encoding can't carry the class; otherwise use the
 % invertible encoding's schema for it. path names the node in messages.
 % complete is true when the node is now a whole encoded value rather than
 % the data of a wrapper. declaredSize, if given, overrides the observed
-% shape of a tag at the top level.
+% shape of a tag at the top level. output is true for a number in an
+% output, or in a struct field, array element or alternative of one, which
+% plain JSON sends Inf and -Inf in as text (see allowNonFiniteNumbers).
     if nargin < 5
         declaredSize = [];
+    end
+    if nargin < 6
+        output = false;
     end
     C = prodserver.mcp.internal.Constants;
     complete = false;
     if ~isstruct(node)
         return
+    end
+
+    % A complex value has a real one's schema, but plain JSON can't carry
+    % its imaginary part: jsonencode refuses it, at every call.
+    if isfield(node, C.ComplexTag)
+        node = rmfield(node, C.ComplexTag);
+        if encoding ~= prodserver.mcp.WireEncoding.Invertible
+            error("prodserver:mcp:IncompatibleArgumentType", ...
+                "Parameter '%s' has complex values, which only the " + ...
+                "invertible wire encoding can carry. Build with " + ...
+                "encoding=""Invertible"".", path);
+        end
+    end
+    % Nor Inf or -Inf in an argument, or in a datetime or duration: plain
+    % JSON writes them as null, as it does NaN, so they would arrive as
+    % NaN. An output's numbers send them as text.
+    if isfield(node, C.InfiniteTag)
+        node = rmfield(node, C.InfiniteTag);
+        if encoding ~= prodserver.mcp.WireEncoding.Invertible && ...
+                ~(output && ~isfield(node, C.ClassTag))
+            error("prodserver:mcp:IncompatibleArgumentType", ...
+                "Parameter '%s' has Inf or -Inf values, which only the " + ...
+                "invertible wire encoding can carry: plain JSON writes " + ...
+                "them as null, which reads back as NaN. Build with " + ...
+                "encoding=""Invertible"".", path);
+        end
     end
 
     if isfield(node, C.ClassTag)
@@ -511,13 +571,18 @@ function [node, complete] = resolveWireTypes(node, path, encoding, typemap, decl
         end
         % Mixed classes across examples. If only some branches are
         % complete, the wrapper around the rest is approximate.
+        if output && encoding ~= prodserver.mcp.WireEncoding.Invertible
+            requireDistinctInfText(branches, path);
+        end
         done = false(size(branches));
         for k = 1:numel(branches)
             [branches{k}, done(k)] = resolveWireTypes(branches{k}, path, ...
-                encoding, typemap);
+                encoding, typemap, [], output);
         end
-        node.anyOf = branches;
         complete = all(done);
+        % Complex and real examples of one type differed only by the
+        % complex tag, now gone: one schema, not two the same.
+        node = prodserver.mcp.jsonrpc.anyOfSchema(branches);
         return
     end
 
@@ -525,12 +590,12 @@ function [node, complete] = resolveWireTypes(node, path, encoding, typemap, decl
         f = string(fieldnames(node.properties))';
         for k = f
             node.properties.(k) = resolveWireTypes(node.properties.(k), ...
-                path + "." + k, encoding, typemap);
+                path + "." + k, encoding, typemap, [], output);
         end
     end
     if isfield(node, 'items')
         node.items = resolveWireTypes(node.items, path + "(:)", ...
-            encoding, typemap);
+            encoding, typemap, [], output);
     end
     if isfield(node, C.ElementsTag)
         % Check the tagged cell elements; the cell schema doesn't list them.
@@ -539,6 +604,60 @@ function [node, complete] = resolveWireTypes(node, path, encoding, typemap, decl
                 encoding, typemap);
         end
         node = rmfield(node, C.ElementsTag);
+    end
+end
+
+function requireDistinctInfText(branches, path)
+% Error if an output's examples returned text and a scalar Inf or -Inf.
+% Plain JSON sends Inf as the text "Inf", which a client reads, under
+% anyOf [string, number], as the string (decodeJSONValues), so no call
+% could return it. In an array, [1,"Inf"], it can: plainJSONValue checks
+% each value at run time. Where the alternatives are structs, the same
+% holds for each field: a struct gets a field's schemas from every
+% alternative its shape fits (objectFieldSchemas), so they are checked
+% together, field by field.
+    C = prodserver.mcp.internal.Constants;
+    objects = branches(cellfun(@(b) isstruct(b) && isscalar(b) && ...
+        isfield(b, 'properties') && isstruct(b.properties), branches));
+    if numel(objects) > 1
+        names = string.empty;
+        for k = 1:numel(objects)
+            names = union(names, string(fieldnames(objects{k}.properties))', ...
+                "stable");
+        end
+        for f = reshape(names, 1, [])
+            sub = {};
+            for k = 1:numel(objects)
+                if isfield(objects{k}.properties, f)
+                    node = objects{k}.properties.(f);
+                    if isstruct(node) && isfield(node, 'anyOf')
+                        alts = prodserver.mcp.jsonrpc.schemaAlternatives(node);
+                        sub = [sub, alts(:)']; %#ok<AGROW>
+                    else
+                        sub{end+1} = node; %#ok<AGROW>
+                    end
+                end
+            end
+            if numel(sub) > 1
+                requireDistinctInfText(sub, path + "." + f);
+            end
+        end
+    end
+    scalar = @(b) isstruct(b) && isscalar(b) && isfield(b, 'type') && ...
+        ~any(string(b.type) == "array");
+    % One text value: a char row or a string, not an array of them.
+    tagged = @(b) any(tagClass(b) == ["char" "string"]) && ...
+        isfield(b, C.ScalarTag) && b.(C.ScalarTag);
+    isText = cellfun(@(b) tagged(b) || (scalar(b) && tagClass(b) == "" && ...
+        isequal(string(b.type), "string") && ~isfield(b, 'format')), branches);
+    isInf = cellfun(@(b) scalar(b) && isfield(b, C.InfiniteTag), branches);
+    if any(isText) && any(isInf)
+        error("prodserver:mcp:IncompatibleArgumentType", ...
+            "Output '%s' is text in some example calls and Inf or " + ...
+            "-Inf in others, which only the invertible wire encoding " + ...
+            "can tell apart: plain JSON sends Inf as the text ""Inf"", " + ...
+            "which a client reads back as text. Build with " + ...
+            "encoding=""Invertible"".", path);
     end
 end
 

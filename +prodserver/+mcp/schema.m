@@ -130,8 +130,8 @@ function example = rebindExample(example, fcns, shadowDir)
         return;
     end
 
-    % Inject workspace variables from the original closure and the bound
-    % handles, then eval the rewritten expression to create a new handle.
+    % The variables of the original closure and the bound handles, the
+    % only variables the new handle may see.
     vars = boundHandles;
     if ~isempty(f.workspace)
         ws = f.workspace{1};
@@ -141,13 +141,21 @@ function example = rebindExample(example, fcns, shadowDir)
         end
     end
 
-    % Assign all variables into this workspace for eval
-    varFields = fieldnames(vars);
-    for k = 1:numel(varFields)
-        eval([varFields{k} ' = vars.(varFields{k});']);
-    end
+    example = evalExample(expr, vars);
+end
 
-    example = eval(expr);
+function mcp__example__ = evalExample(mcp__expr__, mcp__vars__)
+%evalExample Make the handle MCP__EXPR__ in a workspace holding only the
+%   variables in the struct MCP__VARS__. Not in rebindExample's: there, a
+%   name in the expression that isn't a variable of the closure sees
+%   rebindExample's own variable of that name. The loop index i turned
+%   2+i into 3, and an undefined k became 1. Every name of this function's
+%   own starts mcp__, as the bound handles' do, so none can stand in for a
+%   name the example uses.
+    for mcp__name__ = string(fieldnames(mcp__vars__))'
+        eval(mcp__name__ + " = mcp__vars__.(mcp__name__);");
+    end
+    mcp__example__ = eval(mcp__expr__);
 end
 
 function cleanup(shadowDir, pth, originalDir, fcns)

@@ -18,12 +18,27 @@ classdef Constants
         % 2026-07-28 MUST NOT emit it, so it is not in MCPConstants.
         ErrorResourceNotFound = -32002
 
+        % A request whose Mcp-Session-Id this server didn't issue, or can no
+        % longer read: answered with HTTP 404, which tells the client to
+        % start a new session. JSON-RPC reserves -32000..-32099 for
+        % implementation-defined server errors; -32001 is the code the MCP
+        % SDKs use for this.
+        ErrorSessionNotFound = -32001
+
         % Unsupported protocol version. 2025-06-18 defines no code for this,
         % so it borrows 2026-07-28's, deliberately -- see
         % Adapter.preDetectionError. This is the one place this revision
         % names the later one, so the dependency is visible, not scattered.
         ErrorUnsupportedVersion = ...
             prodserver.mcp.protocol.v20260728.Constants.ErrorUnsupportedVersion
+
+        % The Mcp-Session-Id this server issues is a token that carries the
+        % client's capabilities: v1.<base64url of {"sid":...,"caps":...}>.
+        % At most SessionTokenMaxLength characters: Production Server fails
+        % a response whose headers pass about 4 KB, and the session ID is
+        % echoed on every response. See encodeSession.
+        SessionTokenPrefix = "v1."
+        SessionTokenMaxLength = 1024
 
         % HTTP session ID components — RFC 7329
         SessionIDPrefix = "SID"

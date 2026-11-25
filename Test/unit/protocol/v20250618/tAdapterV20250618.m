@@ -66,10 +66,49 @@ classdef tAdapterV20250618 < matlab.unittest.TestCase
         % cancelled, cancelled-with-params, and an unknown notifications/*
         % method -- and tInitialized and tCancelled cover the handlers.
 
+        function tContextFromSessionToken(test)
+        % The client's capabilities come back from the session ID that
+        % initialize issued. This revision carries no client info per request.
+            import prodserver.mcp.protocol.v20250618.Constants
+            token = prodserver.mcp.test.sessionToken(jsondecode( ...
+                '{"extensions":{"io.modelcontextprotocol/ui":{}}}'));
+            request = struct('Headers', {{Constants.SessionId, token}});
+            jrpc = struct('jsonrpc', '2.0', 'id', 1, 'method', 'tools/list');
+            ctx = test.adapter.requestContext(request, jrpc);
+            test.verifyEqual(ctx.Version, Constants.Version);
+            test.verifyTrue(supports(ctx.Capabilities, "io.modelcontextprotocol/ui"));
+            test.verifyEqual(ctx.ClientInfo, []);
+        end
+
+        function tContextWithoutExtension(test)
+            import prodserver.mcp.protocol.v20250618.Constants
+            request = struct('Headers', ...
+                {{Constants.SessionId, prodserver.mcp.test.sessionToken()}});
+            jrpc = struct('jsonrpc', '2.0', 'id', 1, 'method', 'tools/list');
+            ctx = test.adapter.requestContext(request, jrpc);
+            test.verifyFalse(supports(ctx.Capabilities, "io.modelcontextprotocol/ui"));
+        end
+
+        function tUnknownSessionRefused(test)
+        % A session ID this server didn't issue is refused before anything
+        % runs, for every request but initialize, and for DELETE.
+            import prodserver.mcp.protocol.v20250618.Constants
+            unknown = {'abc-123', char(matlab.lang.internal.uuid), ...
+                ['v1.' repmat('A', 1, 2000)]};
+            for n = 1:numel(unknown)
+                request = struct('Headers', {{Constants.SessionId, unknown{n}}});
+                jrpc = struct('jsonrpc', '2.0', 'id', 1, 'method', 'tools/list');
+                test.verifyError(@() test.adapter.handlePost(request, jrpc), ...
+                    "prodserver:mcp:SessionNotFound", unknown{n});
+                test.verifyError(@() test.adapter.handleDelete(request), ...
+                    "prodserver:mcp:SessionNotFound", unknown{n});
+            end
+        end
+
         function tHandleDeleteReturns204(test)
             import prodserver.mcp.protocol.v20250618.Constants
             request = struct('Headers', ...
-                {{Constants.SessionId, 'abc-123'}});
+                {{Constants.SessionId, prodserver.mcp.test.sessionToken()}});
             [result, httpCode, httpMsg, msgHeaders] = ...
                 test.adapter.handleDelete(request);
             test.verifyEqual(httpCode, 204);
@@ -94,13 +133,15 @@ classdef tAdapterV20250618 < matlab.unittest.TestCase
             % disagreement: -32002 is this revision's dedicated
             % resource-not-found code, which 2026-07-28 MUST NOT emit, and
             % MethodNotFound's 200 is its mandated status against that
-            % revision's 404.
+            % revision's 404. SessionNotFound is this revision's alone: only
+            % it has sessions, and its 404 tells the client to start a new one.
             import prodserver.mcp.MCPConstants
 
             % {identifier, expected code, expected status}
             rows = {
                 'prodserver:mcp:MethodNotFound',       MCPConstants.ErrorMethodNotFound, 200
                 'prodserver:mcp:ResourceNotFound',     -32002,                           200
+                'prodserver:mcp:SessionNotFound',      -32001,                           404
                 };
 
             jrpc = struct('jsonrpc', '2.0', 'id', 1, 'method', 'test');
@@ -132,12 +173,26 @@ classdef tAdapterV20250618 < matlab.unittest.TestCase
 
         function tResponseHeadersPropagatesSession(test)
             import prodserver.mcp.protocol.v20250618.Constants
-            request = struct('Headers', ...
-                {{Constants.SessionId, 'sess-xyz'}});
+            token = prodserver.mcp.test.sessionToken();
+            request = struct('Headers', {{Constants.SessionId, token}});
             jrpc = struct();
             headers = test.adapter.responseHeaders(request, jrpc);
             test.verifyEqual(headers{1,1}, char(Constants.SessionId));
-            test.verifyEqual(headers{1,2}, 'sess-xyz');
+            test.verifyEqual(headers{1,2}, token);
+        end
+
+        function tResponseHeadersDontEchoUnknownSession(test)
+        % A session ID this server didn't issue isn't echoed, including on
+        % the 404 that refuses it: an echoed client value could make the
+        % response headers arbitrarily long.
+            import prodserver.mcp.protocol.v20250618.Constants
+            for unknown = {'sess-xyz', ['v1.' repmat('A', 1, 5000)]}
+                request = struct('Headers', {{Constants.SessionId, unknown{1}}});
+                % No version header either, so nothing at all to send.
+                headers = test.adapter.responseHeaders(request, struct());
+                test.verifyEmpty(headers, "Echoed " + extractBefore( ...
+                    string(unknown{1}) + blanks(20), 20));
+            end
         end
 
         function tResponseHeadersEmptyWithoutSession(test)

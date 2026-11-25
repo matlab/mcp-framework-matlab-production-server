@@ -1,0 +1,15 @@
+# Fixture for tMetricsErrors. A server whose metrics query gets an HTTP
+# 504 at once, as from a proxy in front of a busy server: the server's
+# answer, not a timeout of the client's.
+routes:
+  - path: /api/metrics
+    methods:
+      - GET
+    request:
+      - method: GET
+        anybody: true
+        response:
+          status: 504
+          headers:
+            Content-Type: text/plain
+          body: "Gateway Timeout"

@@ -2,6 +2,7 @@ name: Coverage
 on:
   push:
     branches: [main]
+    paths-ignore: ['.github/ISSUE_TEMPLATE/**']
   workflow_dispatch:
 env:
   MATLAB_PATH: /mathworks/devel/bat/Bps/perfect/matlab

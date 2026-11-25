@@ -44,7 +44,7 @@ function outputs = assembleOutputs(tool, endpoint, def, sig, data, nout, encodin
             if nout > 0
                 error("prodserver:mcp:TooFewOutputs", "Tool %s at %s " + ...
                     "declares no outputs, so the %d requested cannot be " + ...
-                    "ordered. Inform tool creator.", tool, endpoint, nout);
+                    "ordered. Inform tool creator.", tool, prodserver.mcp.io.redactURI(endpoint), nout);
             end
             outputs = {};
             return
@@ -57,7 +57,7 @@ function outputs = assembleOutputs(tool, endpoint, def, sig, data, nout, encodin
         if wanted > numel(order)
             error("prodserver:mcp:TooFewOutputs", "Tool %s at %s " + ...
                 "declares %d output(s) (%s) but %d requested.", ...
-                tool, endpoint, numel(order), strjoin(order, ", "), wanted);
+                tool, prodserver.mcp.io.redactURI(endpoint), numel(order), strjoin(order, ", "), wanted);
         end
 
         % ORDER unions two sources, either of which may name something the
@@ -71,7 +71,7 @@ function outputs = assembleOutputs(tool, endpoint, def, sig, data, nout, encodin
         absent = setdiff(order(1:wanted), present, "stable");
         if ~isempty(absent)
             error("prodserver:mcp:MissingOutputs", "Tool %s at %s did " + ...
-                "not return declared output(s) %s.", tool, endpoint, ...
+                "not return declared output(s) %s.", tool, prodserver.mcp.io.redactURI(endpoint), ...
                 strjoin(absent, ", "));
         end
 
@@ -84,7 +84,7 @@ function outputs = assembleOutputs(tool, endpoint, def, sig, data, nout, encodin
             if strlength(msg) > 0
                 error("prodserver:mcp:UndecodableOutput", ...
                     "Tool %s at %s returned an invalid value. %s.", ...
-                    tool, endpoint, msg);
+                    tool, prodserver.mcp.io.redactURI(endpoint), msg);
             end
         end
 

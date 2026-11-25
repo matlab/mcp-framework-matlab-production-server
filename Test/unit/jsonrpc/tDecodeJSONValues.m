@@ -54,6 +54,54 @@ classdef tDecodeJSONValues < matlab.unittest.TestCase
             test.verifyTrue(isnan(seconds(a.gap)));
         end
 
+        function nullableNumbers(test)
+            % Plain JSON writes an output's scalar NaN as null, which
+            % jsondecode reads as []: the schema says it is NaN.
+            num = struct('type', {{"number"; "null"}});
+            p.s = num;
+            p.v = struct('type', "array", 'items', num);
+            p.n = struct('type', "number");
+            p.rec = struct('type', "object", 'properties', struct('a', num));
+            schema = struct('type', "object", 'properties', p);
+            [a, msg] = prodserver.mcp.jsonrpc.decodeJSONValues(schema, ...
+                jsondecode('{"s":null,"v":[],"n":null,"rec":{"a":null}}'), "Output");
+            test.verifyEqual(msg, "");
+            test.verifyEqual(a.s, NaN, "a nullable number");
+            test.verifyEqual(a.v, [], "an empty array is not null");
+            test.verifyEqual(a.n, [], "a number that can't be null is left alone");
+            test.verifyEqual(a.rec.a, NaN, "a struct field");
+            a = prodserver.mcp.jsonrpc.decodeJSONValues(schema, ...
+                jsondecode('{"s":2,"v":[1,null]}'), "Output");
+            test.verifyEqual(a.s, 2);
+            test.verifyEqual(a.v, [1; NaN]);
+        end
+
+        function infiniteText(test)
+            % "Inf" and "-Inf" are Inf and -Inf where the schema says a
+            % number may be (see allowNonFiniteNumbers); a mixed array,
+            % which jsondecode gives as a cell, is the numeric array.
+            num = prodserver.mcp.jsonrpc.allowNonFiniteNumbers(struct('type', "number"));
+            p.s = num;
+            p.v = struct('type', "array", 'items', num);
+            p.m = p.v;
+            p.label = struct('type', "string");
+            p.rec = struct('type', "object", 'properties', struct('z', num));
+            schema = struct('type', "object", 'properties', p);
+            [a, msg] = prodserver.mcp.jsonrpc.decodeJSONValues(schema, jsondecode( ...
+                ['{"s":"-Inf","v":[1,"Inf",null],"m":[[1,"Inf"],["-Inf",4]],' ...
+                 '"label":"Inf","rec":{"z":"Inf"}}']), "Output");
+            test.verifyEqual(msg, "");
+            test.verifyEqual(a.s, -Inf);
+            test.verifyEqual(a.v, [1; Inf; NaN], "a column, as jsondecode gives a vector");
+            test.verifyEqual(a.m, [1 Inf; -Inf 4], "one row for each inner array");
+            test.verifyEqual(a.label, 'Inf', "a string is left alone");
+            test.verifyEqual(a.rec.z, Inf);
+            a = prodserver.mcp.jsonrpc.decodeJSONValues(schema, ...
+                jsondecode('{"s":null,"v":["Inf"]}'), "Output");
+            test.verifyEqual(a.s, NaN);
+            test.verifyEqual(a.v, Inf, "an array of only text");
+        end
+
         function arrays(test)
             [a, msg] = test.decode(['{"times":["2026-01-01","2026-01-02"],' ...
                 '"gaps":[1,null,3]}']);
@@ -145,6 +193,143 @@ classdef tDecodeJSONValues < matlab.unittest.TestCase
             test.verifyEqual(a.textOrTime, 'soon');
         end
 
+        function structArrayUnderAnObjectSchema(test)
+            % The example returned one struct; the tool returns several.
+            % Each one's fields follow the properties.
+            num = prodserver.mcp.jsonrpc.allowNonFiniteNumbers(struct('type', "number"));
+            s = struct('type', "object", 'properties', struct('a', num));
+            b = outputs(s, '{"y":[{"a":null},{"a":"Inf"}]}');
+            test.verifyEqual([b.y.a], [NaN Inf]);
+            b = outputs(s, '{"y":{"a":null}}');
+            test.verifyEqual(b.y.a, NaN);
+        end
+
+        function stringArrayOutputs(test)
+            % An output's array of strings is the string array its schema
+            % describes, whatever its length: jsondecode gives a cell, or
+            % for one element, a char.
+            sa = struct('type', "array", 'items', struct('type', "string"));
+            b = outputs(sa, '{"y":["abc"]}');
+            test.verifyEqual(b.y, "abc");
+            b = outputs(sa, '{"y":["a","b"]}');
+            test.verifyEqual(b.y, ["a"; "b"], "a column, as numbers are");
+            b = outputs(sa, '{"y":[["a","b"],["c","d"]]}');
+            test.verifyEqual(b.y, ["a" "b"; "c" "d"], "a matrix's rows");
+            b = outputs(sa, '{"y":[null,"x"]}');
+            test.verifyTrue(ismissing(b.y(1)), "null is missing");
+            test.verifyEqual(b.y(2), "x");
+            b = outputs(sa, '{"y":[]}');
+            test.verifyEqual(b.y, strings(0, 1));
+            b = outputs(sa, '{"y":["a",1]}');
+            test.verifyClass(b.y, 'cell', "not all text: left alone");
+            % All null: jsondecode gives NaN, not a cell.
+            b = outputs(sa, '{"y":[null]}');
+            test.verifyEqual(b.y, string(missing), "one missing string");
+            b = outputs(sa, '{"y":[null,null]}');
+            test.verifyEqual(b.y, repmat(string(missing), 2, 1), "a column");
+            b = outputs(sa, '{"y":[[null,null,null],[null,null,null]]}');
+            test.verifyEqual(b.y, repmat(string(missing), 2, 3), "a matrix");
+            b = outputs(sa, '{"y":[1,2]}');
+            test.verifyEqual(b.y, [1; 2], "numbers: left alone");
+            % As the server sends them.
+            P = @(v, s) jsonencode(struct('y', ...
+                {prodserver.mcp.jsonrpc.plainJSONValue(v, s)}));
+            m = repmat(string(missing), 2, 3);
+            m(1, 2) = "x";
+            m3 = repmat(string(missing), 2, 2, 2);
+            m3(1, 1, 1) = "x";
+            for v = {string(missing), repmat(string(missing), 1, 2), ...
+                    repmat(string(missing), 2, 3), m, m', m3}
+                b = outputs(sa, P(v{1}, sa));
+                expected = v{1};
+                if isvector(expected)
+                    expected = expected(:);
+                end
+                test.verifyEqual(b.y, expected, mat2str(size(v{1})));
+            end
+            either = struct('anyOf', {{struct('type', "string"), sa}});
+            b = outputs(either, P(string(missing), either));
+            test.verifyEqual(b.y, string(missing), "a scalar, where an array may be");
+            b = outputs(either, P("a", either));
+            test.verifyEqual(b.y, 'a', "text, as before");
+            % [null] may be a number's NaN: the numbers' alternative claims
+            % it first, wherever it is listed.
+            num = prodserver.mcp.jsonrpc.allowNonFiniteNumbers(struct('type', "number"));
+            nums = struct('type', "array", 'items', num);
+            for alts = {{sa, num}, {num, sa}, {sa, nums}}
+                s = struct('anyOf', {alts{1}});
+                b = outputs(s, P(NaN, s));
+                test.verifyEqual(b.y, NaN, "NaN");
+            end
+            s = struct('anyOf', {{sa, nums}});
+            b = outputs(s, '{"y":[null,null]}');
+            test.verifyEqual(b.y, [NaN; NaN], "NaNs, where numbers may be");
+            s = struct('anyOf', {{sa, num}});
+            b = outputs(s, '{"y":[null,null]}');
+            test.verifyEqual(b.y, repmat(string(missing), 2, 1), ...
+                "strings, where only one number may be");
+            % So a missing string beside a number is NaN: plain JSON can't
+            % tell them apart.
+            s = struct('anyOf', {{num, sa}});
+            b = outputs(s, P(string(missing), s));
+            test.verifyEqual(b.y, NaN, "a missing string beside a number");
+            % Not an argument: a cell parameter's items may be strings.
+            a = prodserver.mcp.jsonrpc.decodeJSONValues(jsondecode(jsonencode( ...
+                struct('properties', struct('y', sa)))), ...
+                jsondecode('{"y":["a","b"]}'), "Argument");
+            test.verifyClass(a.y, 'cell');
+        end
+
+        function emptyWhereAnArrayMayBe(test)
+            % jsondecode gives null and [] alike: where an array may be,
+            % [] is the empty array, and plainJSONValue sends NaN as [null].
+            num = prodserver.mcp.jsonrpc.allowNonFiniteNumbers(struct('type', "number"));
+            either = struct('anyOf', {{num, struct('type', "array", 'items', num)}});
+            b = outputs(either, '{"y":[]}');
+            test.verifyEqual(b.y, []);
+            b = outputs(either, '{"y":[null]}');
+            test.verifyEqual(b.y, NaN);
+            import prodserver.mcp.jsonrpc.WireShape
+            dt = prodserver.mcp.jsonrpc.jsonTimeSchema("datetime", WireShape.Scalar);
+            dts = prodserver.mcp.jsonrpc.jsonTimeSchema("datetime", WireShape.Array);
+            b = outputs(struct('anyOf', {{dt, dts}}), '{"y":[null]}');
+            test.verifyTrue(isscalar(b.y) && isnat(b.y), "NaT");
+            b = outputs(struct('anyOf', {{dt, dts}}), '{"y":[]}');
+            test.verifyTrue(isdatetime(b.y) && isempty(b.y), "no datetimes");
+            % Not in an argument: a client sends NaT as null, and its
+            % encoder knows no schema.
+            s = jsondecode(jsonencode(struct('properties', struct('y', ...
+                struct('anyOf', {{dt, dts}})))));
+            sent = jsonencode(struct('y', ...
+                {prodserver.mcp.jsonrpc.plainJSONValue(NaT)}));
+            a = prodserver.mcp.jsonrpc.decodeJSONValues(s, jsondecode(sent), ...
+                "Argument");
+            test.verifyTrue(isscalar(a.y) && isnat(a.y), "a NaT argument");
+            a = prodserver.mcp.jsonrpc.decodeJSONValues(s, ...
+                jsondecode('{"y":[null]}'), "Argument");
+            test.verifyTrue(isscalar(a.y) && isnat(a.y), "[null] too");
+        end
+
+        function infTextIsAStringFirst(test)
+            % Under anyOf [string, number], as the example path writes an
+            % output seen with both, "Inf" is the string it may be. Only
+            % with no string alternative is it the number Inf.
+            num = prodserver.mcp.jsonrpc.allowNonFiniteNumbers(struct('type', "number"));
+            f = @(alts, json) prodserver.mcp.jsonrpc.decodeJSONValues( ...
+                jsondecode(jsonencode(struct('properties', struct('y', ...
+                struct('anyOf', {alts}))))), jsondecode(json), "Output");
+            for alts = {{struct('type', "string"), num}, {num, struct('type', "string")}}
+                [b, msg] = f(alts{1}, '{"y":"Inf"}');
+                test.verifyEqual(msg, "");
+                test.verifyEqual(b.y, 'Inf');
+                b = f(alts{1}, '{"y":null}');
+                test.verifyTrue(isnan(b.y));
+            end
+            [b, msg] = f({num, struct('type', "boolean")}, '{"y":"-Inf"}');
+            test.verifyEqual(msg, "");
+            test.verifyEqual(b.y, -Inf);
+        end
+
         function nested(test)
             [a, msg] = test.decode(['{"rec":{"when":"2026-03-04","n":1},' ...
                 '"recs":[{"when":"2026-03-05","n":2},{"when":"2026-03-06","n":3}]}']);
@@ -179,4 +364,11 @@ classdef tDecodeJSONValues < matlab.unittest.TestCase
         end
 
     end
+end
+
+function b = outputs(s, json)
+% decodeJSONValues on outputs: JSON, as a client receives it, of an output y
+% whose schema is S.
+    b = prodserver.mcp.jsonrpc.decodeJSONValues(jsondecode(jsonencode( ...
+        struct('properties', struct('y', s)))), jsondecode(json), "Output");
 end

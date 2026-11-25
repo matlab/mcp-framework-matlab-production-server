@@ -44,7 +44,7 @@ The server reads the request's shape first, newest revision first:
 
 Then it checks the version:
 
-- **A version in `_meta` decides.** The `MCP-Protocol-Version` header may be absent. If it's present and doesn't match, the server answers `-32020`. A version the server doesn't support gets `-32022`.
+- **A version in `_meta` decides.** The `MCP-Protocol-Version` header must also be present and match it, as for every `2026-07-28` request (see the headers below). If it's absent or doesn't match, the server answers `-32020`. A version the server doesn't support gets `-32022`.
 - **Otherwise the header is checked but the shape stands.** An absent header is fine. A header naming an unsupported version gets `-32022`.
 
 A `-32022` response tells the client what to send instead:
@@ -67,7 +67,7 @@ The endpoint is `http://<host>:<port>/<archive>/mcp`. It accepts `POST` for JSON
 | `Content-Type` | Yes, `application/json`. Case and parameters such as `charset` don't matter. | 415 with `-32600` if it's absent or names any other media type |
 | `Accept` | No. Absent means anything goes. | 406 on a `POST` that rules out JSON. `application/json`, `application/*` and `*/*` all admit it. |
 
-Each `POST` body must be a single JSON object with `"jsonrpc": "2.0"`, a non-empty string `method`, and a non-null `id`. Omit `id` only for a notification. An empty body, a JSON array (a batch) or any other JSON value gets `-32600`.
+Each `POST` body must be a single JSON object with `"jsonrpc": "2.0"`, a non-empty string `method`, and an `id` that's a string, `""` included, or an integer. Omit `id` only for a notification. An empty body, a JSON array (a batch) or any other JSON value gets `-32600`. So does an `id` that's `null`, an object, an array, a boolean or a fractional number, and the error's `id` is `null`.
 
 **`curl -d` needs `-H 'Content-Type: application/json'`.** Without it, curl declares the body `application/x-www-form-urlencoded` and the server answers 415.
 
@@ -101,8 +101,8 @@ curl -i $B/mcp -H 'Content-Type: application/json' \
 
 | Header | Required | If it's wrong |
 | :--- | :--- | :--- |
-| `Mcp-Session-Id` | On every request except `initialize` and notifications, including `DELETE` | Without it, a `POST` can't be assigned a revision (`-32602`, HTTP 400) and a `DELETE` gets 405 |
-| `MCP-Protocol-Version` | No | `-32022`, HTTP 400, if it names a version the server doesn't support |
+| `Mcp-Session-Id` | On every request except `initialize` and notifications, including `DELETE`. Send the ID `initialize` returned, unchanged. | Without it, a `POST` can't be assigned a revision (`-32602`, HTTP 400) and a `DELETE` gets 405. An ID that isn't one of this server's tokens (malformed, a pre-1.7 UUID, or longer than 1,024 characters) gets `-32001`, HTTP 404: start a new session. See [Sessions](#sessions). |
+| `MCP-Protocol-Version` | No | `-32022`, HTTP 400, if it names a version the server doesn't support, once the request is [attributed to a revision](#how-a-request-gets-a-revision) |
 
 ## Methods
 
@@ -118,6 +118,14 @@ curl -i $B/mcp -H 'Content-Type: application/json' \
 | `notifications/*` | HTTP 202, no body | HTTP 202, no body |
 
 Both `initialize` and `server/discover` advertise the `tools` and `resources` capabilities, each with `listChanged: false`. The lists are fixed when the archive is built.
+
+**Servers with an MCP App.** An archive built with `build`'s [`app`](../reference/build.md) option also advertises the MCP Apps extension, `"extensions": {"io.modelcontextprotocol/ui": {}}`. It serves the app's view as a `ui://` resource and names it in each tool's `_meta.ui.resourceUri`. Its `uri2json` tool is for the view alone:
+
+- `tools/list` includes `uri2json` only for a client that declares `io.modelcontextprotocol/ui` in its capabilities: in `initialize` under `2025-06-18`, in each request's `_meta` under `2026-07-28`. Its `_meta.ui.visibility` is `["app"]`, so a host that supports MCP Apps keeps it from the model.
+- `tools/call` refuses `uri2json` to any other client with `-32602`, the unknown-tool error.
+- `GET /<archive>/signature` describes `uri2json` only to a request whose `2025-06-18` `Mcp-Session-Id` carries `io.modelcontextprotocol/ui`. A request with no session, such as any `2026-07-28` client's, doesn't see it.
+
+See [Security](./security.md#mcp-apps-and-uri2json) for why.
 
 **Notifications.** Any `POST` whose method starts with `notifications/` gets 202 and no body, under either revision, as soon as its body passes the `Content-Type` and JSON checks. That includes an unknown notification and one sent before `initialize`. The server ignores a notification's own failures, since JSON-RPC forbids replying to one.
 
@@ -138,6 +146,9 @@ Results that a client may cache also carry `ttlMs` and `cacheScope`:
 | :--- | :--- | :--- |
 | `server/discover`, `tools/list`, `resources/list`, `resources/templates/list` | `300000` (5 minutes) | `public` |
 | `resources/read` | `60000` (1 minute) | `private` |
+| `tools/list` from a server with an MCP App | `0` | `private` |
+
+An app server's `tools/list` depends on the client, because only clients that support MCP Apps see `uri2json`, so it isn't cached.
 
 `tools/call` results carry neither. Responses have the header `MCP-Protocol-Version: 2026-07-28`, except when a version check fails (`-32020` for a mismatched version header, or `-32022`). Those are answered before the revision is settled.
 
@@ -149,9 +160,9 @@ Every response carries `Server: MATLAB Production Server/Model Context Protocol`
 | :--- | :--- | :--- |
 | 200 | Yes | Success, a tool error, or a JSON-RPC error that blames the request's content. Inspect the body. |
 | 202 | No | Notification accepted |
-| 204 | No | `2025-06-18` `DELETE` accepted. The session is over. |
+| 204 | No | `2025-06-18` `DELETE` accepted. The server keeps no sessions, so the ID goes on working: see [Sessions](#sessions). |
 | 400 | Yes | The request is malformed, can't be assigned a revision, names an unsupported version, or breaks a `2026-07-28` rule. See the code. |
-| 404 | Yes | `2026-07-28`: the server doesn't implement the method (`-32601`). Either revision: the path names no archive (`-32600`). |
+| 404 | Yes | `2026-07-28`: the server doesn't implement the method (`-32601`). `2025-06-18`: the session ID isn't one of this server's tokens (`-32001`); start a new session. Either revision: the path names no archive (`-32600`). |
 | 405 | No | A verb other than `POST` or `DELETE`, or a `DELETE` with no session. The response carries `Allow: POST, DELETE`. A `DELETE` assigned to `2026-07-28`, which has no sessions, gets `Allow: POST`. |
 | 406 | No | A `POST` whose `Accept` header rules out JSON |
 | 415 | Yes | `Content-Type` is absent or isn't `application/json` (`-32600`) |
@@ -163,19 +174,20 @@ Only 405 and 406 have no body. Every other refusal has a JSON-RPC error you can 
 
 ## JSON-RPC Error Codes
 
-An error response has an `error` member and no `result` member. Its `id` echoes the request, or is `null` when the request was too malformed to carry one.
+An error response has an `error` member and no `result` member. Its `id` echoes the request, or is `null` when the request was too malformed to carry one or its `id` wasn't a string or an integer.
 
 ```json
-{ "jsonrpc": "2.0", "id": 7, "error": { "code": -32601, "message": "ProtocolDispatcher:57 : Method not found: foo/bar" } }
+{ "jsonrpc": "2.0", "id": 7, "error": { "code": -32601, "message": "ProtocolDispatcher:62 : Method not found: foo/bar" } }
 ```
 
 | Code | 2025-06-18 | 2026-07-28 | Raised when |
 | :--- | :--- | :--- | :--- |
 | `-32700` | 400 | 400 | The body isn't valid JSON |
-| `-32600` | 400 | 400 | The body is empty, or isn't a single JSON-RPC 2.0 request: a batch, a bare value, a missing or wrong `jsonrpc`, a missing or empty `method`, or a missing `id`. Also returned with 415 and with 404 (see above). |
+| `-32600` | 400 | 400 | The body is empty, or isn't a single JSON-RPC 2.0 request: a batch, a bare value, a missing or wrong `jsonrpc`, a missing or empty `method`, or an `id` that's missing or isn't a string or an integer. Also returned with 415 and with 404 (see above). |
 | `-32601` | 200 | 404 | The server doesn't implement `method` (see [Methods](#methods)) |
 | `-32602` | 200 | 200 | `params` is wrong: an unknown tool, no `params.name` or `params.uri`, or no `params.protocolVersion` on `initialize`. Under `2025-06-18`, also tool arguments that fail validation (see [Tool Arguments](#tool-arguments)). Under `2026-07-28`, also a URI the server doesn't host. |
 | `-32602` | 400 | 400 | The request can't be assigned a revision. Under `2026-07-28`, also a missing `_meta` field. |
+| `-32001` | 404 | — | The `Mcp-Session-Id` isn't one of this server's tokens. Send `initialize` again, without the header. See [Sessions](#sessions). |
 | `-32002` | 200 | — | `resources/read` named a URI the server doesn't host |
 | `-32020` | — | 400 | A required header is missing, or doesn't match the body |
 | `-32022` | 400 | 400 | The request names a version the server doesn't support. `error.data` lists `supported` and `requested`. |
@@ -236,14 +248,16 @@ Either way, the tool doesn't run. A value the schema allows but the tool's argum
 
 ## Sessions
 
-Sessions exist only in `2025-06-18`. `initialize` creates a session ID (a UUID) and returns it in the `Mcp-Session-Id` response header. Send it on every later request and on the closing `DELETE`. Responses echo it back.
+Sessions exist only in `2025-06-18`. `initialize` returns a session ID in the `Mcp-Session-Id` response header. Send it, unchanged, on every later request and on the closing `DELETE`. Responses echo it back.
 
-The server checks only that the header is present and not blank. It never looks the value up. As a result:
+The session ID carries the capabilities the client declared in `initialize`. That's how any worker can serve any request: MATLAB Production Server sends each request to whichever worker is free, and workers share no state. Treat the ID as opaque. It's never longer than 1,024 characters.
 
-- It accepts any non-blank value, including one it never issued.
-- A session keeps working after `DELETE`. The specification says the server should answer 404 from then on. This server doesn't.
+The server checks the ID on every request except `initialize`:
 
-That's deliberate. MATLAB Production Server sends each request to whichever worker is free, and workers share no state. A session registry would live on one worker. `initialize` would succeed on worker A and the next `tools/call` would get 404 from worker B. Rejecting valid sessions at random is worse than not checking them. `2026-07-28` removes the problem: it has no sessions at all.
+- **One of its tokens** is accepted, whichever worker serves the request. The server doesn't sign them, so a well-formed token the client made itself is accepted too. The session ID isn't an authenticator: see [Security](./security.md#session-ids-are-not-authenticators).
+- **Any other ID gets `-32001` with HTTP 404**, and isn't echoed: a malformed one, a plain UUID from a server before 1.7, or one longer than 1,024 characters. The specification requires a client that gets 404 to start a new session: send `initialize` again, without `Mcp-Session-Id`.
+
+A session keeps working after `DELETE`. The specification says the server must answer 404 from then on, so this is a departure from it. This server keeps no record of sessions, so it can't tell an ended session from a live one. `2026-07-28` has no sessions at all.
 
 `initialize` and notifications don't need the header. Clients commonly send `notifications/initialized` before they've stored the session ID.
 

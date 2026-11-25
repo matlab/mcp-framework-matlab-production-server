@@ -84,8 +84,14 @@ function parameters = argumentSchema(parameters)
             [json,inject,line] = findSchema(parameters(p).description,p);
             
             if ~isempty(json)
-                % Require that the schema data be valid JSON
-                schema = jsondecode(json);
+                % Require that the schema data be valid JSON. jsondecode
+                % stacks a list of numbers into one array, but the members
+                % of an enum, or of examples, must stay separate.
+                schema = prodserver.mcp.jsonrpc.unstackSchemaLists( ...
+                    jsondecode(json));
+                % The server must be able to check every pattern, and
+                % every bound and length.
+                prodserver.mcp.jsonrpc.validateSchemaKeywords(schema);
                 % Add the schema to the parameter description.
                 parameters(p).schema.line = line;
                 parameters(p).schema.schema = schema;
@@ -108,7 +114,9 @@ function parameters = argumentSchema(parameters)
             end
         end
     catch me
-        if startsWith(me.identifier,"MATLAB:json")
+        if startsWith(me.identifier,"MATLAB:json") || ...
+                ismember(me.identifier, ["prodserver:mcp:InvalidJsonSchemaPattern" ...
+                "prodserver:mcp:InvalidSchemaKeyword"])
             error("prodserver:mcp:InvalidParameterSchema", ...
                 "Invalid schema for parameter '%s': %s", ...
                 p,me.message);

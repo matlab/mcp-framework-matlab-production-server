@@ -45,6 +45,39 @@ classdef tSignature < prodserver.mcp.test.base.MCPHandlerBase
             test.verifyEqual(allowed,'GET, POST, OPTIONS');
         end
 
+        function echoesOnlyIssuedSessions(test)
+        % A session ID this server issued is echoed back; any other isn't,
+        % so a client can't make the response headers arbitrarily long.
+            import prodserver.mcp.MCPConstants
+            import prodserver.mcp.protocol.v20250618.Constants
+            token = prodserver.mcp.test.sessionToken();
+            b64 = @(s) char(prodserver.mcp.internal.base64encode( ...
+                unicode2native(s, "UTF-8"), URLSafe=true));
+            % Too long, but otherwise readable: refused for its length.
+            tooLong = ['v1.' b64(['{"sid":"a","caps":{"experimental":' ...
+                '{"pad":"' repmat('x', 1, 5000) '"}}}'])];
+            cases = {token, true; ...
+                char(matlab.lang.internal.uuid), false; ...
+                ['v1.' repmat('A', 1, 5000)], false; ...
+                tooLong, false; ...
+                ['v1.' b64('{"sid":["a","b"],"caps":{}}')], false};
+            for n = 1:size(cases, 1)
+                req = test.request;
+                req.Method = 'OPTIONS';
+                req.Headers = [req.Headers; {MCPConstants.ContentLength, 0}; ...
+                    {Constants.SessionId, cases{n,1}}];
+                response = prodserver.mcp.internal.signatureHandler(req);
+                echoed = prodserver.mcp.internal.getHeaderValue( ...
+                    Constants.SessionId, response.Headers);
+                label = extractBefore(string(cases{n,1}) + blanks(20), 20);
+                if cases{n,2}
+                    test.verifyEqual(string(echoed), string(token), label);
+                else
+                    test.verifyEmpty(echoed, "Echoed " + label);
+                end
+            end
+        end
+
         function cathode(test)
 
             import prodserver.mcp.MCPConstants

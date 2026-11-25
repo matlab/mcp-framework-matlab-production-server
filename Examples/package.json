@@ -1,0 +1,10 @@
+{
+  "private": true,
+  "description": "Build toolchain for MCP App views",
+  "devDependencies": {
+    "@modelcontextprotocol/ext-apps": "^1.7.5",
+    "typescript": "^5.0.0",
+    "vite": "^6.0.0",
+    "vite-plugin-singlefile": "^2.0.0"
+  }
+}

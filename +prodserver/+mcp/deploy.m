@@ -34,6 +34,11 @@ function endpoint = deploy(archive,host,port,opts)
         opts.delay double = 2
     end
 
+    % The archive's name is its file's base name. Check it before any
+    % request is sent: the upload URL carries it as is.
+    [~,archiveName] = fileparts(archive);
+    prodserver.mcp.validation.mustBeArchiveName(archiveName, archive);
+
     % Allow server to be a complete URL, beginning with <scheme>://. In this
     % case, ignore port.
     url = host;
@@ -71,7 +76,7 @@ function endpoint = deploy(archive,host,port,opts)
         error("prodserver:mcp:ServerUnresponsive", ...
             "The server at %s did not respond to a health check. " + ...
             "Check to be sure the server is running and that you have " + ...
-            "permissions to access it.",url);
+            "permissions to access it.",prodserver.mcp.io.redactURI(url));
     end
 
     % Upload!
@@ -98,14 +103,14 @@ function endpoint = deploy(archive,host,port,opts)
             % opinion, so do not invent one.
             error("prodserver:mcp:ArchiveUploadNoResponse", ...
                 "Uploading %s to %s produced no response after %d " + ...
-                "attempt(s) with a %d second timeout. %s", ...
-                archive, url, opts.retry, opts.timeout, detail);
+                "attempt(s) with a %g second timeout. %s", ...
+                archive, prodserver.mcp.io.redactURI(url), opts.retry, opts.timeout, detail);
         elseif permanent
             % 4xx: a property of the request or of the server's configuration.
             % Retrying verbatim cannot help.
             error("prodserver:mcp:ArchiveUploadRejected", ...
                 "The server at %s rejected the upload of %s with HTTP %d. " + ...
-                "%s", url, archive, double(status), detail);
+                "%s", prodserver.mcp.io.redactURI(url), archive, double(status), detail);
         else
             % 5xx: the server failed to install an archive it was willing to
             % talk about. Observed to succeed unchanged on a later attempt, so
@@ -114,13 +119,10 @@ function endpoint = deploy(archive,host,port,opts)
                 "The server at %s failed to install %s: HTTP %d. %s " + ...
                 "This is a server-side failure and may be transient -- " + ...
                 "check the server log, then try again.", ...
-                url, archive, double(status), detail);
+                prodserver.mcp.io.redactURI(url), archive, double(status), detail);
         end
     end
 
-    % Assigned before the verify block, which used to be the only place it
-    % was set, so verify=0 could not return the endpoint.
-    [~,archiveName] = fileparts(archive);
     prefix = sprintf('%s/%s', url, archiveName);
 
     if opts.verify
@@ -161,9 +163,31 @@ function verifyArchive(pingURL, url, archiveName, expected, opts)
     matched = 0;
     live = "";
     status = [];
+    transport = "";
     attempts = opts.verify*opts.retry;
     for attempt = 1:attempts
-        response = request.send(uri, httpOpts);
+        % A refused connection is the server not ready yet, as while it
+        % restarts a worker: ping again. A timeout has already waited the
+        % whole timeout, so it ends verification; waiting it out on every
+        % attempt could take hours.
+        try
+            response = request.send(uri, httpOpts);
+        catch me
+            if prodserver.mcp.internal.isTransientError(me, timeout=false, status=[])
+                transport = "The connection was refused.";
+                if attempt < attempts
+                    pause(opts.delay);
+                end
+                continue
+            elseif prodserver.mcp.internal.isTransientError(me, connection=false, status=[])
+                transport = sprintf("No answer came within the %g " + ...
+                    "second timeout.", opts.timeout);
+                break
+            end
+            % MATLAB's own error quotes the address as given.
+            throw(prodserver.mcp.internal.redactedError(me));
+        end
+        transport = "";
         status = double(response.StatusCode);
         text = bodyText(response);
         % Production Server says why it failed in the status line's reason
@@ -202,23 +226,35 @@ function verifyArchive(pingURL, url, archiveName, expected, opts)
         end
     end
 
-    if strlength(live) > 0
+    % What came last, if not a pong: a transport failure, or a status.
+    last = "";
+    if strlength(transport) > 0
+        last = " " + transport;
+    elseif ~isempty(status) && (status ~= 200 || strlength(live) == 0)
+        last = sprintf(" Its last answer was HTTP %d.", status);
+    end
+
+    % Stale only if the last build to answer is the one the upload
+    % replaces. The uploaded build, seen once but not twice in a row, is
+    % not: a refusal, a 404 or the end of the attempts came after it.
+    if strlength(live) > 0 && live ~= expected
         error("prodserver:mcp:DeployedArchiveStale", ...
             "Archive %s on server at %s is still the build it replaces " + ...
-            "(%s), not the one uploaded (%s). Check server logs for " + ...
+            "(%s), not the one uploaded (%s).%s Check server logs for " + ...
             "errors or increase retry count (%d) or retry delay (%d " + ...
-            "seconds) and try again.", archiveName, url, live, expected, ...
-            opts.retry, opts.delay);
+            "seconds) and try again.", archiveName, prodserver.mcp.io.redactURI(url), live, expected, ...
+            last, opts.retry, opts.delay);
     end
-    answer = "";
-    if ~isempty(status)
-        answer = sprintf(" Its last answer was HTTP %d.", status);
+    answer = last;
+    if strlength(live) > 0
+        answer = " The uploaded build answered once, not twice in a " + ...
+            "row." + last;
     end
     error("prodserver:mcp:DeployedArchiveUnresponsive", ...
         "Archive %s on server at %s did not respond to ping request.%s " + ...
         "Check server logs for errors or increase timeout (%d seconds), " + ...
         "retry count (%d) or retry delay (%d seconds) and try again.", ...
-        archiveName, url, answer, opts.timeout, opts.retry, opts.delay);
+        archiveName, prodserver.mcp.io.redactURI(url), answer, opts.timeout, opts.retry, opts.delay);
 end
 
 

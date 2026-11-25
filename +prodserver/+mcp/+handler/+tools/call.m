@@ -1,12 +1,13 @@
-function [result, httpCode, httpMsg, msgHeaders] = call(jrpc, version)
+function [result, httpCode, httpMsg, msgHeaders] = call(jrpc, ctx)
 %call Handle MCP tools/call request. Resolves the named tool, assembles
 %   positional, optional, and name-value arguments in order, invokes the
 %   function, and encodes each output as structured content.
 %
-%   VERSION is the protocol revision serving the request. It decides how
-%   invalid arguments are reported and names the per-revision metrics; the
-%   rest of the tool contract is revision-independent, which is why there is
-%   one call.m and not one per adapter.
+%   CTX is the request's RequestContext. Its Version, the protocol revision
+%   serving the request, decides how invalid arguments are reported and
+%   names the per-revision metrics; the rest of the tool contract is
+%   revision-independent, which is why there is one call.m and not one per
+%   adapter.
 
 % Copyright 2025-2026 The MathWorks, Inc.
 
@@ -15,6 +16,8 @@ function [result, httpCode, httpMsg, msgHeaders] = call(jrpc, version)
     import prodserver.mcp.internal.hasField
     import prodserver.mcp.jsonrpc.mcpEncode
     import prodserver.mcp.jsonrpc.mcpDecode
+
+    version = ctx.Version;
 
     [result, httpCode, httpMsg, msgHeaders, r] = ...
         prodserver.mcp.handler.internal.initResult(jrpc);
@@ -40,6 +43,21 @@ function [result, httpCode, httpMsg, msgHeaders] = call(jrpc, version)
     end
 
     fcn = jrpc.params.name;
+
+    % uri2json is offered only to clients that support MCP Apps (see
+    % tools/list). For any other client it isn't available: the same error
+    % as for an unknown tool, and the refusal is counted, so a developer
+    % can see why. Only an archive built with an app has uri2json; on any
+    % other, it's an unknown tool, which counts nothing.
+    if isequal(string(fcn), MCPConstants.Uri2JsonTool) && ...
+            isfield(svc, MCPConstants.AppResourceVariable) && ...
+            ~supports(ctx.Capabilities, MCPConstants.UIExtension_JSON)
+        countMetric(MCPConstants.MCPMetricPrefix + fcn + ...
+            MCPConstants.MCPToolRefusedSuffix, "_" + replace(version, "-", "_"));
+        error("prodserver:mcp:ToolUnavailable", ...
+            "Tool '%s' not available on this MCP server.", fcn);
+    end
+
     k = strcmp(tName,fcn);
     if nnz(k) > 1
         error("prodserver:mcp:AmbiguousToolName", ...
@@ -53,13 +71,16 @@ function [result, httpCode, httpMsg, msgHeaders] = call(jrpc, version)
 
     % Only one definition matching the tool name.
     t = tools{k};
+    prodserver.mcp.logging.Log.instance().setContext(tool=string(fcn));
 
     % Each call to a known tool is counted exactly once: as a call
     % (MCP_<tool>_Call) when the tool is invoked, or as a rejection
-    % (MCP_<tool>_Rejected) when the server refuses it first. Each is broken
-    % out by protocol revision too. VERSION is the revision actually serving
-    % the request, handed down by the dispatcher, so this names no revision
-    % and needs no default.
+    % (MCP_<tool>_Rejected) when the server refuses it first. uri2json from
+    % a client without MCP Apps support was counted above, as a refusal
+    % (MCP_uri2json_Refused). Each is broken out by protocol revision too.
+    % VERSION, from the request context, is the revision actually serving
+    % the request, set by the adapter, so this names no revision and needs
+    % no default.
     %
     % Re-deriving it from the body instead gets the wrong answer whenever an
     % alias is in play: a _meta declaring 2024-11-05 resolves to the
@@ -284,10 +305,42 @@ function [result, httpCode, httpMsg, msgHeaders] = call(jrpc, version)
         % Content must have a value to be wire-encoded.
         content = [];
 
+        % A tool that publishes an output schema must return structured
+        % content (MCP tools/call), even with nothing inline to put in it:
+        % a tool with no outputs, or one whose outputs are all by reference
+        % and called without their URLs, returns {}. Clients that check
+        % reject the result otherwise.
+        if hasField(t, "outputSchema")
+            r.structuredContent = struct();
+        end
+
         % Extract tool results from cell array and write them to structure
         % (which will be JSON-encoded). outArgs and out define the order,
         % which structuredContent does not care about.
-        encodedOut = mcpEncode(toolEncoding, outArgs{:});
+        % Under plain JSON, each output in the form its published schema
+        % describes, so that a client that checks structuredContent
+        % against outputSchema, as MCP recommends, accepts it: a NaN as
+        % null, a one-element array as one.
+        if toolEncoding == prodserver.mcp.WireEncoding.JSON
+            encodedOut = cell(size(outArgs));
+            for n = 1:numel(outArgs)
+                try
+                    encodedOut{n} = prodserver.mcp.jsonrpc.plainJSONValue( ...
+                        outArgs{n}, outputSchemaOf(t, out{n}));
+                catch encodeErr
+                    % Name the output whose value can't be sent.
+                    if ~ismember(encodeErr.identifier, ...
+                            ["prodserver:mcp:EmptyScalarOutput", ...
+                             "prodserver:mcp:IncompatibleArgumentType"])
+                        rethrow(encodeErr);
+                    end
+                    error(encodeErr.identifier, "Output '%s': %s", ...
+                        out{n}, encodeErr.message);
+                end
+            end
+        else
+            encodedOut = mcpEncode(toolEncoding, outArgs{:});
+        end
         for n = 1:numel(out)
             r.structuredContent.(out{n}) = encodedOut{n};
         end
@@ -359,7 +412,16 @@ function r = toolError(text)
 end
 
 function countMetric(metric, revision)
-% Count once in METRIC and once in its per-revision breakdown.
-    prodserver.metrics.incrementCounter(metric, 1);
-    prodserver.metrics.incrementCounter(metric + revision, 1);
+% Count once in METRIC and once in its per-revision breakdown. A count that
+% can't be written is lost, not the call.
+    prodserver.mcp.internal.tryIncrementCounter(metric, 1);
+    prodserver.mcp.internal.tryIncrementCounter(metric + revision, 1);
+end
+
+function s = outputSchemaOf(t, name)
+% The schema tool T publishes for its output NAME, or [] if it has none.
+    s = [];
+    if prodserver.mcp.internal.hasField(t, "outputSchema.properties." + name)
+        s = t.outputSchema.properties.(name);
+    end
 end

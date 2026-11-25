@@ -6,17 +6,18 @@ function [ctf,endpoint] = build(fcn, opts)
 
     arguments
         % Name of the function to be built into a tool.
-        fcn string {prodserver.mcp.validation.mustBeFunction}
+        fcn string {prodserver.mcp.validation.mustNotBeReservedToolName(fcn, "function"), prodserver.mcp.validation.mustBeFunction}
 
         % Deploy tool to this server, if given.
         opts.server string { mustBeServerOrEmpty } = string.empty 
 
         % Base name of generated deployable archive.
-        opts.archive string = basename(fcn(1))
+        opts.archive string {prodserver.mcp.validation.mustBeArchiveName} = basename(fcn(1))
 
         % Name of MCP tool on server. May differ from FCN. But must always
-        % be the same size as FCN.
-        opts.tool string = basename(fcn)
+        % be the same size as FCN. Not the name of one of the framework's
+        % own tools (read_mcp_resource, uri2json); nor may FCN be one.
+        opts.tool string {prodserver.mcp.validation.mustNotBeReservedToolName} = basename(fcn)
 
         % Folder in which to generate deployable archive and other files.
         opts.folder (1,1) string = "./deploy"
@@ -47,6 +48,11 @@ function [ctf,endpoint] = build(fcn, opts)
         % MCP server resources. A structure with at least two fields: uri
         % and contents. Allow a struct array or a cell array.
         opts.resource (1,:) struct {prodserver.mcp.validation.mustBeResource} = []
+
+        % MCP App HTML file. Registers as a ui:// resource with MIME type
+        % text/html;profile=mcp-app and injects _meta.ui.resourceUri into
+        % user tool definitions. One file; "" means no app.
+        opts.app string {mustBeScalarOrEmpty, prodserver.mcp.validation.mustBeFileOrEmpty} = string.empty
 
         % Embed routes in archive or use MPS instance-global routes?
         opts.routes prodserver.mcp.RoutesType = prodserver.mcp.RoutesType.Archive
@@ -126,6 +132,11 @@ function [ctf,endpoint] = build(fcn, opts)
         opts.wrapper = repmat(MCPConstants.NoWrapper, size(fcn));
     end
 
+    % A zero-length app is no app.
+    if ~isempty(opts.app) && strlength(opts.app) == 0
+        opts.app = string.empty;
+    end
+
     % Might be zero-length strings, depending on final stage executed.
     ctf = "";
     endpoint = "";
@@ -139,7 +150,7 @@ function [ctf,endpoint] = build(fcn, opts)
     % build finds by name must belong to this copy of the framework.
     root = prodserver.mcp.internal.packageFolder();
     prodserver.mcp.internal.prependPath(fullfile(root,"server","tools"));
-    checkShadowing(root);
+    checkShadowing(root, ~isempty(opts.app));
 
     % Determine path to user-supplied function(s)
     files = arrayfun(@(f)string(which(f)),fcn);
@@ -168,8 +179,10 @@ function [ctf,endpoint] = build(fcn, opts)
         end
     end
     
-    % Make opts.folder directory if necessary.
-    if exist(opts.folder,"file") == false
+    % Make opts.folder directory if necessary. isfolder, not exist: exist
+    % is also nonzero for a MATLAB file or function of that name on the
+    % path, so folder="addOne" was never made while building addOne.
+    if ~isfolder(opts.folder)
         [ok,msg] = mkdir(opts.folder);
         if ~ok
             error("prodserver:mcp:InaccessibleOutputFolder", "Cannot " + ...
@@ -243,7 +256,19 @@ function [ctf,endpoint] = build(fcn, opts)
     end
 
     % Add full path to the tool to the list of files built into the CTF
-    files = [files, which(MCPConstants.ReadResourceTool)];  
+    files = [files, which(MCPConstants.ReadResourceTool)];
+
+    % Servers with an MCP App include uri2json so the app can read data
+    % from URIs returned by tools.
+    if ~isempty(opts.app)
+        toolList = [toolList, MCPConstants.Uri2JsonTool];
+        wrapperFcn = [wrapperFcn, MCPConstants.Uri2JsonTool];
+        wireEncoding = [wireEncoding, "JSON"];
+        if ~isempty(defs)
+            defs = [defs {[]}];
+        end
+        files = [files, which(MCPConstants.Uri2JsonTool)];
+    end
 
     defArgs = {};
     % defineForMCP expects opts.definition to provide a COMPLETE definition
@@ -251,7 +276,9 @@ function [ctf,endpoint] = build(fcn, opts)
     % structure.
     if ~isempty(opts.definition)
         definition = num2cell(opts.definition);
-        definition{end+1} = [];
+        % No definitions for the built-in tools (resource reader, and
+        % uri2json with an app): defineForMCP generates them.
+        definition(end+1:numel(toolList)) = {[]};
         defArgs = {"definition", definition};
     elseif ~isempty(defs)
         defArgs = {"defs", defs};
@@ -269,10 +296,51 @@ function [ctf,endpoint] = build(fcn, opts)
     end
 
     % Cell array because fields of each resource structure may vary.
+    yours = false(size(resourceList));
     if ~isempty(opts.resource)
         resourceList = [ resourceList, num2cell(opts.resource) ];
+        yours = [yours, true(1, numel(opts.resource))];
     end
-    
+
+    % Build app resources and inject _meta.ui into tool definitions.
+    [appResources, appUriMap] = buildAppResources( ...
+        opts.app, opts.archive, opts.tool);
+    resourceList = [resourceList, appResources];
+    yours = [yours, false(size(appResources))];
+
+    % Your resources were checked against each other when build was
+    % called. Nor may they reuse a URI of the framework's own resources.
+    if any(yours)
+        uris = cellfun(@(r) string(r.uri), resourceList);
+        reused = intersect(uris(yours), uris(~yours));
+        if ~isempty(reused)
+            error("prodserver:mcp:DuplicateResourceURI", ...
+                "The framework's own resources use the URI '%s'. A URI " + ...
+                "must identify exactly one resource: give yours another.", ...
+                reused(1));
+        end
+    end
+
+    nUserTools = numel(opts.tool);
+    for n = 1:nUserTools
+        if strlength(appUriMap(n)) > 0
+            definition.tools{n}.(MCPConstants.MetaField).ui.resourceUri = appUriMap(n);
+        end
+    end
+
+    if any(strlength(appUriMap) > 0)
+        def.(MCPConstants.AppResourceVariable) = true;
+    end
+
+    % uri2json is for the view, not the model: hosts that support MCP Apps
+    % keep an app-only tool out of the model's tool list. A cell, so that
+    % it's encoded as the JSON array the spec requires, not a string.
+    if ~isempty(opts.app)
+        u = find(cellfun(@(t) string(t.name) == MCPConstants.Uri2JsonTool, ...
+            definition.tools), 1);
+        definition.tools{u}.(MCPConstants.MetaField).ui.visibility = {'app'};
+    end
+
     % Generate resource definitions and add them to the structure saved
     % into the MCP definition file.
     resources = prodserver.mcp.internal.resourceDefinition(resourceList);
@@ -303,6 +371,24 @@ function tf = mustBeServerOrEmpty(x)
     end
 end
 
+function [resources, uriMap] = buildAppResources(app, archive, tools)
+    import prodserver.mcp.MCPConstants
+    resources = {};
+    uriMap = repmat("", size(tools));
+    if ~isempty(app)
+        appUri = "ui://" + archive + "/" + archive + ".html";
+        % Read the view here. Given its path, resourceDefinition would read
+        % the file only if the path passed its own checks, and otherwise
+        % serve the path itself as the view.
+        appResource = struct('uri', appUri, ...
+            'contents', prodserver.mcp.internal.readUTF8(app), ...
+            'name', archive + "-app", ...
+            'mimeType', MCPConstants.AppResourceMimeType);
+        resources = {appResource};
+        uriMap(:) = appUri;
+    end
+end
+
 function handlers = routeHandlers()
 %routeHandlers The functions bound directly to the web routes.
     handlers = [ ...
@@ -312,13 +398,16 @@ function handlers = routeHandlers()
         ];
 end
 
-function checkShadowing(root)
+function checkShadowing(root, withApp)
 %checkShadowing Make sure that the framework functions build finds by name
 %belong to the framework in root. Another copy of the framework earlier on
 %the path, or a user function with the same name, would otherwise be built
-%into the archive in their place.
+%into the archive in their place. With an app, that includes uri2json.
     import prodserver.mcp.internal.canonicalFolder
     fcns = [routeHandlers(), prodserver.mcp.MCPConstants.ReadResourceTool];
+    if withApp
+        fcns = [fcns, prodserver.mcp.MCPConstants.Uri2JsonTool];
+    end
     croot = canonicalFolder(root);
     root = strip(root, "right", filesep);
     for n = 1:numel(fcns)
@@ -335,17 +424,25 @@ function checkShadowing(root)
             if contains(entry, filesep + "+")
                 entry = extractBefore(entry, filesep + "+");
             end
+            % The current folder comes before the path, on it or not.
+            if canonicalFolder(entry) == canonicalFolder(string(pwd))
+                fix = sprintf("It is in the current folder, which " + ...
+                    "MATLAB searches first: change to another folder, " + ...
+                    "or rename the file.");
+            else
+                fix = sprintf("Remove %s from the MATLAB path, or " + ...
+                    "rename the file.", entry);
+            end
             error("prodserver:mcp:FrameworkShadowed", ...
                 "Framework function %s resolves to %s, outside the " + ...
-                "framework in use at %s. Remove %s from the MATLAB " + ...
-                "path, or rename the file.", fcns(n), file, root, entry);
+                "framework in use at %s. %s", fcns(n), file, root, fix);
         end
     end
 end
 
 function name = basename(fcn)
 %basename The base name (function name) of fcn. fcn may be the name of a
-%function on the path or the full or relative path to a file. fcn may be a 
+%function on the path or the full or relative path to a file. fcn may be a
 %vector.
     arguments
         fcn string

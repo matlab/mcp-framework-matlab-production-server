@@ -8,8 +8,10 @@ function [session,id,capabilities] = initialize(endpoint, opts)
         opts.require prodserver.mcp.Primitive { mustBeVector } = "None"
         opts.id double { mustBePositive } = 1
         opts.timeout double {mustBePositive} = 60
-        opts.retry double {mustBePositive} = 30
-        opts.delay double {mustBePositive} = 2
+        opts.retry double {mustBePositive} = ...
+            prodserver.mcp.internal.Constants.ArchiveRetry
+        opts.delay double {mustBePositive} = ...
+            prodserver.mcp.internal.Constants.ArchiveDelay
     end
 
     import prodserver.mcp.MCPConstants
@@ -34,6 +36,7 @@ function [session,id,capabilities] = initialize(endpoint, opts)
     % Send the request and receive the response
     response = prodserver.mcp.internal.sendRequest(request,uri, ...
         timeout=opts.timeout, retry=opts.retry, delay=opts.delay, ...
+        repeatable=true, ...  % At worst an unused session, which expires
         label=data.method);
   
     % Server should have created a session ID
@@ -41,7 +44,7 @@ function [session,id,capabilities] = initialize(endpoint, opts)
     if isempty(session) || strlength(session) < 1
         error("prodserver:mcp:NoSessionFromServer", ...
             "No session ID returned from initialization of server %s.", ...
-            endpoint);
+            prodserver.mcp.io.redactURI(endpoint));
     end
     
     % From here on the server holds a session for us. Any failure must end
@@ -76,7 +79,7 @@ function capabilities = finishHandshake(response, endpoint, uri, session, opts)
                     "Body.Data.result.capabilities."+resource) == false
             error("prodserver:mcp:NoToolsOnServer", ...
                 "No %s available from Model Context Protocol " + ...
-                "server %s.", resource, endpoint);
+                "server %s.", resource, prodserver.mcp.io.redactURI(endpoint));
             end
         end
         capabilities = response.Body.Data.result.capabilities;
@@ -95,7 +98,12 @@ function capabilities = finishHandshake(response, endpoint, uri, session, opts)
     % Bounded, like every other request here (XD29).
     httpOpts = matlab.net.http.HTTPOptions(ConnectTimeout=opts.timeout, ...
         ResponseTimeout=opts.timeout);
-    response = send(request,uri,httpOpts);
+    try
+        response = send(request,uri,httpOpts);
+    catch me
+        % MATLAB's own error quotes the address as given.
+        throw(prodserver.mcp.internal.redactedError(me));
+    end
     % Expect 200-class HTTP response, no data.
     prodserver.mcp.internal.requireSuccess(response,endpoint, ...
         request=data.method);

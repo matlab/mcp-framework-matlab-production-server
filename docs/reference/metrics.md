@@ -6,7 +6,9 @@ Retrieve [metrics](https://www.mathworks.com/help/mps/restfuljson/restful-api-fo
 
 Metrics must be enabled on the server. If metrics are disabled, the function throws an error with the identifier `prodserver:mcp:MetricsDisabled`.
 
-The catalog always holds every metric on the instance, whichever form `uri` takes. An MCP endpoint also names an archive, which `Scope.Server` selects. The function first checks that the server has that archive, through the archive's `/ping` route, which counts nothing. If it doesn't, the function throws `prodserver:mcp:UnknownArchive`, rather than returning the instance's metrics as though they were the archive's. A server address, with or without a trailing slash, names no archive and isn't checked. If the server doesn't answer, the function throws `prodserver:mcp:ServerUnresponsive`.
+The framework's counts are best effort. If the server can't write one, the MCP request still succeeds, the count is lost, and the archive logs a `prodserver:mcp:MetricWriteFailed` warning, at most once a minute for each metric. A counter can then be lower than the number of requests it counts.
+
+The catalog always holds every metric on the instance, whichever form `uri` takes. An MCP endpoint also names an archive, which the catalog's display shows; to select that archive's metrics, use `catalog.archive` or `catalog.filter(archive=...)`. The function first checks that the server has that archive, through the archive's `/ping` route, which counts nothing. Production Server answers 404 alike for an archive it doesn't have and one it is still deploying, so the function waits out a 404 as [`call`](./call.md#an-archive-that-answers-404) does, `retry` times `delay` seconds apart, warning that it is waiting. If the archive still doesn't answer, the function throws `prodserver:mcp:UnknownArchive`, rather than returning the instance's metrics as though they were the archive's. A server address, with or without a trailing slash, names no archive and isn't checked. A refused connection is resent once. A timeout on the archive check is resent once too, but a timeout on `/api/metrics` isn't: the timeout is long, and a server that took that long would likely take as long again. If the server still doesn't answer, the function throws `prodserver:mcp:ServerUnresponsive`. For `/api/metrics`, the message says whether the connection was refused or timed out. Any other failure of `/api/metrics`, such as an HTTP status or a host that can't be found, raises MATLAB's error, with its identifier, such as `MATLAB:webservices:HTTP504StatusCodeError`; a 504 Gateway Timeout or a 408 Request Timeout is the server's answer, not a timeout. No message shows user information or a query from the address.
 
 ### Inputs
 | Argument | Type | Description | Example
@@ -23,10 +25,27 @@ Pass optional arguments with *argument=value* syntax following required inputs. 
 | Argument | Type | Description | Default |
 | :---     | :--- | :---        | :---    |
 | delay | integer | Number of seconds to pause between retries | 2 |
-| retry | integer | Number of attempts at each request, including the first. Only a refused or failed connection is retried. | 30 |
+| retry | integer | Number of times to resend the archive check after Production Server's 404, for an archive it doesn't have or is still deploying. A refused connection is resent once, whatever `retry` is. So is a timeout on the archive check, but not one on `/api/metrics`. | 30 |
 | timeout | integer | Number of seconds to wait for a reply | 180 |
 
 ## Catalog API
+
+A catalog is a snapshot of every metric the server reported when `metrics` was called; call `metrics` again to update it. Displayed, it summarises what it holds:
+
+```
+>> catalog = prodserver.mcp.metrics("http://localhost:9910/WireEncoding/mcp")
+catalog = 
+
+  Catalog of 90 metrics from MATLAB Production Server http://localhost:9910, for archive WireEncoding:
+
+    10 instance (matlabprodserver_*)    80 MCP framework (MCP_*)
+    5 tool(s) called: analyzeACCircuit 2, blendImages 1, matrixMultiply 3, read_mcp_resource 1, ...
+
+  Query it with name, archive, type, filter or scope, for example catalog.name("MCP_Framework_Request").
+  A snapshot: call prodserver.mcp.metrics again to update it.
+```
+
+The tool line counts each tool's `MCP_<tool>_Call` calls, summed over the archives that report them, and lists the first few tools by name. A catalog with no metrics says so. The summary never shows user information from the address, such as a password.
 
 The returned `Catalog` object provides filter methods for querying metrics. Each method returns a struct array with fields `name`, `type`, `archive`, `suffix`, and `value`.
 
@@ -35,16 +54,16 @@ The returned `Catalog` object provides filter methods for querying metrics. Each
 | Method | Signature | Description |
 | :---   | :---      | :---        |
 | archive | `m = catalog.archive(a, match=m, suffix=s)` | Metrics from archive `a`. `match` and `suffix` are optional.  |
-| filter | `m = catalog.filter(name=n, archive=a, type=t, match=m, suffix=s)` | Combined filter — all arguments are optional |
+| filter | `m = catalog.filter(scope=s, name=n, archive=a, type=t, match=m, suffix=s)` | Combined filter — all arguments are optional |
 | name | `m = catalog.name(n, match=m)` | Metrics matching name `n`. `match` is optional. |
-| scope | `m = catalog.scope(s)` | Metrics matching scope `s` (`prodserver.mcp.metrics.Scope`) |
+| scope | `m = catalog.scope(s)` | Metrics of kind `s` (`prodserver.mcp.metrics.Scope`), from every archive |
 | type | `m = catalog.type(t)` | Metrics of type `t` (`prodserver.mcp.metrics.Type`) |
 
-The `filter` method accepts any combination of `name`, `archive`, `type`, `match`, and `suffix` as name-value arguments. Omitted criteria are not applied. The `name` and `archive` methods are convenience wrappers that accept the same `match` argument. The `archive` method also accepts `suffix`.
+The `filter` method accepts any combination of `scope`, `name`, `archive`, `type`, `match`, and `suffix` as name-value arguments. Omitted criteria are not applied. The `name`, `archive`, `scope` and `type` methods are convenience wrappers for `filter` with one criterion. The `name` and `archive` methods accept the same `match` argument, and `archive` also accepts `suffix`.
 
 ### The `match` Argument
 
-The `name`, `archive`, and `filter` methods accept an optional `match` argument of type `prodserver.mcp.metrics.Match`.
+The `name`, `archive`, and `filter` methods accept an optional `match` argument of type `prodserver.mcp.metrics.Match`. It applies to `name` and `archive`, not to `scope`.
 
 | Value | Behavior |
 | :--- | :--- |
@@ -68,7 +87,7 @@ Pass a `prodserver.mcp.metrics.Type` enumeration to `catalog.type()` or `catalog
 
 ### The `suffix` Argument
 
-When an archive is deployed more than once to the same server, MATLAB Production Server can report its metrics under a numbered name, such as `AlphaServer_3`. The Catalog reports the base name in `archive` and the number in `suffix`. Use the `suffix` argument of `filter` or `archive` to select metrics by deployment.
+MATLAB Production Server reports an archive's metrics under the name of its deployed folder: the archive name and a number it adds, such as `AlphaServer_3`. The Catalog reports the base name in `archive` and the number, as a string such as `"3"`, in `suffix`. Use the `suffix` argument of `filter` or `archive` to select metrics by deployment.
 
 | Value | Selects |
 | :--- | :--- |
@@ -81,15 +100,19 @@ The suffix filter is applied after the other criteria, so `suffix=@max` selects 
 
 ### The `scope` Argument
 
-Pass a `prodserver.mcp.metrics.Scope` enumeration to `catalog.scope()`.
+A scope is a kind of metric. Pass a `prodserver.mcp.metrics.Scope` enumeration to `catalog.scope()` or `catalog.filter(scope=...)`. The kind is read from the metric's name, so each scope covers every archive on the instance, whatever archive `uri` names. To select one archive's metrics of a kind, add `archive`: `catalog.filter(scope=prodserver.mcp.metrics.Scope.Tool, archive="primeSequence")`.
+
+`All` is `Instance`, `MCP` and `Custom`, and `MCP` is `Framework`, `Server` and `Tool`. No metric is of two kinds at the same level.
 
 | Value | Returns |
 | :--- | :--- |
 | `Scope.All` | Every metric on the MPS instance |
 | `Scope.Instance` | MPS instance metrics (prefix `matlabprodserver_`) |
-| `Scope.MCP` | MCP framework metrics (prefix `MCP_`) |
-| `Scope.Server` | Metrics whose name contains `_<archive>_`, where `<archive>` comes from the endpoint URI. This matches on the metric name, not the `archive` label. Requires a catalog created from an `/<archive>/mcp` endpoint; otherwise it raises `prodserver:mcp:NoServerScope`. |
-| `Scope.Tool` | The `MCP_<tool>_Call` counters of every tool on the instance. To select one tool, use `catalog.name("MCP_<tool>_Call")`. The `MCP_<tool>_Rejected` counters aren't included: use `catalog.name("MCP_<tool>_Rejected")`. Nor are the per-revision counters, such as `MCP_<tool>_Call_2026_07_28` and `MCP_<tool>_Rejected_2025_06_18`, since the name must match `MCP_<tool>_Call` exactly. |
+| `Scope.MCP` | The MCP framework's metrics: those of `Framework`, `Server` and `Tool` |
+| `Scope.Framework` | `MCP_Framework_Request`, one per archive |
+| `Scope.Server` | Each archive's `MCP_<archive>_Request` and `MCP_<archive>_ElapsedTime`. The name must match the metric's own `archive`, so archive `foo` reports no `MCP_foo_bar_Request`. |
+| `Scope.Tool` | Each tool's `MCP_<tool>_Call`, `MCP_<tool>_Rejected` and `MCP_<tool>_Refused`, and their per-revision counters, such as `MCP_<tool>_Call_2026_07_28`. Each call counts in both `MCP_<tool>_Call` and its per-revision counter, so don't sum the two. To select one tool, use `catalog.name("MCP_<tool>_Call")`. |
+| `Scope.Custom` | The metrics deployed code reports itself, with `prodserver.metrics.incrementCounter` or `setGauge`: those of no other kind, including any whose name starts `MCP_` |
 
 ### Return Value
 
@@ -120,7 +143,16 @@ Get all MCP-scoped metrics.
 catalog = prodserver.mcp.metrics("http://localhost:9910/primeSequence/mcp");
 m = catalog.scope(prodserver.mcp.metrics.Scope.MCP)
 ```
-The method returns a struct array of all metrics with the `MCP_` prefix.
+The method returns a struct array of the MCP framework's metrics, from every archive on the instance.
+
+***
+
+Get one archive's tool counters.
+```MATLAB
+catalog = prodserver.mcp.metrics("http://localhost:9910/primeSequence/mcp");
+m = catalog.filter(scope=prodserver.mcp.metrics.Scope.Tool, archive="primeSequence")
+```
+The method returns the call, rejection and per-revision counters of the tools in `primeSequence`, and no other archive's.
 
 ***
 
@@ -128,9 +160,9 @@ Check the total MCP framework request count.
 ```MATLAB
 catalog = prodserver.mcp.metrics("http://localhost:9910/primeSequence/mcp");
 m = catalog.name("MCP_Framework_Request");
-m(1).value
+sum([m.value])
 ```
-The `value` field is a numeric count of requests handled by the MCP framework across all archives on the instance.
+MPS labels `MCP_Framework_Request` with the archive that counted it, so the catalog has one element per archive, each with that archive's count in `value`. Their sum is the number of requests the MCP framework has handled across all archives on the instance. For one archive's count, select it: `catalog.filter(name="MCP_Framework_Request", archive="primeSequence")`.
 
 ***
 

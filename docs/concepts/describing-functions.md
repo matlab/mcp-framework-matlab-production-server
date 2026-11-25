@@ -141,6 +141,7 @@ If the arguments are simple types with consistent sizes, argument blocks can des
 
 ```MATLAB
 function count = countExceedances(measurements, threshold)
+% Count the readings in a time series that exceed a threshold.
     arguments
         measurements (:,1) double  % Time series of sensor readings
         threshold (1,1) double     % Level above which a reading counts
@@ -161,6 +162,7 @@ This `struct` declaration and comment tells the framework that the `material` pa
 
 ```MATLAB
 function result = analyzeMaterial(material, load)
+% Analyze how materials respond to an applied load.
     arguments
         material (:,1) struct  % Material properties
         load (1,1) double % Applied load in Newtons
@@ -178,6 +180,7 @@ The same pattern applies to functions that accept varying types. The declaration
 
 ```MATLAB
 function celsius = convertSensor(reading, channel)
+% Convert a sensor reading to degrees Celsius.
     arguments
         reading (:,1)  % Raw ADC counts (uint16) or calibrated voltages (double)
         channel        % Sensor channel name

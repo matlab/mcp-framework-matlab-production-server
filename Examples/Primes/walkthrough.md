@@ -7,10 +7,21 @@ Build an MCP tool from `primeSequence`, which generates four types of prime numb
 `primeSequence` accepts a count and a sequence type, and returns a vector of primes matching that sequence definition.
 
 ```MATLAB
-function seq = primeSequence(n, type)
-% n   : Number of primes in the generated sequence
-% type: Type of the sequence -- "balanced", "eisenstein", "gaussian", or "isolated"
-% seq : The primes in the requested sequence
+function seq = primeSequence(n,type)
+% Return the first N primes of the given sequence type. Four sequence types
+% supported: Eisenstein, Balanced, Isolated and Gaussian.
+
+    arguments(Input)
+        n double    % Length of the generated sequence
+        type string % Name of the sequence to generate
+    end
+    arguments(Output)
+        seq double  % Generated sequence of prime numbers
+    end
+
+    seq = feval(lower(type),n);
+
+end
 ```
 
 Test it locally:
@@ -22,10 +33,11 @@ ans =
 
 ## Build
 
-Package `primeSequence` as an MCP tool. This function returns small numeric vectors, so no wrapper function is needed.
+Package `primeSequence` as an MCP tool. Give build an example call so it
+can generate a good description of the tool's inputs and outputs.
 
 ```MATLAB
-ctf = prodserver.mcp.build("primeSequence", wrapper="None");
+ctf = prodserver.mcp.build("primeSequence", example=@()primeSequence(17,"Isolated"));
 ```
 
 On a shared server, give the archive a name of your own with `build`'s `archive` option, for example by adding your user name: `deploy` replaces an archive with the same name, even one someone else deployed.
@@ -35,7 +47,7 @@ On a shared server, give the archive a name of your own with `build`'s `archive`
 Upload to MATLAB Production Server.
 
 ```MATLAB
-endpoint = prodserver.mcp.deploy(ctf, "localhost", 9910);
+endpoint = prodserver.mcp.deploy(ctf, "http://localhost:9910");
 ```
 
 ## Verify

@@ -32,6 +32,62 @@ classdef tToolsCall < matlab.unittest.TestCase
 
     methods (Test)
 
+        function tComplexArgumentUnderJSON(test)
+            % Plain JSON can't carry a complex value. Say which argument
+            % and what the tool needs, not jsonencode's error later.
+            def = test.definition(',"required":["a"]');
+            try
+                prodserver.mcp.jsonrpc.toolsCall("t", 1, def, ...
+                    test.signature(), [1+2i 3]);
+                test.verifyFail("Expected IncompatibleArgumentType.");
+            catch me
+                test.verifyEqual(me.identifier, ...
+                    'prodserver:mcp:IncompatibleArgumentType');
+                test.verifySubstring(me.message, "'a' of tool t");
+                test.verifySubstring(me.message, "encoding=""Invertible""");
+            end
+            test.verifyError(@() prodserver.mcp.jsonrpc.toolsCall("t", 1, ...
+                def, test.signature(), 1, "b", 2i), ...
+                "prodserver:mcp:IncompatibleArgumentType", ...
+                "A name-value argument");
+            % Under Invertible, a complex value is wrapped.
+            inv = jsondecode(['{"name":"t","description":"x ' ...
+                char(prodserver.mcp.MCPConstants.WireEncodingResourceURI) ...
+                '","inputSchema":{"type":"object","required":["a"]}}']);
+            body = prodserver.mcp.jsonrpc.toolsCall("t", 1, inv, struct(), [1+2i 3]);
+            test.verifyTrue(isstruct(body.params.arguments.a));
+        end
+
+        function tInfiniteArgumentUnderJSON(test)
+            % Plain JSON would send Inf as null, which the tool reads as
+            % NaN. Refuse it, naming the argument and what the tool needs.
+            def = test.definition(',"required":["a"]');
+            try
+                prodserver.mcp.jsonrpc.toolsCall("t", 1, def, ...
+                    test.signature(), [NaN Inf -Inf]);
+                test.verifyFail("Expected IncompatibleArgumentType.");
+            catch me
+                test.verifyEqual(me.identifier, ...
+                    'prodserver:mcp:IncompatibleArgumentType');
+                test.verifySubstring(me.message, "'a' of tool t");
+                test.verifySubstring(me.message, "Inf or -Inf");
+                test.verifySubstring(me.message, "encoding=""Invertible""");
+            end
+            % NaN alone is sent.
+            body = prodserver.mcp.jsonrpc.toolsCall("t", 1, def, ...
+                test.signature(), [1 NaN]);
+            test.verifyEqual(body.params.arguments.a, [1 NaN]);
+        end
+
+        function tScalarNaNArgumentUnderJSON(test)
+            % As [null], which the server reads as NaN; null would be [].
+            def = test.definition(',"required":["a"]');
+            body = prodserver.mcp.jsonrpc.toolsCall("t", 1, def, ...
+                test.signature(), NaN);
+            test.verifySubstring(string(jsonencode(body)), '"a":[null]');
+            test.verifyEqual(jsondecode(jsonencode(body)).params.arguments.a, NaN);
+        end
+
         function tEncodingAgreesWithOutputs(test)
             % toolsCall encodes the inputs as prodserver.mcp.call decodes
             % the outputs: as the signature says, or, with no encoding in

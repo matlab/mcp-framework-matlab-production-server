@@ -190,7 +190,8 @@ classdef tSchemaEquivalence < matlab.unittest.TestCase
                 label + ": type mismatch");
 
             % For array types, compare items type
-            if obsType == "array" && isfield(observed, 'items') && isfield(expected, 'items')
+            if isscalar(obsType) && obsType == "array" && ...
+                    isfield(observed, 'items') && isfield(expected, 'items')
                 test.verifyEqual(observed.items.type, expected.items.type, ...
                     label + ".items: type mismatch");
             end
@@ -201,9 +202,10 @@ end
 
 function t = getEffectiveType(param)
 %getEffectiveType Extract the effective JSON Schema type from a parameter.
-%   Handles both direct types and array-wrapped types.
+%   Handles both direct types and array-wrapped types, and a list of
+%   types, such as a plain JSON output's ["number", "null"].
     if isfield(param, 'type')
-        t = string(param.type);
+        t = string(param.type(:))';
     else
         t = "object";
     end

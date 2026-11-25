@@ -1,0 +1,112 @@
+# Fixture for tUnknownPrimitive. A 2026-07-28 server whose lists have one
+# name twice, which a server shouldn't, so that a test can ask for a name
+# that isn't there and for one that is there twice:
+#
+#   tools      f1, f2, and dup twice
+#   resources  mcp://jdoe/data, mcp://jdoe/notes, and mcp://jdoe/dup twice
+#
+# Nothing is called or read: the client stops at the lists.
+#
+# /empty/mcp is a server with no tools and no resources.
+routes:
+  - path: /empty/mcp
+    methods:
+      - POST
+    request:
+      - jrpc: server/discover
+        response:
+          status: 200
+          headers:
+            Content-Type: application/json
+            MCP-Protocol-Version: "2026-07-28"
+          body:
+            jsonrpc: "2.0"
+            id: 1
+            result:
+              supportedVersions:
+                - "2026-07-28"
+              capabilities:
+                tools:
+                  listChanged: false
+                resources:
+                  listChanged: false
+      - jrpc: tools/list
+        response:
+          status: 200
+          headers:
+            Content-Type: application/json
+            MCP-Protocol-Version: "2026-07-28"
+          body:
+            jsonrpc: "2.0"
+            id: 2
+            result:
+              resultType: complete
+              tools: []
+      - jrpc: resources/list
+        response:
+          status: 200
+          headers:
+            Content-Type: application/json
+            MCP-Protocol-Version: "2026-07-28"
+          body:
+            jsonrpc: "2.0"
+            id: 2
+            result:
+              resultType: complete
+              resources: []
+  - path: /mcp
+    methods:
+      - POST
+    request:
+      - jrpc: server/discover
+        response:
+          status: 200
+          headers:
+            Content-Type: application/json
+            MCP-Protocol-Version: "2026-07-28"
+          body:
+            jsonrpc: "2.0"
+            id: 1
+            result:
+              supportedVersions:
+                - "2026-07-28"
+                - "2025-06-18"
+              capabilities:
+                tools:
+                  listChanged: false
+                resources:
+                  listChanged: false
+      - jrpc: tools/list
+        response:
+          status: 200
+          headers:
+            Content-Type: application/json
+            MCP-Protocol-Version: "2026-07-28"
+          body:
+            jsonrpc: "2.0"
+            id: 2
+            result:
+              resultType: complete
+              tools: [
+                {"name":"f1","description":"One.","inputSchema":{"type":"object","properties":{"x":{"type":"number","description":"x"}},"required":["x"]}},
+                {"name":"f2","description":"Two.","inputSchema":{"type":"object","properties":{"x":{"type":"number","description":"x"}},"required":["x"]}},
+                {"name":"dup","description":"First.","inputSchema":{"type":"object","properties":{"x":{"type":"number","description":"x"}},"required":["x"]}},
+                {"name":"dup","description":"Second.","inputSchema":{"type":"object","properties":{"x":{"type":"number","description":"x"}},"required":["x"]}}
+                ]
+      - jrpc: resources/list
+        response:
+          status: 200
+          headers:
+            Content-Type: application/json
+            MCP-Protocol-Version: "2026-07-28"
+          body:
+            jsonrpc: "2.0"
+            id: 2
+            result:
+              resultType: complete
+              resources: [
+                {"uri":"mcp://jdoe/data","name":"data","mimeType":"application/json"},
+                {"uri":"mcp://jdoe/notes","name":"notes","mimeType":"text/plain"},
+                {"uri":"mcp://jdoe/dup","name":"dup1","mimeType":"text/plain"},
+                {"uri":"mcp://jdoe/dup","name":"dup2","mimeType":"text/plain"}
+                ]

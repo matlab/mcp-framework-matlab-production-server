@@ -2,6 +2,7 @@ name: CI
 on:
   push:
     branches: [main]
+    paths-ignore: ['.github/ISSUE_TEMPLATE/**']
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -40,6 +41,7 @@ jobs:
           fi
           BASE="origin/${{ github.event.pull_request.base.ref }}"
           CHANGED=$(git diff --name-only "$BASE"...HEAD)
+          CHANGED=$(echo "$CHANGED" | grep -vE '^\.github/ISSUE_TEMPLATE/' || true)
           if echo "$CHANGED" | grep -qE '^[+]prodserver/|^server/|^src/|^Test/|^Examples/|^Utilities/|^\.github/'; then
             echo "code=true" >> "$GITHUB_OUTPUT"
           else
@@ -220,7 +222,7 @@ jobs:
       - name: Start MPS and run end-to-end tests
         uses: mw-actions/matlab-actions-run-command@v3
         with:
-          command: addpath(pwd); addpath('.github/workflows/scripts'); [c1,c2,mps] = startMPS(); runTests('integration', 'test-results/call.xml', ["call"], mps)
+          command: addpath(pwd); addpath('.github/workflows/scripts'); [c1,c2,mps] = startMPS(); runTests('integration', 'test-results/call.xml', ["call", "foundation"], mps)
       - name: Upload e2e test results
         if: always()
         uses: actions/upload-artifact@v3

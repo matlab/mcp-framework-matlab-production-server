@@ -22,6 +22,7 @@ Key points:
   - [Several deployments of one archive](#several-deployments-of-one-archive)
 - [Scoping by level](#scoping-by-level)
 - [Enabling metrics on MPS](#enabling-metrics-on-mps)
+- [Server log](#server-log)
 
 ---
 
@@ -30,10 +31,10 @@ Key points:
 ```MATLAB
 catalog = prodserver.mcp.metrics("http://localhost:9910/principalStress/mcp");
 m = catalog.name("MCP_principalStress_Call");
-fprintf("Tool called %d times\n", m.value)
+fprintf("Tool called %d times\n", sum([m.value]))
 ```
 
-If `m` is empty, the tool has not been called since the last server restart. If `prodserver.mcp.metrics` throws `prodserver:mcp:MetricsDisabled`, metrics are not enabled on the server — see [Enabling metrics on MPS](#enabling-metrics-on-mps).
+MPS labels the counter with the archive, so `m` has one element per archive that hosts a `principalStress` tool; the sum counts them all. If `m` is empty, the tool has not been called since the last server restart. If `prodserver.mcp.metrics` throws `prodserver:mcp:MetricsDisabled`, metrics are not enabled on the server — see [Enabling metrics on MPS](#enabling-metrics-on-mps).
 
 ---
 
@@ -49,16 +50,18 @@ The framework emits three tiers of counters, from broadest to most specific:
 
 All three are monotonically increasing counters. Values reset when MPS restarts.
 
-Three more counters break tool calls down, and one totals the time requests take:
+Five more counters break tool calls down, and one totals the time requests take:
 
 | Metric | Name pattern | Increments when |
 | :--- | :--- | :--- |
 | Tool call by revision | `MCP_<toolName>_Call_<revision>` | A `tools/call` request invokes the tool under that protocol revision. The revision's hyphens become underscores: `MCP_principalStress_Call_2025_06_18`, `MCP_principalStress_Call_2026_07_28`. |
 | Rejected tool call | `MCP_<toolName>_Rejected` | The server refuses a `tools/call` request for the tool before invoking it |
 | Rejected tool call by revision | `MCP_<toolName>_Rejected_<revision>` | The same, under that protocol revision |
+| Refused `uri2json` call | `MCP_uri2json_Refused` | On a server with an MCP App: a client that didn't declare MCP Apps support calls `uri2json`, which it isn't offered. See [Security](../concepts/security.md#mcp-apps-and-uri2json). |
+| Refused `uri2json` call by revision | `MCP_uri2json_Refused_<revision>` | The same, under that protocol revision |
 | Server elapsed time | `MCP_<archive>_ElapsedTime` | A request to `/<archive>/mcp` finishes. The counter adds the seconds the request took, including the tool's run time, so it holds the total. Divide it by `MCP_<archive>_Request` for the average. |
 
-A tool call is counted when the tool is invoked, whether or not the tool then raises an error. A call the server refuses before invoking the tool is counted as rejected instead: one with a missing, unknown or invalid argument, or with arguments it can't decode. See [Tool Arguments](../concepts/protocol-conformance.md#tool-arguments). So each request that names one of the archive's tools counts once, in either `_Call` or `_Rejected`. A request naming a tool the archive doesn't have counts in neither.
+A tool call is counted when the tool is invoked, whether or not the tool then raises an error. A call the server refuses before invoking the tool is counted as rejected instead: one with a missing, unknown or invalid argument, or with arguments it can't decode. See [Tool Arguments](../concepts/protocol-conformance.md#tool-arguments). So each request that names one of the archive's tools counts once, in `_Call` or `_Rejected`, or for `uri2json` from a client without MCP Apps support, in `_Refused`. A request naming a tool the archive doesn't have counts in none of them.
 
 Rejections show how often a model calls a tool wrongly. A tool with many is a sign that its parameter descriptions or schema need work.
 
@@ -115,23 +118,29 @@ catalog.archive("principalStress", suffix=@max)
 
 ## Scoping by Level
 
-Use `scope()` to get metrics at a specific level of the hierarchy:
+Use `scope()` to get the metrics of one kind, from every archive. The MCP kinds are the tiers of the [metric hierarchy](#metric-hierarchy). To select one archive's, add `archive` with `filter`:
 
 ```MATLAB
 catalog = prodserver.mcp.metrics("http://localhost:9910/principalStress/mcp");
 
 catalog.scope(prodserver.mcp.metrics.Scope.MCP)       % All MCP framework metrics
-catalog.scope(prodserver.mcp.metrics.Scope.Server)    % Only this archive metrics
+catalog.scope(prodserver.mcp.metrics.Scope.Server)    % Every archive's _Request and _ElapsedTime
 catalog.scope(prodserver.mcp.metrics.Scope.Instance)  % MPS instance metrics
+catalog.filter(scope=prodserver.mcp.metrics.Scope.Tool, archive="principalStress")
+                                                      % principalStress's tool counters
 ```
 
 | Scope | Returns |
 | :--- | :--- |
-| `All` | Every metric on the MPS instance |
+| `All` | Every metric on the MPS instance: `Instance`, `MCP` and `Custom` |
 | `Instance` | MPS instance metrics (prefix `matlabprodserver_`) |
-| `MCP` | MCP framework metrics (prefix `MCP_`) |
-| `Server` | Metrics matching the archive name from the endpoint URI |
-| `Tool` | The `MCP_<tool>_Call` counter of every tool on the instance |
+| `MCP` | MCP framework metrics: `Framework`, `Server` and `Tool` |
+| `Framework` | `MCP_Framework_Request`, one per archive |
+| `Server` | Each archive's `MCP_<archive>_Request` and `MCP_<archive>_ElapsedTime` |
+| `Tool` | Each tool's `_Call`, `_Rejected` and `_Refused` counters, and their per-revision counters |
+| `Custom` | The metrics deployed code reports itself |
+
+For everything one archive reports, of every kind, use `catalog.archive("principalStress")`.
 
 ---
 
@@ -144,6 +153,40 @@ Metrics must be enabled on the MATLAB Production Server instance. Uncomment this
 ```
 
 Restart MATLAB Production Server after editing the configuration. Without this flag, `prodserver.mcp.metrics` throws an error.
+
+---
+
+## Server Log
+
+Counters tell you how often something happened. For what happened, read the server log. The framework writes its own lines there, one event per line, in `main.log` in the instance's log folder:
+
+```
+[mcp:warning] prodserver:mcp:MetricWriteFailed id=7 trace=00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01 archive=principalStress_1 tool=principalStress Lost 1 from the metric MCP_principalStress_Call: ...
+```
+
+The format is `[mcp:<level>] <id> id=<JSON-RPC id> trace=<traceparent> archive=<archive>_<n> tool=<tool> <message>`:
+
+| Part | Holds |
+| :--- | :--- |
+| `<level>` | `error`, `warning`, `information` or `trace` |
+| `<id>` | The event's identifier, such as `prodserver:mcp:MetricWriteFailed` |
+| `id=` | The request's JSON-RPC `id`. An empty string is shown as `id=""` |
+| `trace=` | The request's W3C trace context: `params._meta.traceparent` if it's valid, else the `traceparent` header |
+| `archive=` | The archive's folder on the server: its name and a number MPS adds |
+| `tool=` | The tool a `tools/call` runs |
+
+A field the line has no value for is left out. A line written outside an MCP request has no `id=` or `trace=`, and only a `tools/call` for a tool the server has carries `tool=`. An invalid `traceparent` is ignored. The framework reads the trace context for its log lines only: it doesn't pass it on, and it doesn't send traces anywhere.
+
+Warning and error lines go to the worker's stderr, information and trace lines to its stdout. MPS copies both into `main.log`. The threshold is the last `--log-severity` in the instance's `config/main_config`, read once, at the archive's first request on a worker, and kept while the worker has the archive loaded. If the file can't be read, has no `--log-severity`, or its value isn't one of the four levels, the threshold is `information`, and the archive logs `prodserver:mcp:LogSeverityUnavailable` once.
+
+The events you're likely to see:
+
+| Event | Level | Means |
+| :--- | :--- | :--- |
+| `prodserver:mcp:MetricWriteFailed` | warning | The server couldn't write a count, so a counter is low. At most once a minute for each metric. |
+| `prodserver:mcp:InvalidJsonSchemaPattern` | warning | A tool's schema has a `pattern` the server can't check, so it doesn't check it. Once for each pattern. Rebuild the archive: `build` rejects such a pattern. |
+| `prodserver:mcp:RequestCancelled` | information | A client sent `notifications/cancelled`. The server doesn't stop the request. |
+| `prodserver:mcp:LogSeverityUnavailable` | warning | No usable `--log-severity`; see above |
 
 ---
 

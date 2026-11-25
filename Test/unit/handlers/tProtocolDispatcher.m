@@ -64,14 +64,14 @@ classdef tProtocolDispatcher < matlab.unittest.TestCase
             % answer is the same for every revision.
             jrpc = struct('jsonrpc', '2.0', 'id', 1, ...
                 'method', 'resources/templates/list');
-            [result, httpCode, ~, ~] = test.Dispatcher.dispatch(jrpc, version);
+            [result, httpCode, ~, ~] = test.Dispatcher.dispatch(jrpc, prodserver.mcp.protocol.RequestContext(version));
             test.verifyEqual(httpCode, 200);
             test.verifyTrue(isfield(result.result, 'resourceTemplates'));
         end
 
         function tUnknownMethodThrowsError(test, version)
             jrpc = struct('jsonrpc', '2.0', 'id', 1, 'method', 'bogus');
-            test.verifyError(@() test.Dispatcher.dispatch(jrpc, version), ...
+            test.verifyError(@() test.Dispatcher.dispatch(jrpc, prodserver.mcp.protocol.RequestContext(version)), ...
                 'prodserver:mcp:MethodNotFound');
         end
 
@@ -79,10 +79,10 @@ classdef tProtocolDispatcher < matlab.unittest.TestCase
             % An unsupported */list (prompts/list, or an unknown variant) is
             % no longer answered with a blanket 204; it is Method not found.
             jrpc = struct('jsonrpc', '2.0', 'id', 1, 'method', 'prompts/list');
-            test.verifyError(@() test.Dispatcher.dispatch(jrpc, version), ...
+            test.verifyError(@() test.Dispatcher.dispatch(jrpc, prodserver.mcp.protocol.RequestContext(version)), ...
                 'prodserver:mcp:MethodNotFound');
             jrpc.method = 'widgets/list';
-            test.verifyError(@() test.Dispatcher.dispatch(jrpc, version), ...
+            test.verifyError(@() test.Dispatcher.dispatch(jrpc, prodserver.mcp.protocol.RequestContext(version)), ...
                 'prodserver:mcp:MethodNotFound');
         end
 
@@ -91,19 +91,29 @@ classdef tProtocolDispatcher < matlab.unittest.TestCase
             % regardless of case.
             jrpc = struct('jsonrpc', '2.0', 'id', 1, ...
                 'method', 'RESOURCES/TEMPLATES/LIST');
-            [~, httpCode, ~, ~] = test.Dispatcher.dispatch(jrpc, version);
+            [~, httpCode, ~, ~] = test.Dispatcher.dispatch(jrpc, prodserver.mcp.protocol.RequestContext(version));
             test.verifyEqual(httpCode, 200);
         end
 
-        function tVersionIsRequired(test)
-            % The serving revision is not defaulted. A caller that does not
-            % know it has no business reaching the dispatcher, and a silent
-            % default is how the per-revision metric would quietly acquire an
-            % empty or wrong bucket again.
+        function tContextIsRequired(test)
+            % The request context, and with it the serving revision, is not
+            % defaulted. A caller that does not know it has no business
+            % reaching the dispatcher, and a silent default is how the
+            % per-revision metric would quietly acquire an empty or wrong
+            % bucket again.
             jrpc = struct('jsonrpc', '2.0', 'id', 1, ...
                 'method', 'resources/templates/list');
             test.verifyError(@() test.Dispatcher.dispatch(jrpc), ...
                 'MATLAB:minrhs');
+        end
+
+        function tBareVersionRejected(test)
+            % A version string is not a context: the handlers need the
+            % client's capabilities too.
+            jrpc = struct('jsonrpc', '2.0', 'id', 1, ...
+                'method', 'resources/templates/list');
+            test.verifyError(@() test.Dispatcher.dispatch(jrpc, "2025-06-18"), ...
+                'MATLAB:validators:mustBeA');
         end
 
         function tHandlerFilesReturnsFivePaths(test)

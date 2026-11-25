@@ -1,14 +1,14 @@
 # Wire Encoding for Numeric Data
 
-This example demonstrates why the MCP Framework wire encoding format is essential for MATLAB numeric computing. It hosts five engineering tools that produce **wrong answers** when plain JSON is used for data transport, along with ten MCP resources containing realistic sensor and engineering data.
+This example demonstrates why the MCP Framework wire encoding format is essential for MATLAB numeric computing. It hosts five engineering tools, four of which produce **wrong answers** when plain JSON is used for data transport, along with ten MCP resources containing realistic sensor and engineering data.
 
-An LLM connected to this server can read sensor data from resources and call the tools — but only if the wire encoding format is used to preserve vector orientation, complex numbers, NaN values, and integer types.
+An LLM connected to this server can read sensor data from resources and call the tools — but only if the wire encoding format is used to preserve vector orientation, complex numbers, and integer types. It also gives NaN values a documented form.
 
 | Tool | Function | Wire Encoding Need |
 | :--- | :--- | :--- |
 | matrixMultiply | Multiply two matrices or vectors | Both orientations are valid inputs — `(:,:)` cannot coerce to a fixed shape, and JSON `[1,2,3]` always arrives as a column |
 | analyzeACCircuit | Series RLC impedance/current across a frequency sweep | Outputs are inherently complex-valued phasors; JSON has no complex number type |
-| interpolateWithMissing | Bridge sensor dropout gaps via interpolation | Signal contains NaN marking missing samples; JSON has no NaN literal, so gaps become 0 and the interpolation fits a wrong curve |
+| interpolateWithMissing | Bridge sensor dropout gaps via interpolation | Signal contains NaN marking missing samples. Plain JSON sends them as `null`, read back as NaN, so the result is the same, but its schema gives a model no form for a gap |
 | fuseSensors | Precision-weighted optimal fusion of two sensors | Dispatches on `class()` to derive quantization noise from ADC bit depth; JSON erases integer types so both sensors get equal weight |
 | blendImages | Alpha-blend two images with type-dependent arithmetic | Dispatches on `class()` for saturation semantics (uint8) vs signed (int16) vs HDR (double); JSON collapses all to double |
 
@@ -20,7 +20,7 @@ JSON was designed for web data interchange, not scientific computing. It has fun
 | :--- | :--- | :--- |
 | Vector orientation | `[1,2,3]` has no shape — `jsondecode` always produces a column | Row vectors become columns; dimension errors or wrong products |
 | Complex numbers | No JSON type exists | Cannot represent AC phasors, FFT output, eigenvalues |
-| NaN (missing data) | Not a valid JSON literal | Sensor dropout becomes `null` or 0; interpolation fits wrong curve |
+| NaN (missing data) | Not a valid JSON literal | Sent as `null`, which reads back as NaN in an array; a plain JSON input schema allows only numbers |
 | Integer types | One `number` type (float64) | `uint8(200)` and `double(200)` are indistinguishable; type-dependent arithmetic gives wrong values |
 
 The wire encoding solves all of these by wrapping values with explicit type and shape metadata:
@@ -40,7 +40,7 @@ An LLM could theoretically use `[[1,2,3]]` (row) vs `[[1],[2],[3]]` (column). In
 3. **`jsonencode([1,2,3])` and `jsonencode([1;2;3])` both produce `[1,2,3]`** — orientation is destroyed in both directions.
 4. **No schema enforcement** — JSON Schema's `"type":"array"` cannot distinguish row from column.
 
-For complex numbers, NaN, and integer types, there is no workaround at all.
+For complex numbers and integer types, there is no workaround at all.
 
 ## Why Not Argument Coercion?
 
@@ -55,7 +55,7 @@ end
 This eliminates the wire-encoding need **only when the function always expects one specific type or shape**. It fails when:
 - Both orientations are valid inputs (`matrixMultiply`)
 - The function dispatches on type — accepting `uint8`, `uint16`, or `double` on the same parameter (`fuseSensors`, `blendImages`)
-- The data contains values unrepresentable in JSON regardless of coercion (`NaN`, complex)
+- The data contains values unrepresentable in JSON regardless of coercion (complex)
 
 ## The Five Tools
 
@@ -107,7 +107,9 @@ Interpolates a sensor signal that contains NaN values marking dropout periods.
 
 **Sample scenario:** An industrial vibration sensor monitoring a rotary compressor at 1 kHz sample rate. RF interference causes wireless packet loss, resulting in NaN bursts at 10 positions across 100 samples.
 
-**Without wire encoding:** NaN is not valid JSON. If converted to `null` and then decoded as 0, the interpolation fits through zero at dropout positions. For a vibration signal oscillating between -1 and +1, inserting zeros in the middle of a swing dramatically distorts the reconstructed waveform — the interpolation curve dips to zero instead of smoothly bridging the gap.
+**Without wire encoding:** NaN is not valid JSON, so `prodserver.mcp.call` sends each one in `signal` as `null`. The server reads `null` in an array back as NaN, and the interpolation bridges the gaps. A NaN in `reconstructed`, such as one from a query time outside the samples with `method="linear"`, comes back the same way. With the vibration data, the tool returns the same `reconstructed` and `gapMask` under `encoding="JSON"` as under the wire encoding.
+
+What plain JSON lacks is a form for a gap that a model can find. The input schema says `signal` holds numbers, `{"type":"array","items":{"type":"number"}}`, so a model that follows it has no way to mark a dropout. The argument block declares `(:,1)`, so orientation needs no wire encoding here.
 
 **With wire encoding:**
 ```json
@@ -120,7 +122,7 @@ Interpolates a sensor signal that contains NaN values marking dropout periods.
 }
 ```
 
-NaN is encoded as the string `"NaN"`, preserving its identity as missing data distinct from zero.
+NaN is encoded as the string `"NaN"`, which the encoding rules resource documents.
 
 ### 4. fuseSensors — Integer Type Dispatch (Heterogeneous)
 
@@ -217,7 +219,7 @@ These are the kinds of natural-language prompts a user would give an LLM connect
 ctf = buildWireEncodingServer();
 
 % Build and deploy to localhost:9910
-[ctf, endpoint] = buildWireEncodingServer(host="localhost");
+[ctf, endpoint] = buildWireEncodingServer(host="http://localhost:9910");
 
 % Build and deploy to a specific server and port
 [ctf, endpoint] = buildWireEncodingServer(host="http://myserver:9920");
@@ -250,7 +252,7 @@ ctf = prodserver.mcp.build(fcn, ...
     folder="./deploy", ...
     encoding="Invertible");
 
-endpoint = prodserver.mcp.deploy(ctf, "localhost", 9910);
+endpoint = prodserver.mcp.deploy(ctf, "http://localhost:9910");
 ```
 
 See `buildWireEncodingServer.m` for the complete resource definitions.
@@ -278,9 +280,8 @@ freq = logspace(2, 4.3, 20)';
 % I_total is 20x1 complex vector
 
 % 4. Interpolate vibration signal with dropouts
-% Data files are in Test/data/examples/WireEncoding/ (relative to project root)
-dataDir = fullfile(fileparts(which("buildWireEncodingServer")), "..", "..", ...
-    "Test", "data", "examples", "WireEncoding");
+% Data files are in the data folder beside buildWireEncodingServer
+dataDir = fullfile(fileparts(which("buildWireEncodingServer")), "data");
 data = readtable(fullfile(dataDir, "vibration_sensor.csv"), "CommentStyle", "#");
 [reconstructed, gapMask] = prodserver.mcp.call(endpoint, ...
     "interpolateWithMissing", data.time_s, data.acceleration_g, data.time_s)

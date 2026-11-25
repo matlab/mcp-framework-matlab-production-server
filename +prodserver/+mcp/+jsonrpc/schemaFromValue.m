@@ -16,6 +16,12 @@ function schema = schemaFromValue(value, typemap)
 %   know, so the caller must resolve every tag. A cell whose elements
 %   include tags lists their schemas in Constants.ElementsTag, so they can
 %   be checked too.
+%
+%   A complex number, or array, has the schema of a real one, and the tag
+%   Constants.ComplexTag: its class is a JSON number's, but plain JSON
+%   can't carry its imaginary part. So has one holding Inf or -Inf, with
+%   the tag Constants.InfiniteTag: plain JSON writes them as null, which
+%   reads back as NaN.
 
 % Copyright 2026 The MathWorks, Inc.
 
@@ -63,7 +69,8 @@ function tf = hasTag(s)
     C = prodserver.mcp.internal.Constants;
     tf = false;
     if isstruct(s)
-        if isfield(s, C.ClassTag) || isfield(s, C.ElementsTag)
+        if isfield(s, C.ClassTag) || isfield(s, C.ElementsTag) || ...
+                isfield(s, C.ComplexTag) || isfield(s, C.InfiniteTag)
             tf = true;
             return
         end
@@ -122,5 +129,11 @@ function schema = primitiveSchema(value, typemap)
     else
         schema.type = "array";
         schema.items.type = jsonType;
+    end
+    if isnumeric(value) && ~isreal(value)
+        schema.(prodserver.mcp.internal.Constants.ComplexTag) = true;
+    end
+    if isfloat(value) && any(isinf(value), "all")
+        schema.(prodserver.mcp.internal.Constants.InfiniteTag) = true;
     end
 end

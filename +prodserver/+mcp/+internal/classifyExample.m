@@ -15,9 +15,13 @@ function classifyExample(example)
         try
             example();
         catch me
+            % The example as written: schema's rebindExample calls each
+            % observed function through a handle named mcp__bound__<name>.
+            % And one full stop, though the message may end with its own.
             error("prodserver:mcp:ExampleFcnFailed", ...
                 "Cannot generate tool description. Example function " + ...
-                "%s failed: %s.", func2str(example), me.message);
+                "%s failed: %s.", erase(func2str(example), "mcp__bound__"), ...
+                regexprep(me.message, '\.$', ''));
         end
         return;
     end

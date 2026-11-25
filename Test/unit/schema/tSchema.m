@@ -124,6 +124,35 @@ classdef tSchema < matlab.unittest.TestCase
             end
         end
 
+        % An example calling a tool directly is rebuilt to call it through
+        % the observer. The rebuilt example must mean what the example
+        % written does: a name that isn't one of its variables mustn't take
+        % the value of a variable of schema's own.
+
+        function exampleImaginaryUnit(test)
+            test.addTeardown(@clearRecordedInput);
+            prodserver.mcp.schema("toyRecordInput", ...
+                @() toyRecordInput(2+i), encoding="Invertible");
+            test.verifyEqual(getappdata(0, "toyRecordInput"), 2+1i, ...
+                "i is the imaginary unit, not a loop index of schema's.");
+        end
+
+        function exampleUndefinedName(test)
+            test.verifyError(@() prodserver.mcp.schema("toyRecordInput", ...
+                @() toyRecordInput(k), encoding="JSON"), ...
+                "prodserver:mcp:ExampleFcnFailed", ...
+                "k is undefined, not a loop index of schema's.");
+        end
+
+        function exampleCapturedVariable(test)
+            test.addTeardown(@clearRecordedInput);
+            v = 7;
+            prodserver.mcp.schema("toyRecordInput", ...
+                @() toyRecordInput(v), encoding="JSON");
+            test.verifyEqual(getappdata(0, "toyRecordInput"), 7, ...
+                "The example's own variables keep their values.");
+        end
+
         function appdataCleanedUp(test)
             prodserver.mcp.schema("toyToolOne", ...
                 @() callWithOutputs(@toyToolOne, 3, {1.0, uint64(5)}), ...
@@ -174,11 +203,20 @@ classdef tSchema < matlab.unittest.TestCase
         end
 
         function structuredTypeInputs(test)
-            defs = prodserver.mcp.schema("schemaComplexNoBlock", ...
-                @() callWithOutputs(@schemaComplexNoBlock, 3, ...
-                    {[3,0], [4,1]}), encoding="JSON");
-            test.verifyEqual(defs.tools.inputSchema.properties.realPart.type, "array");
-            test.verifyEqual(defs.tools.inputSchema.properties.imagPart.type, "array");
+            % Real array inputs and a complex output. Plain JSON can't
+            % carry the output, so only the invertible encoding builds.
+            example = @() callWithOutputs(@schemaComplexNoBlock, 3, ...
+                {[3,0], [4,1]});
+            test.verifyError(@() prodserver.mcp.schema("schemaComplexNoBlock", ...
+                example, encoding="JSON"), ...
+                "prodserver:mcp:IncompatibleArgumentType");
+            defs = prodserver.mcp.schema("schemaComplexNoBlock", example, ...
+                encoding="Invertible");
+            w = @prodserver.mcp.test.wrapperOf;
+            [~, data] = w(defs.tools.inputSchema.properties.realPart);
+            test.verifyEqual(data.type, "array");
+            [~, data] = w(defs.tools.inputSchema.properties.imagPart);
+            test.verifyEqual(data.type, "array");
         end
 
         function structuredTypeOutputs(test)
@@ -189,7 +227,8 @@ classdef tSchema < matlab.unittest.TestCase
             out = defs.tools.outputSchema.properties;
             test.verifyTrue(all(isfield(out, {'dt', 'dow', 'serial'})));
             test.verifyEqual(out.dt.format, "date-time");
-            test.verifyEqual(out.serial.type, "number");
+            % A number output may be NaN or Inf: plain JSON writes null or text.
+            test.verifyEqual(string(out.serial.type(:))', ["number" "null" "string"]);
         end
 
         function unobservedOutputsOwnSchema(test)
@@ -286,5 +325,11 @@ function callBothTools()
 end
 
 function callWithOutputs(fcn, nout, args)
-    [varargout{1:nout}] = fcn(args{:}); 
+    [varargout{1:nout}] = fcn(args{:});
+end
+
+function clearRecordedInput()
+    if isappdata(0, "toyRecordInput")
+        rmappdata(0, "toyRecordInput");
+    end
 end

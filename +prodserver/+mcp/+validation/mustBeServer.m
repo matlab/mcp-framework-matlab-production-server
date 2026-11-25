@@ -11,6 +11,10 @@ function mustBeServer(x)
     if tf == false
         % So the error message prints nicely.
         if isempty(x), x = ""; end
+        % Without user information or query, which may hold a secret.
+        if prodserver.mcp.validation.istext(x) && isscalar(string(x))
+            x = prodserver.mcp.io.redactURI(string(x));
+        end
         throwAsCaller(MException("prodserver:mcp:InvalidServerAddress", ...
             "Invalid server address '%s'.",x));
     end

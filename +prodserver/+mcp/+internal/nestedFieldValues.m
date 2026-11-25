@@ -4,7 +4,10 @@ function [pth,val] = nestedFieldValues(s,f)
 
 % Copyright 2026 The MathWorks, Inc.
 
-    if isstruct(s.(f))
+    % Only a scalar struct is an object to walk into. A struct array is a
+    % JSON array -- the alternatives of an anyOf with the same keywords, as
+    % jsondecode stacks them -- and is set as a whole.
+    if isstruct(s.(f)) && isscalar(s.(f))
         fields = string(fieldnames(s.(f)))';
         val = {};
         pth = {};

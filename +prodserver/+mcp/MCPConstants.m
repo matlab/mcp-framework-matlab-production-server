@@ -37,6 +37,12 @@ classdef MCPConstants
         DefsField = "dollarDefs"; % Can't use $defs, so...
         DefsJSON = "$defs";
 
+        % MCP Apps: the app resource's MIME type, the definition-file flag
+        % that says an archive has one, and the tool an app reads URIs with.
+        AppResourceMimeType = "text/html;profile=mcp-app";
+        AppResourceVariable = "mcpAppResource";
+        Uri2JsonTool = "uri2json";
+
         % Schema keyword naming the MATLAB class of a JSON value that plain
         % JSON can't type on its own: "duration" for a number of seconds.
         MatlabClass_Field = "x_matlab_class";
@@ -51,7 +57,7 @@ classdef MCPConstants
         % serverInfo.version. Tracks the framework release; update it
         % with every release. tServerVersion fails if it doesn't match
         % the newest release in ReleaseNotes.md.
-        ServerVersion = "1.6.0"
+        ServerVersion = "1.7.0"
 
         % The Server header on every response the framework's handlers send
         % (XD19). char, as Production Server requires of header values.
@@ -70,6 +76,14 @@ classdef MCPConstants
         DefinitionCacheScope = "public"
         ResourceCacheTtlMs = 60000
         ResourceCacheScope = "private"
+        % Except: an app server's tools/list depends on the client, since
+        % uri2json is listed only to clients that declared MCP Apps support.
+        % The spec doesn't make capabilities part of a cache key, so a cached
+        % list could reach a client it wasn't meant for: a public one through
+        % a shared gateway, a private one within the same authorization
+        % context. Not cached at all.
+        ClientDependentCacheTtlMs = 0
+        ClientDependentCacheScope = "private"
 
         % Standard JSON-RPC 2.0 error codes (shared across all protocols)
         ErrorParseError = -32700
@@ -128,6 +142,10 @@ classdef MCPConstants
             prodserver.mcp.MCPConstants.InfText, ...
             prodserver.mcp.MCPConstants.NegInfText];
         NaTText = "NaT";
+        % Under plain JSON, an output's Inf or -Inf is InfText or
+        % NegInfText, which a number's schema allows as a string matching
+        % this pattern (see allowNonFiniteNumbers).
+        InfTextPattern = "^-?Inf$";
 
         % The JSON Schema format of ISO 8601 date-time text, and what a
         % message says when text isn't one.
@@ -146,11 +164,21 @@ classdef MCPConstants
 
         MCPMetricPrefix = "MCP_";
         MCPMetricSuffix = "_Request";
+        % Total seconds an archive's requests took: MCP_<archive>_ElapsedTime.
+        MCPElapsedTimeSuffix = "_ElapsedTime";
+        % The framework's own request counter is named as if for an archive
+        % of this name, which is why no archive may have it
+        % (mustBeArchiveName): the two counters would be one.
+        MCPFrameworkMetricName = "Framework";
         MCPRequestMetric = prodserver.mcp.MCPConstants.MCPMetricPrefix + ...
-            "Framework" + prodserver.mcp.MCPConstants.MCPMetricSuffix;
+            prodserver.mcp.MCPConstants.MCPFrameworkMetricName + ...
+            prodserver.mcp.MCPConstants.MCPMetricSuffix;
         MCPToolCallSuffix = "_Call";
         % A tools/call the server refused before invoking the tool.
         MCPToolRejectedSuffix = "_Rejected";
+        % A tools/call for a tool the client can't use: uri2json, from a
+        % client that didn't declare MCP Apps support.
+        MCPToolRefusedSuffix = "_Refused";
 
         %
         % Function argument comments for the LLM
@@ -221,5 +249,8 @@ classdef MCPConstants
         %
 
         SignatureSchemaVersion = "1.1.0";
+
+        % Longest caller text echo quotes, in characters.
+        MaxEchoChars = 128
     end
 end

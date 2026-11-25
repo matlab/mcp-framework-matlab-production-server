@@ -1,0 +1,50 @@
+# Fixture for tRedactedURIs. Any path without a route gets the mock's 404
+# with no body, as MATLAB Production Server answers for an archive it
+# doesn't have.
+#
+#   /api/health     GET: the server is up, so deploy goes on to list archives.
+#   /api/archives   GET: 403, which isn't "Archive Management Disabled", so
+#                   deploy raises MATLAB's own error, which quotes the URL.
+#   /slow/mcp       POST: every answer comes after 6 s; the tests time out
+#                   after 2 s.
+
+# Copyright 2026 The MathWorks, Inc.
+
+routes:
+  - path: /api/health
+    methods:
+      - GET
+    request:
+      - body: ""
+        response:
+          status: 200
+          headers:
+            Content-Type: application/json
+          body:
+            status: ok
+  - path: /api/archives
+    methods:
+      - GET
+    request:
+      - body: ""
+        response:
+          status: 403
+          body: "Forbidden"
+  - path: /slow/mcp
+    methods:
+      - POST
+    request:
+      - jrpc: server/discover
+        response: &slow
+          delay: 6
+          status: 200
+          headers:
+            Content-Type: application/json
+          body:
+            jsonrpc: "2.0"
+            id: 1
+            result: {}
+      - jrpc: initialize
+        response: *slow
+      - jrpc: tools/list
+        response: *slow

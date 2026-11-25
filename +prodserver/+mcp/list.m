@@ -10,7 +10,7 @@ function items = list(endpoint, type, opts)
 %    tools{1} =
 %        struct with fields:
 %                  name: 'cleanSignal'
-%           description: 'Removes periodic noise from a signal using ' ...
+%           description: 'Remove periodic noise from a signal using ' ...
 %           inputSchema: [1x1 struct]
 %          outputSchema: [1x1 struct]
 %                server: [1x1 struct]
@@ -31,9 +31,11 @@ function items = list(endpoint, type, opts)
         endpoint string { prodserver.mcp.validation.mustBeMCPServer }
         type (1,1) prodserver.mcp.Primitive
         opts.protocol string = "discover"
-        opts.timeout double {mustBePositive} = 30
-        opts.retry double {mustBePositive} = 10
-        opts.delay double {mustBePositive} = 2
+        opts.timeout double {mustBePositive} = 60
+        opts.retry double {mustBePositive} = ...
+            prodserver.mcp.internal.Constants.ArchiveRetry
+        opts.delay double {mustBePositive} = ...
+            prodserver.mcp.internal.Constants.ArchiveDelay
     end
 
     try
@@ -50,34 +52,27 @@ end
 
 function items = doList(endpoint, type, opts)
     client = prodserver.mcp.client.Adapter.create(endpoint, ...
-        protocol=opts.protocol);
+        protocol=opts.protocol, timeout=opts.timeout, ...
+        retry=opts.retry, delay=opts.delay);
     client.connect(require=type, timeout=opts.timeout, ...
         delay=opts.delay, retry=opts.retry);
     cleanup = onCleanup(@()client.disconnect());
 
-    try
-        items = client.list(type, timeout=opts.timeout, ...
-            delay=opts.delay, retry=opts.retry);
-        items = items.(mcpName(type));
+    % A missing archive is prodserver:mcp:UnknownArchive, from whichever
+    % request meets it first (sendRequest).
+    items = client.list(type, timeout=opts.timeout, ...
+        delay=opts.delay, retry=opts.retry);
+    items = items.(mcpName(type));
 
-        server.type = "http";
-        server.url = endpoint;
-        if iscell(items)
-            for n = 1:numel(items)
-                items{n}.server = server;
-            end
-        elseif ~isempty(items) && isstruct(items)
-            [items.server] = server;
-            items = num2cell(items);
+    server.type = "http";
+    server.url = endpoint;
+    if iscell(items)
+        for n = 1:numel(items)
+            items{n}.server = server;
         end
-
-    catch me
-        if strcmpi(me.identifier, "prodserver:mcp:HttpError") && ...
-                contains(me.message, "404: Not Found", IgnoreCase=true)
-            error("prodserver:mcp:UnknownServer", ...
-                "Unknown MCP server %s.", endpoint);
-        end
-        rethrow(me);
+    elseif ~isempty(items) && isstruct(items)
+        [items.server] = server;
+        items = num2cell(items);
     end
 end
 

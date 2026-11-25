@@ -54,7 +54,13 @@ function [result, httpCode, httpMsg, msgHeaders] = initialize(jrpc, serverName)
 
     r.capabilities = prodserver.mcp.protocol.capabilities();
 
-    session = matlab.lang.internal.uuid;
+    % The session ID carries the client's declared capabilities, so that
+    % whichever worker serves a later request knows them (encodeSession).
+    declared = struct();
+    if prodserver.mcp.internal.hasField(jrpc, "params.capabilities")
+        declared = jrpc.params.capabilities;
+    end
+    session = prodserver.mcp.protocol.v20250618.encodeSession(declared);
 
     r.protocolVersion = negotiated;
     % No title for a 2024-era client. Keyed on the REQUESTED version: the

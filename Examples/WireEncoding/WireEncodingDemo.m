@@ -10,7 +10,7 @@
 %[text] | blendImages | Integer type dispatch (saturation) |
 %[text:table]
 %[text] ## Build and Deploy
-[~, endpoint] = buildWireEncodingServer(host="localhost", port=9910);
+[~, endpoint] = buildWireEncodingServer(host="http://localhost:9910");
 disp("Server deployed at: " + endpoint)
 %[text] ## Matrix Multiply: Orientation Matters
 %[text] Without wire encoding, `[1,2,3]` and `[4,5,6]` both arrive as 3x1 column vectors via `jsondecode`. The multiplication (3x1)\*(3x1) is a **dimension error**. With wire encoding, orientation is preserved. \#\#\# Dot product (1x3 \* 3x1 -\> scalar)
@@ -44,9 +44,8 @@ title("Impedance Phase")
 grid on
 
 %[text] ## Interpolate With Missing: NaN Preservation
-%[text] NaN marks sensor dropout. JSON has no NaN literal, so without wire encoding the gaps become 0 and the interpolation fits a wrong curve.
-dataDir = fullfile(fileparts(which("buildWireEncodingServer")), "..", "..", ...
-    "Test", "data", "examples", "WireEncoding");
+%[text] NaN marks sensor dropout. JSON has no NaN literal, but plain JSON sends a NaN in an array as `null`, which the tool reads back as NaN, so this call gives the same result under either encoding. The wire encoding adds a documented form for a gap, `"NaN"`: the plain JSON schema for `signal` allows only numbers, so a model that follows it can't mark one.
+dataDir = fullfile(fileparts(which("buildWireEncodingServer")), "data");
 
 data = readtable(fullfile(dataDir, "vibration_sensor.csv"), "CommentStyle", "#");
 t = data.time_s;
@@ -117,6 +116,8 @@ result_grad = prodserver.mcp.call(endpoint, "blendImages", A_grad, B_grad, 0.7);
 disp("Gradient input type: " + class(A_grad))
 disp("Gradient output type: " + class(result_grad) + " (preserved!)")
 disp("Value range: [" + min(result_grad(:)) + ", " + max(result_grad(:)) + "]")
+
+%[text] Copyright 2026 The MathWorks, Inc.
 
 %[appendix]{"version":"1.0"}
 %---

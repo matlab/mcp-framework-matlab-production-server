@@ -22,7 +22,7 @@ prodserver.mcp.agent.setup
 
 Then in Claude Code:
 
-1. Run `/plugins` and install the **mcp-framework** plugin
+1. Run `/plugin` and install the **mcp-framework** plugin
 2. Run `/reload-plugins`
 3. Verify with `/skills` — `/mps-mcp-build` should appear
 
@@ -36,9 +36,13 @@ Optionally, include more options:
 
 > Build cleanSignal.m and filterSignal.m as a multi-tool server on localhost:9910. Include the data file calibration.mat.
 
-The agent reads your function, builds the archive, deploys it to MPS, verifies the deployment, and registers the MCP server so the tool is available in your next session.
+The agent builds the archive, deploys it to MPS, verifies the deployment, and registers the MCP server so the tool is available in your next session. It doesn't read your function. If the function has no arguments block, `build` reports it, and the agent asks you for a sample call such as `myFunc(3)`.
 
-You can also ask for resources:
+To add an [MCP App](./mcp-apps.md) view, name an HTML file you've already built. The agent doesn't build the view:
+
+> Build cleanSignal.m on localhost:9910 with the view app/dist/mcp-app.html.
+
+To add resources:
 
 > Build materialProps.m on localhost:9910 and add a resource at materials://steel with the contents from steel_properties.json.
 

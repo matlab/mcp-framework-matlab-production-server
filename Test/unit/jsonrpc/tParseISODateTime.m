@@ -6,6 +6,25 @@ classdef tParseISODateTime < matlab.unittest.TestCase
 
     methods (Test)
 
+        function infiniteDatetimeIsRefused(test)
+        % ISO 8601 has no form for it: string() wrote 0InfInf, which plain
+        % JSON's own date-time schema rejects, and which the invertible
+        % encoding silently read back as text.
+            id = "prodserver:mcp:IncompatibleArgumentType";
+            for d = [datetime(Inf, ConvertFrom="datenum"), ...
+                    datetime(-Inf, ConvertFrom="datenum")]
+                test.verifyError(@() prodserver.mcp.jsonrpc.isoDateTimeText(d), id);
+                test.verifyError(@() prodserver.mcp.jsonrpc.mcpEncode("JSON", d), id);
+                test.verifyError(@() prodserver.mcp.jsonrpc.mcpEncode("Invertible", d), id);
+                test.verifyError(@() prodserver.mcp.jsonrpc.plainJSONValue(d), id);
+            end
+            % In an array, too; NaT is still sent.
+            a = [datetime(2026,1,2), datetime(Inf, ConvertFrom="datenum")];
+            test.verifyError(@() prodserver.mcp.jsonrpc.isoDateTimeText(a), id);
+            test.verifyEqual(prodserver.mcp.jsonrpc.isoDateTimeText(NaT), ...
+                string(missing));
+        end
+
         function acceptedForms(test)
             P = @prodserver.mcp.jsonrpc.parseISODateTime;
             cases = {

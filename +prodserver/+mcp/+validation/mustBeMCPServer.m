@@ -13,7 +13,7 @@ function mustBeMCPServer(x)
         % So the error message prints nicely.
         if isempty(x), x = ""; end
         throwAsCaller(MException("prodserver:mcp:InvalidServerAddress", ...
-            "Invalid MCP server address '%s'.",x));
+            "Invalid MCP server address '%s'.",prodserver.mcp.io.redactURI(string(x))));
     end
    
 end

@@ -8,21 +8,21 @@ function [status,msg] = plotTrajectoriesMCP(quakeURL,sampleRate, ...
 
     arguments (Input)
         % file: URL containing a table of uncorrected 3-axis seismometer accelerations
-        quakeURL string
+        quakeURL (1,1) string
         % Seismometer sample rate in Hertz
-        sampleRate double
+        sampleRate (1,1) double
         % Instrument correction: apply to quakeData
-        correction double
+        correction (1,1) double
         % Start offset, in seconds, for trajectory data
-        start double
-         % Stop offset, in seconds, for trajectory data
-        stop double
+        start (1,1) double
+        % Stop offset, in seconds, for trajectory data
+        stop (1,1) double
         % file: URL to save the plot into.
-        plotURL string
+        plotURL (1,1) string
     end
     arguments (Output)
-        status logical   % True on success, false on error or failure.
-        msg string       % Non-empty error message if status is false.
+        status (1,1) logical   % True on success, false on error or failure.
+        msg (1,1) string       % Non-empty error message if status is false.
     end
 
     status = true;

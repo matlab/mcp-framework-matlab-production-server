@@ -33,9 +33,11 @@ function [w, data] = wrapperOf(schema)
 end
 
 function s = withoutSpecialFloats(s)
+% The constraints of the data's elements may admit only some of them.
     alts = prodserver.mcp.jsonrpc.schemaAlternatives(s);
     if numel(alts) == 2 && isfield(alts{2}, 'enum') && ...
-            isequal(string(alts{2}.enum(:))', prodserver.mcp.MCPConstants.SpecialFloatText)
+            ~isempty(alts{2}.enum) && all(ismember(string(alts{2}.enum(:)), ...
+            prodserver.mcp.MCPConstants.SpecialFloatText))
         s = alts{1};
     end
 end

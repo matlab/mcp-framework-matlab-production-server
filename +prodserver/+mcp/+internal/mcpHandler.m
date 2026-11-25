@@ -23,6 +23,14 @@ function response = mcpHandler(request)
     msgHeaders = {};
     protoHeaders = {};
 
+    % A new request context for the log, first, so no line carries the
+    % previous request's fields; and an empty one when the request ends,
+    % however it ends, so no line written outside a request does, and the
+    % log lets go of this request's trace. Logging never raises.
+    log = prodserver.mcp.logging.Log.instance();
+    log.beginRequest();
+    ended = onCleanup(@() log.beginRequest());
+
     % Transport gates, ahead of the path, the server name and the metrics
     % (XD3): none of them needs anything the request carries beyond its
     % method and headers. GET used to sit after the server-name check, so
@@ -59,16 +67,17 @@ function response = mcpHandler(request)
 
         % Record elapsed time -- this time measures overhead and tool
         % call time.
-        serverTimeMetric = MCPConstants.MCPMetricPrefix + serverName + "_ElapsedTime";
+        serverTimeMetric = MCPConstants.MCPMetricPrefix + serverName + MCPConstants.MCPElapsedTimeSuffix;
         et = tic();
-        elapsed = onCleanup(@()prodserver.metrics.incrementCounter(serverTimeMetric,toc(et)));
+        elapsed = onCleanup(@()prodserver.mcp.internal.tryIncrementCounter(serverTimeMetric,toc(et)));
 
-        % Count the number of times mcpHandler is called.
-        prodserver.metrics.incrementCounter(MCPConstants.MCPRequestMetric,1);
+        % Count the number of times mcpHandler is called. A count that
+        % can't be written is lost, not the request.
+        prodserver.mcp.internal.tryIncrementCounter(MCPConstants.MCPRequestMetric,1);
 
         % Record number of calls
         serverMetric = MCPConstants.MCPMetricPrefix + serverName + MCPConstants.MCPMetricSuffix;
-        prodserver.metrics.incrementCounter(serverMetric,1)
+        prodserver.mcp.internal.tryIncrementCounter(serverMetric,1)
 
         registry = prodserver.mcp.protocol.ProtocolRegistry.instance();
 
@@ -79,6 +88,7 @@ function response = mcpHandler(request)
                 % and an unsupported media type into 415, instead of letting
                 % a raw MATLAB error fall through as -32603/500.
                 jrpc = prodserver.mcp.internal.decodeBody(request, strict=true);
+                prodserver.mcp.internal.startLogContext(log, request, jrpc);
 
                 % Stage B -- notification carve-out. A notification receives
                 % no response at all (MUST NOT in both specs), so it is
@@ -132,6 +142,7 @@ function response = mcpHandler(request)
                 else
                     jrpc = prodserver.mcp.internal.decodeBody(request);
                 end
+                prodserver.mcp.internal.startLogContext(log, request, jrpc);
                 try
                     attributed = registry.attribute(request, jrpc);
                     adapter = registry.resolve(attributed, request, jrpc);

@@ -46,6 +46,12 @@ function mf = metafunction(fcn)
         % Remove H1 line from detailed description
         dd = erase(dd,mf.Description);
 
+        % R2026a starts the detailed description with one newline when
+        % blank lines follow the H1 line, however many, and with none
+        % when they don't. What's left of the H1 line ends at the first
+        % newline; a blank line is one of only spaces and tabs.
+        blankAfterH1 = ~isempty(regexp(dd, '^[^\n]*\n[ \t]*\n', 'once'));
+
         % Blank lines must consist of at most a newline.
         dd = erase(dd,lineBoundary("start")+optionalPattern(whitespacePattern) +...
             lookAheadBoundary(lineBoundary("end")));
@@ -55,6 +61,9 @@ function mf = metafunction(fcn)
         dd = erase(dd,lineBoundary("start")+"  ");
 
         mf.DetailedDescription = char(strtrim(dd));
+        if blankAfterH1 && ~isempty(mf.DetailedDescription)
+            mf.DetailedDescription = [newline mf.DetailedDescription];
+        end
 
         % 
         % Convert R2025b parameter list descriptions into "normal" form --

@@ -68,6 +68,13 @@ class Bridge:
     # without it the server can't tell which protocol revision the request
     # uses and rejects it. 2026-07-28 requests are self-describing (_meta plus
     # per-message headers), so they carry no session.
+    #
+    # The server answers a session ID it no longer recognizes -- after it is
+    # upgraded, for example -- with 404, and the HTTP client MUST then start
+    # a new session. Here the bridge is that client: the STDIO client knows
+    # nothing of HTTP sessions and would never send initialize again. So the
+    # bridge keeps the client's initialize and notifications/initialized,
+    # replays them on a 404, and retries the request once.
 
     def __init__(self, url, timeout, logger):
         self.url = url
@@ -75,6 +82,8 @@ class Bridge:
         self.logger = logger
         self.session_id = None
         self.protocol_version = None
+        self.initialize_payload = None
+        self.initialized_payload = None
 
     def headers_for(self, msg):
         headers = {'Content-Type': 'application/json',
@@ -127,15 +136,21 @@ class Bridge:
         is_notification = isinstance(msg, dict) and 'id' not in msg
         msg_id = msg.get('id') if isinstance(msg, dict) else None
 
-        if isinstance(msg, dict) and msg.get('method') == 'initialize':
-            # A new connection; forget the old one.
+        method = msg.get('method') if isinstance(msg, dict) else None
+        if method == 'initialize':
+            # A new connection; forget the old one, and keep this initialize
+            # in case the session has to be started again.
             self.session_id = None
             self.protocol_version = None
+            self.initialize_payload = payload
+            self.initialized_payload = None
+        elif method == 'notifications/initialized':
+            self.initialized_payload = payload
 
         try:
-            resp = requests.post(self.url, data=payload.encode('utf-8'),
-                                 headers=self.headers_for(msg),
-                                 timeout=self.timeout)
+            resp, sent_session = self.post(payload, msg)
+            if resp.status_code == 404 and sent_session and self.restart_session():
+                resp, _ = self.post(payload, msg)
         except requests.RequestException as e:
             self.logger.error(f"Error proxying MCP request: {e}")
             if is_notification:
@@ -161,6 +176,44 @@ class Bridge:
             self.logger.error(f"HTTP {resp.status_code} {resp.reason} with no body")
             return error_response(msg_id, f"HTTP {resp.status_code} {resp.reason}")
         return None
+
+    def post(self, payload, msg):
+        # POST one message. Returns the response, and whether the request
+        # carried a session ID.
+        headers = self.headers_for(msg)
+        resp = requests.post(self.url, data=payload.encode('utf-8'),
+                             headers=headers, timeout=self.timeout)
+        return resp, SESSION_ID in headers
+
+    def restart_session(self):
+        # The server doesn't recognize the session: start a new one by
+        # replaying the client's initialize, without a session ID, and its
+        # notifications/initialized. Returns True if the server issued a new
+        # session. The client already has an initialize response, so the new
+        # one isn't passed on: the archive, and so its capabilities, are the
+        # same.
+        if self.initialize_payload is None:
+            return False
+        self.logger.info("Session not found (404): starting a new session")
+        self.session_id = None
+        self.protocol_version = None
+        init = json.loads(self.initialize_payload)
+        try:
+            resp, _ = self.post(self.initialize_payload, init)
+        except requests.RequestException as e:
+            self.logger.error(f"Could not start a new session: {e}")
+            return False
+        if resp.status_code != 200 or not resp.headers.get(SESSION_ID):
+            self.logger.error(f"Could not start a new session: HTTP {resp.status_code}")
+            return False
+        self.remember(init, resp, resp.content.decode('utf-8'))
+        if self.initialized_payload is not None:
+            try:
+                self.post(self.initialized_payload,
+                          json.loads(self.initialized_payload))
+            except requests.RequestException as e:
+                self.logger.error(f"Could not resend notifications/initialized: {e}")
+        return True
 
     def close(self):
         # End the 2025-06-18 session, if there is one. Best effort: the client

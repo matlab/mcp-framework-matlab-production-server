@@ -1,5 +1,10 @@
-classdef Catalog
-% Catalog Collection of MATLAB Production Server metrics. 
+classdef Catalog < matlab.mixin.CustomDisplay
+% Catalog Collection of MATLAB Production Server metrics: a snapshot of
+% all those the server reported when prodserver.mcp.metrics was called.
+%
+%   Query it with name, archive, type, filter or scope. Displayed, it
+%   summarises what it holds: its properties are protected, so MATLAB's
+%   own display showed "Catalog with no properties", which looked empty.
 
 % Copyright 2026 The MathWorks, Inc.
 
@@ -8,6 +13,9 @@ classdef Catalog
         metrics struct
         % Name of the server from which these metrics derive
         server
+        % Address of that server, <scheme>://<host>:<port>, for display.
+        % Without any user information, which may hold a password.
+        address string = ""
     end
 
     methods
@@ -20,10 +28,14 @@ classdef Catalog
                     "has %d which is not an even number.", numel(data));
             end
 
-            % A plain server address names no archive. Every scope but
-            % Scope.Server still works, so leave the name empty rather than
-            % fail here.
+            % A plain server address names no archive, which only the
+            % display uses, so leave the name empty rather than fail here.
             mc.server = prodserver.mcp.internal.archiveFromEndpoint(uri);
+            % redactURI, as every message that shows an address does: its
+            % user information ends at the last @, not the first.
+            mc.address = prodserver.mcp.io.redactURI(string(regexp( ...
+                char(string(uri)), "^[A-Za-z][A-Za-z0-9+.-]*://[^/?#]+", ...
+                "match", "once")));
 
             % Parse data into a structure. Each metric consists of two lines:
             % 
@@ -68,19 +80,27 @@ classdef Catalog
                 idx = (n+1)/2;
                 nvp = split(data(n+1));
                 mc.metrics(idx).name = nvp(1);
-                archiveLabel = extract(mc.metrics(idx).name, archivePattern);
-                mc.metrics(idx).name = erase(mc.metrics(idx).name, archiveLabel);
-                if ~isempty(archiveLabel)
-                    archiveLabel = extractBetween(...
-                        archiveLabel, 2, strlength(archiveLabel)-1);
-                    archiveLabel = extractBetween(...
-                        archiveLabel, "archive=""", """");
-                    mc.metrics(idx).suffix = erase(extract(archiveLabel, ...
-                        suffixPattern),"_");
-                    mc.metrics(idx).archive = erase(archiveLabel,suffixPattern);
-                else
-                    mc.metrics(idx).archive = "";
+                labels = extract(mc.metrics(idx).name, archivePattern);
+                mc.metrics(idx).name = erase(mc.metrics(idx).name, labels);
+                % Every metric has one archive, "" if it has no archive
+                % label, and a suffix, [] if that has none: scope, filter
+                % and the display line the fields of all the metrics up.
+                % The label is archive="...", whole, among any others, not
+                % the end of another label's name, such as myarchive.
+                archiveLabel = "";
+                if ~isempty(labels)
+                    found = regexp(labels(1), ...
+                        '(^\{|,)\s*archive="([^"]*)"', "tokens", "once");
+                    if ~isempty(found)
+                        archiveLabel = found(2);
+                    end
+                end
+                mc.metrics(idx).archive = erase(archiveLabel, suffixPattern);
+                suffix = erase(extract(archiveLabel, suffixPattern), "_");
+                if isempty(suffix)
                     mc.metrics(idx).suffix = [];
+                else
+                    mc.metrics(idx).suffix = suffix(1);
                 end
                 mc.metrics(idx).value = nvp(2);
                 mc.metrics(idx).type = split(data(n));
@@ -99,6 +119,9 @@ classdef Catalog
 
             arguments
                 mc prodserver.mcp.metrics.Catalog
+                % Metric must be of this kind. match doesn't apply to it.
+                opts.scope prodserver.mcp.metrics.Scope = "All"
+
                 % Metric archive must match this pattern
                 opts.archive pattern = pattern.empty
 
@@ -122,7 +145,12 @@ classdef Catalog
 
             metrics = mc.metrics;
 
-            % All metrics matching name
+            % All metrics of the kind
+            if opts.scope ~= prodserver.mcp.metrics.Scope.All && ~isempty(metrics)
+                metrics = metrics(isKind(metrics, opts.scope));
+            end
+
+            % Of those, all matching name
             if ~isempty(opts.name) && ~isempty(metrics)
                 n = [metrics.name];
                 switch opts.match
@@ -272,48 +300,125 @@ classdef Catalog
         end
 
         function metrics = scope(mc, s)
-        % Filter metrics by scope
+        %scope All metrics of a given kind.
+        %
+        %  metrics = scope(catalog, s) returns a structure array with fields
+        %     "name", "type", "archive", "value" containing all the metrics
+        %     of kind s, from every archive. To select one archive's, use
+        %     filter(catalog, scope=s, archive=a).
 
             arguments
                 mc prodserver.mcp.metrics.Catalog
                 s prodserver.mcp.metrics.Scope
             end
 
-            names = [mc.metrics.name];
-            switch s
-                case prodserver.mcp.metrics.Scope.All
-                    metrics = mc.metrics;
+            metrics = filter(mc,scope=s);
+        end
+    end
 
-                case prodserver.mcp.metrics.Scope.Instance
-                    i = startsWith(names, "matlabprodserver_");
-                    metrics = mc.metrics(i);
+    methods (Access = protected)
 
-                case prodserver.mcp.metrics.Scope.MCP
-                    i = startsWith(names, ...
-                        prodserver.mcp.MCPConstants.MCPMetricPrefix);
-                    metrics = mc.metrics(i);
+        function displayScalarObject(mc)
+        % A summary, not the default display, which shows only public
+        % properties and so said "Catalog with no properties".
+            fprintf("%s\n", summary(mc, ...
+                matlab.mixin.CustomDisplay.getClassNameForHeader(mc)));
+        end
 
-                case prodserver.mcp.metrics.Scope.Tool
-                    toolPattern = prodserver.mcp.MCPConstants.MCPMetricPrefix + ...
-                        wildcardPattern + prodserver.mcp.MCPConstants.MCPToolCallSuffix;
-                    metrics = name(mc,toolPattern);
+        function txt = summary(mc, className)
+        %summary What the catalog holds, as displayScalarObject shows it.
+        %   CLASSNAME is the class name for the first line, as a link in the
+        %   Command Window.
+            from = "MATLAB Production Server";
+            if strlength(mc.address) > 0
+                from = from + " " + mc.address;
+            end
+            if strlength(mc.server) > 0
+                from = from + ", for archive " + mc.server;
+            end
+            hint = "  Query it with name, archive, type, filter or scope, " + ...
+                "for example catalog.name(""MCP_Framework_Request"")." + ...
+                newline + "  A snapshot: call prodserver.mcp.metrics " + ...
+                "again to update it.";
 
-                case prodserver.mcp.metrics.Scope.Server
-                    % Without an archive name the pattern would be "__",
-                    % which matches the wrong metrics or none.
-                    if strlength(mc.server) == 0
-                        error("prodserver:mcp:NoServerScope", ...
-                            "Scope.Server requires a catalog created " + ...
-                            "from an MCP endpoint (.../<archive>/mcp).");
-                    end
-                    metrics = name(mc, "_" + mc.server + "_", ...
-                        match="Contains");
-
-                otherwise
-                    error("prodserver:mcp:UnhandledMetricsScope", ...
-                        "MetricsScope '%s' unknown.", s);
+            n = numel(mc.metrics);
+            if n == 0
+                txt = "  " + className + " with no metrics from " + from + ...
+                    ". A server that has just started may have none yet.";
+                return
             end
 
+            instance = scope(mc, prodserver.mcp.metrics.Scope.Instance);
+            mcp = scope(mc, prodserver.mcp.metrics.Scope.MCP);
+            counts = sprintf("    %d instance (matlabprodserver_*)    " + ...
+                "%d MCP framework (%s*)", numel(instance), numel(mcp), ...
+                prodserver.mcp.MCPConstants.MCPMetricPrefix);
+            txt = "  " + className + " of " + n + " metrics from " + from + ...
+                ":" + newline + newline + counts + newline + ...
+                "    " + toolSummary(mc) + newline + newline + hint;
         end
+
+        function txt = toolSummary(mc)
+        %toolSummary The tools called, with how often: MCP_<tool>_Call
+        %   summed over the archives that report it. The first few, by name.
+            C = prodserver.mcp.MCPConstants;
+            calls = scope(mc, prodserver.mcp.metrics.Scope.Tool);
+            % Only the calls: not the rejections, refusals or per-revision
+            % counts, which the Tool kind includes too.
+            if ~isempty(calls)
+                calls = calls(endsWith([calls.name], C.MCPToolCallSuffix));
+            end
+            if isempty(calls)
+                txt = "No tools called yet.";
+                return
+            end
+            tools = extractBetween([calls.name], strlength(C.MCPMetricPrefix) + 1, ...
+                strlength([calls.name]) - strlength(C.MCPToolCallSuffix));
+            [tools, ~, which] = unique(tools(:));
+            total = accumarray(which, [calls.value]');
+            shown = min(numel(tools), 4);
+            list = strjoin(tools(1:shown) + " " + string(total(1:shown)), ", ");
+            if numel(tools) > shown
+                list = list + ", ...";
+            end
+            txt = numel(tools) + " tool(s) called: " + list;
+        end
+
+    end
+end
+
+function tf = isKind(metrics, s)
+%isKind True for each of METRICS that is of kind S, read from its name.
+%   Server needs the archive too: MCP_foo_bar_Request is foo_bar's, not
+%   foo's, whatever a name pattern would say.
+    C = prodserver.mcp.MCPConstants;
+    names = [metrics.name];
+    instance = startsWith(names, "matlabprodserver_");
+    framework = names == C.MCPRequestMetric;
+    own = C.MCPMetricPrefix + [metrics.archive];
+    server = ~framework & strlength([metrics.archive]) > 0 & ...
+        (names == own + C.MCPMetricSuffix | ...
+         names == own + C.MCPElapsedTimeSuffix);
+    revision = "_" + digitsPattern(4) + "_" + digitsPattern(2) + ...
+        "_" + digitsPattern(2);
+    tool = matches(names, C.MCPMetricPrefix + wildcardPattern(1, Inf) + ...
+        (C.MCPToolCallSuffix | C.MCPToolRejectedSuffix | ...
+        C.MCPToolRefusedSuffix) + optionalPattern(revision));
+    mcp = framework | server | tool;
+    switch s
+        case prodserver.mcp.metrics.Scope.All
+            tf = true(size(names));
+        case prodserver.mcp.metrics.Scope.Instance
+            tf = instance;
+        case prodserver.mcp.metrics.Scope.MCP
+            tf = mcp;
+        case prodserver.mcp.metrics.Scope.Framework
+            tf = framework;
+        case prodserver.mcp.metrics.Scope.Server
+            tf = server;
+        case prodserver.mcp.metrics.Scope.Tool
+            tf = tool;
+        case prodserver.mcp.metrics.Scope.Custom
+            tf = ~instance & ~mcp;
     end
 end

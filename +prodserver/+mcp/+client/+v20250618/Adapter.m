@@ -25,8 +25,10 @@ classdef Adapter < prodserver.mcp.client.Adapter
                 obj
                 opts.require prodserver.mcp.Primitive = "None"
                 opts.timeout double {mustBePositive} = 60
-                opts.retry double {mustBePositive} = 30
-                opts.delay double {mustBePositive} = 2
+                opts.retry double {mustBePositive} = ...
+                    prodserver.mcp.internal.Constants.ArchiveRetry
+                opts.delay double {mustBePositive} = ...
+                    prodserver.mcp.internal.Constants.ArchiveDelay
             end
             [obj.SessionId, obj.RequestId] = ...
                 prodserver.mcp.internal.initialize(obj.Endpoint, ...
@@ -42,7 +44,8 @@ classdef Adapter < prodserver.mcp.client.Adapter
 					obj.SessionId = "";
 			    catch ex
 				    warning("prodserver:mcp:TerminateFailed", "Failed to terminate " + ...
-                        "session '%s': %s", obj.SessionId, ex.message);    
+                        "session '%s': %s", obj.SessionId, ...
+                        prodserver.mcp.internal.redactedError(ex).message);    
 				end
             end
         end

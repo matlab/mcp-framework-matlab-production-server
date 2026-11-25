@@ -7,7 +7,7 @@ When a MATLAB function accepts or returns large arrays, passing them as JSON thr
 Consider a function that filters a noisy signal:
 
 ```MATLAB
-function clean = cleanSignal(noisy, period)
+function clean = cleanSignal(noisy, frequency)
 ```
 
 The `noisy` input might be 10,000 floating-point samples. Encoding that as JSON text consumes roughly 100,000 tokens. The LLM does not need to see the data — it only needs to tell the tool where the data lives.
@@ -17,13 +17,13 @@ The `noisy` input might be 10,000 floating-point samples. Encoding that as JSON 
 A wrapper function replaces large parameters with URL parameters. It becomes the tool entry point — the LLM calls the wrapper, not your original function:
 
 ```
-Original:    clean = cleanSignal(noisy, period)
-Wrapper:     cleanSignalMCP(noisyURL, period, cleanURL=cleanURL)
+Original:    clean = cleanSignal(noisy, frequency)
+Wrapper:     cleanSignalMCP(noisyURL, frequency, cleanURL=cleanURL)
 ```
 
 The wrapper:
 1. Reads `noisy` from the file at `noisyURL`
-2. Calls your original function: `clean = cleanSignal(noisy, period)`
+2. Calls your original function: `clean = cleanSignal(noisy, frequency)`
 3. Writes `clean` to the file at `cleanURL` (if provided)
 
 Your original function is unchanged. The wrapper handles all data marshaling.
@@ -62,17 +62,17 @@ ctf = prodserver.mcp.build("cleanSignal", server="http://localhost:9910");
 ### Generated Wrapper Structure
 
 ```MATLAB
-function cleanSignalMCP(noisyURL, period, out)
+function cleanSignalMCP(noisyURL, frequency, out)
     arguments (Input)
         noisyURL (1,1) string  % file: URL pointing to input signal
-        period (1,1) double    % Period (frequency) of the noise
+        frequency (1,1) double % Noise frequency to remove, in Hz
         out.cleanURL (1,1) string = ""  % file: URL where clean signal is saved
     end
 
     marshaller = prodserver.mcp.io.MarshallURI();
     noisy = deserialize(marshaller, noisyURL);
     noisy = noisy{1};
-    clean = cleanSignal(noisy, period);
+    clean = cleanSignal(noisy, frequency);
     if strlength(out.cleanURL) > 0
         serialize(marshaller, out.cleanURL, {clean});
     end
@@ -87,12 +87,12 @@ Write your own wrapper when the data source requires logic beyond simple deseria
 function plotTrajectoriesMCP(quakeURL, sampleRate, correction, start, stop, plotURL)
 % Generate trajectory plots from 3-axis seismometer data.
     arguments (Input)
-        quakeURL string   % file: URL containing a table of accelerations
-        sampleRate double % Seismometer sample rate in Hertz
-        correction double % Instrument correction factor
-        start double      % Start offset in seconds
-        stop double       % Stop offset in seconds
-        plotURL string    % file: URL to save the plot
+        quakeURL (1,1) string   % file: URL containing a table of accelerations
+        sampleRate (1,1) double % Seismometer sample rate in Hertz
+        correction (1,1) double % Instrument correction factor
+        start (1,1) double      % Start offset in seconds
+        stop (1,1) double       % Stop offset in seconds
+        plotURL (1,1) string    % file: URL to save the plot
     end
 
     quakeFile = prodserver.mcp.io.uri.File.FileURI2Path(quakeURL);
@@ -150,7 +150,7 @@ Use four slashes for UNC paths on Windows. The single-slash form, such as `file:
 
 MATLAB Production Server reads and writes these files itself, so a `file:` URL names a path on the server's machine, not the client's. A URL built from a folder on the client, as the example walkthroughs do, works only when the server runs on the same machine, or can reach that folder at the same path, for example on a shared drive. For a remote server, use a folder the server can read and write, such as a share both machines mount at the same path.
 
-A URL whose path contains a `..` segment, or an encoded separator (`%2F`, or `%5C` on Windows), is refused with `prodserver:mcp:BadFilePath`. No file name needs either, and a client could use them to reach a file outside the folder the URL names. `Path2FileURI` resolves `.` and `..` in a local path before it builds the URL, so give it relative paths freely.
+A URL that names a host, other than `localhost`, is refused with `prodserver:mcp:BadFilePath`, and so is one with user information or a port. `file://server/x` names a file on another machine, which the server can't read that way; write a share's UNC path, `file:////server/share/x`, instead. A URL whose path contains a `..` segment, or an encoded separator (`%2F`, or `%5C` on Windows), is refused the same way. No file name needs either, and a client could use them to reach a file outside the folder the URL names. `Path2FileURI` resolves `.` and `..` in a local path before it builds the URL, so give it relative paths freely.
 
 ## When Wrappers Are Not Needed
 
@@ -183,7 +183,7 @@ An externalized output becomes an optional input marked `writeOnly`: the LLM sup
 ```json
 "$defs": {
   "inputSchema":  { "noisyURL": { "type": "array", "items": { "type": "number" }, "description": "Noisy signal" } },
-  "outputSchema": { "cleanURL": { "type": "array", "items": { "type": "number" }, "description": "Filtered signal" } }
+  "outputSchema": { "cleanURL": { "type": "array", "items": { "type": ["number", "null", "string"], "pattern": "^-?Inf$" }, "description": "Filtered signal" } }
 }
 ```
 

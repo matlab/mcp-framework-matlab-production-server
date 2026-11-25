@@ -120,6 +120,223 @@ classdef tSchemaWireTypes < matlab.unittest.TestCase
             end
         end
 
+        function observedComplexRejectedUnderJSON(test)
+            % A complex value's class is a JSON number's, but plain JSON
+            % has no form for its imaginary part.
+            values = {1+2i, [1+2i 3-4i], single(1i), int8(complex(1,2))};
+            labels = ["complex double", "complex array", "complex single", ...
+                "complex int8"];
+            for k = 1:numel(values)
+                test.verifyError(@() observe(values{k}, "JSON"), ...
+                    "prodserver:mcp:IncompatibleArgumentType", labels(k));
+            end
+        end
+
+        function observedNestedComplexNamesPath(test)
+            try
+                observe(struct('a', 1, 'z', 2i), "JSON");
+                test.verifyFail("Expected IncompatibleArgumentType.");
+            catch me
+                test.verifyEqual(me.identifier, ...
+                    'prodserver:mcp:IncompatibleArgumentType');
+                test.verifySubstring(me.message, "'x.z'");
+            end
+            test.verifyError(@() observe({1, 2i}, "JSON"), ...
+                "prodserver:mcp:IncompatibleArgumentType", "in a cell");
+        end
+
+        function observedComplexUnderInvertible(test)
+            % The schema of a real value, and nothing of the observer's
+            % own left in it.
+            complexSchema = observe(1+2i, "Invertible");
+            test.verifyEqual(complexSchema, observe(3, "Invertible"));
+            test.verifyFalse(contains(jsonencode(observe(struct('z', 2i), ...
+                "Invertible")), prodserver.mcp.internal.Constants.ComplexTag), ...
+                "in a struct field");
+
+            % Complex and real examples: one schema, as for real alone.
+            defs = prodserver.mcp.schema("schemaWireAny", ...
+                {@() schemaWireAny(1+2i), @() schemaWireAny(3)}, ...
+                encoding="Invertible");
+            test.verifyEqual(defs.tools.inputSchema.properties.x, ...
+                observe(3, "Invertible"));
+        end
+
+        function observedInfiniteRejectedUnderJSON(test)
+            % Plain JSON writes Inf as null, which reads back as NaN.
+            values = {Inf, [1 -Inf], single(Inf), {1, Inf}};
+            labels = ["scalar", "array", "single", "in a cell"];
+            for k = 1:numel(values)
+                test.verifyError(@() observe(values{k}, "JSON"), ...
+                    "prodserver:mcp:IncompatibleArgumentType", labels(k));
+            end
+            try
+                observe(struct('a', 1, 'z', -Inf), "JSON");
+                test.verifyFail("Expected IncompatibleArgumentType.");
+            catch me
+                test.verifySubstring(me.message, "'x.z'");
+                test.verifySubstring(me.message, "Inf or -Inf");
+            end
+            % NaN alone is a number plain JSON carries in an array.
+            test.verifyEqual(observe([1 NaN], "JSON"), observe([1 2], "JSON"));
+        end
+
+        function observedInfiniteOutputUnderJSON(test)
+            % An output's Inf is sent as text, which its schema allows (see
+            % allowNonFiniteNumbers): a division by zero no longer needs the
+            % invertible encoding. A cell's elements have no schema of
+            % their own, so Inf in a cell is still refused, as it is at
+            % run time.
+            isNF = @prodserver.mcp.jsonrpc.isNonFiniteNumberSchema;
+            % schemaWireEcho(k) returns the k-th of Inf, single(-Inf),
+            % [1 -Inf], a struct with a field -Inf and {1, Inf}, from a
+            % finite argument.
+            test.verifyTrue(isNF(observeOutput(1)), "scalar");
+            test.verifyTrue(isNF(observeOutput(2)), "single");
+            p = observeOutput(3);
+            test.verifyTrue(isNF(p.items), "array");
+            p = observeOutput(4);
+            test.verifyTrue(isNF(p.properties.z), "struct field");
+            test.verifyError(@() observeOutput(5), ...
+                "prodserver:mcp:IncompatibleArgumentType", "in a cell");
+            % (An infinite duration, seconds(Inf), isn't tagged: build
+            % can't see it, and the tool's call fails, as before.)
+
+            % Examples in both shapes: an alternative of each, both
+            % allowing the text, and the value is sent in the one its
+            % shape fits.
+            defs = prodserver.mcp.schema("schemaWireEcho", ...
+                @() [schemaWireEcho(1) schemaWireEcho(3)], encoding="JSON");
+            y = defs.tools.outputSchema.properties.y;
+            alts = prodserver.mcp.jsonrpc.schemaAlternatives(y);
+            test.verifyNumElements(alts, 2);
+            test.verifyTrue(any(cellfun(isNF, alts)), "the scalar");
+            test.verifyTrue(any(cellfun(@(a) isfield(a, 'items') && ...
+                isNF(a.items), alts)), "the array");
+            P = @(v) string(jsonencode(struct('y', ...
+                {prodserver.mcp.jsonrpc.plainJSONValue(v, y)})));
+            test.verifyEqual(P(Inf), "{""y"":""Inf""}");
+            test.verifyEqual(P([1 -Inf]), "{""y"":[1,""-Inf""]}");
+        end
+
+        function observedFieldTextAndInfRejected(test)
+            % Examples whose struct field is Inf in one and text in
+            % another: a struct fits both alternatives, so the field may be
+            % either, and the text "Inf" would read back as text. Stopped at
+            % build, as for the output itself; it used to fail at run time.
+            try
+                prodserver.mcp.schema("schemaStructEcho", ...
+                    @() {schemaStructEcho(6), schemaStructEcho(7)}, ...
+                    encoding="JSON");
+                test.verifyFail("Expected IncompatibleArgumentType.");
+            catch me
+                test.verifyEqual(me.identifier, ...
+                    'prodserver:mcp:IncompatibleArgumentType');
+                test.verifySubstring(me.message, "y.a");
+            end
+            % Under the invertible encoding, Inf and text are told apart.
+            test.verifyWarningFree(@() prodserver.mcp.schema("schemaStructEcho", ...
+                @() {schemaStructEcho(6), schemaStructEcho(7)}, ...
+                encoding="Invertible"));
+        end
+
+        function observedStructsWithDifferentFields(test)
+            % Examples that returned structs with different fields, or of
+            % different shapes: an alternative for each. Each field is sent
+            % by the schemas any of them gives it, and read back by them, so
+            % an Inf in a field only one describes is text, and arrives as
+            % Inf. It was a tool error, or arrived as text.
+            echo = @(ks) prodserver.mcp.schema("schemaStructEcho", ...
+                @() arrayfun(@(k) schemaStructEcho(k), ks, UniformOutput=false), ...
+                encoding="JSON");
+            values = {struct('a', {1, -Inf}, 'b', {Inf, 4}), ...
+                struct('a', Inf, 'b', 2), struct('a', 1, 'b', -Inf), ...
+                struct('a', {Inf, 2})};
+            for ks = {[1 2], [3 4], [1 4], [2 3]}
+                d = echo(ks{1});
+                test.verifyTrue(isfield(d.tools.outputSchema.properties.y, 'anyOf'), ...
+                    mat2str(ks{1}));
+                for k = 1:numel(values)
+                    v = values{k};
+                    test.verifyEqual(roundTrip(d, v), v, ...
+                        mat2str(ks{1}) + " " + k);
+                end
+            end
+            % Examples with fields a and b, and a field a that is empty:
+            % anyOf [{a, b required}, {a: array}]. A struct with a only is
+            % the second's, so its a is an array: it was {"a":7}, which
+            % matched neither.
+            d = echo([4 5]);
+            j = jsonencode(struct('y', {prodserver.mcp.jsonrpc.plainJSONValue( ...
+                struct('a', 7), d.tools.outputSchema.properties.y)}));
+            test.verifyEqual(j, '{"y":{"a":[7]}}');
+            test.verifyEqual(roundTrip(d, struct('a', 7)), struct('a', 7));
+            test.verifyEqual(roundTrip(d, struct('a', 1, 'b', 2)), struct('a', 1, 'b', 2));
+            % Examples giving anyOf [array of {a}, {a, b required}]: a
+            % struct with a only is the array's, [{"a":7}]. It was sent as
+            % {"a":7}, which matched neither.
+            d = echo([1 4]);
+            j = jsonencode(struct('y', {prodserver.mcp.jsonrpc.plainJSONValue( ...
+                struct('a', 7), d.tools.outputSchema.properties.y)}));
+            test.verifyEqual(j, '{"y":[{"a":7}]}');
+            test.verifyEqual(roundTrip(d, struct('a', 7)), struct('a', 7));
+            test.verifyEqual(roundTrip(d, struct('a', 1, 'b', 2)), struct('a', 1, 'b', 2));
+            % A field empty in one example and a number in another: either
+            % reads back. ([] would have been an error: the first
+            % alternative's field is one number.)
+            d = echo([3 5]);
+            test.verifyEqual(roundTrip(d, struct('a', [])), struct('a', []));
+            test.verifyEqual(roundTrip(d, struct('a', NaN)), struct('a', NaN));
+            test.verifyEqual(roundTrip(d, struct('a', Inf)), struct('a', Inf));
+        end
+
+        function observedInfiniteBesideText(test)
+            % Examples that returned text and Inf: a client would read the
+            % text "Inf" as text, so build stops, as for an argument's Inf.
+            % schemaWireEcho(6) returns 'none', (7) "none", (8) [1 2] and
+            % (9) ["a" "b"].
+            echo = @(ks) prodserver.mcp.schema("schemaWireEcho", ...
+                @() arrayfun(@(k) schemaWireEcho(k), ks, UniformOutput=false), ...
+                encoding="JSON");
+            for ks = {[1 6], [7 2], [6 1 3]}
+                test.verifyError(@() echo(ks{1}), ...
+                    "prodserver:mcp:IncompatibleArgumentType", mat2str(ks{1}));
+            end
+            % It names the output as one, not as a parameter.
+            try
+                echo([1 6]);
+            catch err
+                test.verifySubstring(err.message, "Output 'y' is text");
+            end
+            % Inf only in an array, [1,"-Inf"], or text only in one: no
+            % call is ambiguous at build.
+            for ks = {[6 3], [9 3], [9 1], [8 6]}
+                d = echo(ks{1});
+                test.verifyTrue(isfield(d.tools.outputSchema.properties, 'y'), ...
+                    mat2str(ks{1}));
+            end
+            % Under the invertible encoding, the wrapper tells them apart.
+            d = prodserver.mcp.schema("schemaWireEcho", ...
+                @() arrayfun(@(k) schemaWireEcho(k), [1 6], UniformOutput=false), ...
+                encoding="Invertible");
+            test.verifyTrue(isfield(d.tools.outputSchema.properties, 'y'));
+        end
+
+        function observedInfiniteUnderInvertible(test)
+            % The schema of a finite value, and no tag left in it.
+            test.verifyEqual(observe([1 Inf], "Invertible"), ...
+                observe([1 2], "Invertible"));
+            test.verifyFalse(contains(jsonencode(observe(struct('z', Inf), ...
+                "Invertible")), prodserver.mcp.internal.Constants.InfiniteTag), ...
+                "in a struct field");
+            % Infinite and finite examples: one schema.
+            defs = prodserver.mcp.schema("schemaWireAny", ...
+                {@() schemaWireAny(Inf), @() schemaWireAny(3)}, ...
+                encoding="Invertible");
+            test.verifyEqual(defs.tools.inputSchema.properties.x, ...
+                observe(3, "Invertible"));
+        end
+
         function observedTimesUnderJSON(test)
             % JSON carries a datetime as ISO 8601 text and a duration as
             % seconds, so they build, with schemas that say so.
@@ -277,6 +494,25 @@ function p = observe(value, encoding)
     defs = prodserver.mcp.schema("schemaWireAny", ...
         @() schemaWireAny(value), encoding=encoding);
     p = defs.tools.inputSchema.properties.x;
+end
+
+function back = roundTrip(d, v)
+% V, the output y of the tool D defines, as a client reads it back: sent as
+% the server sends it, decoded by its outputSchema. A vector of structs
+% comes back as a column, as jsondecode gives one.
+    os = d.tools.outputSchema;
+    j = jsonencode(struct('y', ...
+        {prodserver.mcp.jsonrpc.plainJSONValue(v, os.properties.y)}));
+    b = prodserver.mcp.jsonrpc.decodeJSONValues(os, jsondecode(j), "Output");
+    back = reshape(b.y, size(v));
+end
+
+function p = observeOutput(k)
+% The output schema schemaWireEcho, returning its K-th value, has under
+% plain JSON.
+    defs = prodserver.mcp.schema("schemaWireEcho", ...
+        @() schemaWireEcho(k), encoding="JSON");
+    p = defs.tools.outputSchema.properties.y;
 end
 
 function verifyTabular(test, p, matlabClass, required)

@@ -26,6 +26,8 @@ classdef Constants
         ClassTag = "x_matlabClass";       % A class JSON can't describe
         ScalarTag = "x_matlabScalar";     % Whether that value was scalar
         ElementsTag = "x_matlabElements"; % Tagged elements of a cell
+        ComplexTag = "x_matlabComplex";   % A number with an imaginary part
+        InfiniteTag = "x_matlabInfinite"; % A number that is Inf or -Inf
 
         % MATLAB cast-able types
         castType = [prodserver.mcp.internal.Constants.NumericClasses, ...
@@ -68,6 +70,14 @@ classdef Constants
         % while the request does not. 404 is Production Server's answer
         % while an archive is still being unpacked.
         RetryableStatus = [404 408 429];
+
+        % How many times list, call, read and exist retry a retryable
+        % status, ArchiveDelay seconds apart: 60 seconds in all. Production
+        % Server answers 404 alike for an archive it doesn't have and for
+        % one it is still deploying, which can take minutes on a slow start,
+        % so this is how long a 404 is given to turn into an answer.
+        ArchiveRetry = 30;
+        ArchiveDelay = 2;
 
         MultiMCOSEnvVar = "MW_MULTIMCOS_MODE";
 

@@ -253,9 +253,36 @@ classdef tFromValue < matlab.unittest.TestCase
         end
 
         function complexArray(test)
+            % A real array's schema, tagged complex: plain JSON can't
+            % carry the imaginary part (see SchemaObserver).
+            C = prodserver.mcp.internal.Constants;
             schema = prodserver.mcp.jsonrpc.schemaFromValue(complex([1,2],[3,4]));
             test.verifyEqual(schema.type, "array");
             test.verifyEqual(schema.items.type, "number");
+            test.verifyTrue(schema.(C.ComplexTag));
+            test.verifyTrue(prodserver.mcp.jsonrpc.schemaFromValue(1i).(C.ComplexTag), ...
+                "scalar");
+            test.verifyFalse(isfield(prodserver.mcp.jsonrpc.schemaFromValue([1 2]), ...
+                C.ComplexTag), "A real array is not tagged.");
+            cellSchema = prodserver.mcp.jsonrpc.schemaFromValue({1, 2i});
+            test.verifyTrue(isfield(cellSchema, C.ElementsTag), ...
+                "A complex cell element reaches the caller.");
+        end
+
+        function infiniteArray(test)
+            % A finite array's schema, tagged infinite: plain JSON writes
+            % Inf as null (see SchemaObserver).
+            C = prodserver.mcp.internal.Constants;
+            F = @prodserver.mcp.jsonrpc.schemaFromValue;
+            schema = F([1 -Inf]);
+            test.verifyEqual(schema.type, "array");
+            test.verifyEqual(schema.items.type, "number");
+            test.verifyTrue(schema.(C.InfiniteTag));
+            test.verifyTrue(F(single(Inf)).(C.InfiniteTag), "scalar single");
+            test.verifyFalse(isfield(F([1 NaN]), C.InfiniteTag), ...
+                "NaN is not infinite.");
+            test.verifyTrue(isfield(F({1, Inf}), C.ElementsTag), ...
+                "An infinite cell element reaches the caller.");
         end
 
     end

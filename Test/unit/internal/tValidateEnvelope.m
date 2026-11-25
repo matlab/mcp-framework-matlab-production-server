@@ -88,6 +88,27 @@ classdef tValidateEnvelope < matlab.unittest.TestCase
             test.check(struct('jsonrpc', '2.0', 'id', [], 'method', 'ping'));
         end
 
+        function tIdNotStringOrInteger(test)
+            % MCP requires a string or an integer: these used to pass.
+            ids = {struct('a', 1), true, 1.5, [1 2], {1}, Inf};
+            for k = 1:numel(ids)
+                test.check(struct('jsonrpc', '2.0', 'id', {ids{k}}, ...
+                    'method', 'ping'));
+            end
+        end
+
+        function tStringAndIntegerIdsPass(test)
+            % An empty string is an id like any other: it used to count as
+            % missing, as JSON null does.
+            ids = {'', "", 'abc', 0, -3, 2^53};
+            for k = 1:numel(ids)
+                jrpc = struct('jsonrpc', '2.0', 'id', {ids{k}}, 'method', 'ping');
+                test.verifyWarningFree( ...
+                    @() prodserver.mcp.internal.validateEnvelope(jrpc), ...
+                    "id " + jsonencode(ids{k}));
+            end
+        end
+
         function tNotificationNeverReachesHere(test)
             % The carve-out ordering is the contract: validateEnvelope would
             % reject a well-formed notification for having no id, so

@@ -158,7 +158,7 @@ The server uses the Streamable HTTP transport in JSON-only mode. It never opens 
 
 For clients that only support STDIO transport, MCP Framework includes `mcpstdio2http.py`. It forwards STDIO requests to an HTTP server and returns the responses.
 
-The bridge works with either MCP revision. For a `2025-06-18` client, it sends back the session ID from `initialize` and ends the session when the client disconnects. For a `2026-07-28` client, it adds the `MCP-Protocol-Version`, `Mcp-Method` and `Mcp-Name` headers that the message body calls for.
+The bridge works with either MCP revision. For a `2025-06-18` client, it sends back the session ID from `initialize` and ends the session when the client disconnects. If the server no longer recognizes the session, after an upgrade for example, the bridge starts a new one and retries the request once, without the client noticing. For a `2026-07-28` client, it adds the `MCP-Protocol-Version`, `Mcp-Method` and `Mcp-Name` headers that the message body calls for.
 
 ```sh
 python mcpstdio2http.py --url http://localhost:9910/principalStress/mcp
@@ -190,9 +190,13 @@ For the full request and response rules, see [Protocol Conformance](../concepts/
 
 The body is a JSON-RPC error. Read `error.code`:
 
-- **`-32022`: the client sends an unsupported `MCP-Protocol-Version`.** The server accepts `2025-06-18` (and `2025-03-26` and `2024-11-05`, served as `2025-06-18`) and `2026-07-28`. `error.data.supported` lists `2025-06-18` and `2026-07-28`. Update the client, or configure it to use one of those revisions.
+- **`-32022`: the client sends an unsupported `MCP-Protocol-Version`.** The server accepts `2025-06-18` (and `2025-03-26` and `2024-11-05`, served as `2025-06-18`) and `2026-07-28`. `error.data.supported` lists `2025-06-18` and `2026-07-28`. Update the client, or configure it to use one of those revisions. The server checks the header only once it has [attributed the request to a revision](../concepts/protocol-conformance.md#how-a-request-gets-a-revision): a request with neither `_meta` nor a session gets `-32602` instead (below), whatever its header says.
 - **`-32602` with "Cannot attribute the request to a protocol version": the server can't tell which revision the request is for.** A `2025-06-18` client that gets this after `initialize` isn't sending back `Mcp-Session-Id`. The server returns the session ID in a response header from `initialize`, and every later request must include it. Check that your client or proxy doesn't strip the header. A `2026-07-28` client must put `io.modelcontextprotocol/protocolVersion` in every request's `params._meta`.
 - **`-32020`: a `2026-07-28` request has a missing or mismatched header.** `MCP-Protocol-Version` and `Mcp-Method` are required on every request, and `Mcp-Name` on `tools/call`, `resources/read` and `prompts/get`. Each must match the body.
+
+### Requests get HTTP 404 with `-32001`
+
+The `2025-06-18` session ID isn't one of the server's tokens: it's malformed, longer than 1,024 characters, or a plain UUID from a server before 1.7. The last happens when a client stays connected while the server is upgraded to 1.7. Start a new session: send `initialize` again, without `Mcp-Session-Id`, and use the new ID. The specification requires clients to do this themselves, and the [STDIO bridge](#stdio-bridge) does it for the clients it serves. If your client shows an error instead, reconnect it.
 
 ### `GET` gets HTTP 405
 

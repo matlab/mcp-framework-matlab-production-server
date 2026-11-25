@@ -14,16 +14,14 @@ end
 % |primeSequence| returns a vector of primes matching a given sequence
 % type: balanced, Eisenstein, Gaussian, or isolated.
 
-primeSequence(5, "balanced")
-primeSequence(5, "eisenstein")
-primeSequence(5, "gaussian")
-primeSequence(5, "isolated")
+eb = primeSequence(11, "balanced")
+ee = primeSequence(9, "eisenstein")
 
 %% Build the MCP Tool
-% Package |primeSequence| as an MCP tool. The output is a small numeric
-% vector, so no wrapper function is needed.
+% Package |primeSequence| as an MCP tool. Give build an example call so it
+% can generate a good description of the tool's inputs and outputs.
 
-ctf = prodserver.mcp.build("primeSequence", wrapper="None");
+ctf = prodserver.mcp.build("primeSequence", example=@()primeSequence(17,"Isolated"));
 
 %% Deploy to MATLAB Production Server
 % Upload the archive to a running instance at localhost:9910.
@@ -40,7 +38,10 @@ prodserver.mcp.exist(endpoint, "primeSequence", "Tool")
 % Call the tool end-to-end using the MCP protocol.
 
 bpr = prodserver.mcp.call(endpoint, "primeSequence", 11, "balanced")'
+assert(all(bpr == eb), "Incorrect balanced sequence")
+
 epr = prodserver.mcp.call(endpoint, "primeSequence", 9, "eisenstein")'
+assert(all(epr == ee), "Incorrect Eisenstein sequence")
 
 %% Connect an MCP Client
 % Configure your MCP client to connect to:

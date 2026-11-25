@@ -16,7 +16,7 @@ function [varargout] = call(endpoint, tool, varargin)
 %  output location:
 %
 %    prodserver.mcp.call("http://localhost:9910/cleanSignal/mcp", ...
-%        "cleanSignal", noisy, period, cleanURL=clean)
+%        "cleanSignal", noisy, frequency, cleanURL=clean)
 %
 %  Invoke "detectEdge" tool with two required and two optional inputs:
 %
@@ -68,11 +68,16 @@ function outputs = doCall(endpoint, tool, nout, varargin)
 
     names = cellfun(@(t)string(t.name), tools);
 
+    % Not found and found twice are different problems: a typo or an
+    % archive redeployed without the tool, or a server that breaks MCP.
     found = strcmp(tool, names);
-    if nnz(found) ~= 1
-        error("prodserver:mcp:NonUniqueTool", "Tools must exist and " + ...
-            "have unique names. Found %d tools named %s.", nnz(found), ...
-            tool);
+    if ~any(found)
+        error("prodserver:mcp:UnknownTool", "No tool named '%s' at %s. %s", ...
+            tool, prodserver.mcp.io.redactURI(endpoint), prodserver.mcp.internal.availableList("tools", names));
+    elseif nnz(found) > 1
+        error("prodserver:mcp:NonUniqueTool", "%s lists %d tools named " + ...
+            "'%s'. A tool's name must be unique on its server: tell the " + ...
+            "archive's author.", prodserver.mcp.io.redactURI(endpoint), nnz(found), tool);
     end
     t = tools(found);
     if iscell(t)
@@ -109,7 +114,10 @@ function outputs = doCall(endpoint, tool, nout, varargin)
     % Fetch signature, required for optional and output argument management
     %
 
-    sigEndpoint = replace(endpoint, MCPConstants.MCP, MCPConstants.Signature);
+    % Only the final /mcp: an archive whose name starts with mcp, or a
+    % proxy path that does, has another.
+    sigEndpoint = replace(endpoint, MCPConstants.MCP + textBoundary("end"), ...
+        MCPConstants.Signature);
     sig = prodserver.mcp.internal.signature(tool, sigEndpoint, client);
     if isempty(sig)
         error("prodserver:mcp:MissingSignature", ...

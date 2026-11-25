@@ -56,6 +56,15 @@ routes:
                     required:
                       - sum
                     additionalProperties: false
+                # Listed twice: exist says it exists; call would refuse it.
+                - name: "twice"
+                  description: "A tool the server lists twice"
+                  inputSchema:
+                    type: object
+                - name: "twice"
+                  description: "A tool the server lists twice"
+                  inputSchema:
+                    type: object
       - jrpc: resources/list
         response:
           status: 200
@@ -71,6 +80,12 @@ routes:
                 - uri: "mcp://test/bytes"
                   name: "bytes"
                   mimeType: "application/octet-stream"
+                - uri: "mcp://test/twice"
+                  name: "twice"
+                  mimeType: "text/plain"
+                - uri: "mcp://test/twice"
+                  name: "twice"
+                  mimeType: "text/plain"
       - jrpc: resources/read
         uri: "mcp://test/bytes"
         response:

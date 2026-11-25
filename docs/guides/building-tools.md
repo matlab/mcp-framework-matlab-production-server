@@ -234,7 +234,7 @@ ctf = prodserver.mcp.build("principalStress", ...
 Then deploy later:
 
 ```MATLAB
-endpoint = prodserver.mcp.deploy(ctf, "localhost", 9910);
+endpoint = prodserver.mcp.deploy(ctf, "http://localhost:9910");
 ```
 
 This is useful when you want to build once and deploy to multiple servers, or when build and deploy happen in different environments.

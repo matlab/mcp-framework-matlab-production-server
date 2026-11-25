@@ -12,9 +12,10 @@ function tf = ping(endpoint,opts)
 %
 % This is the framework's own GET /<archive>/ping, not the MCP "ping"
 % method. A refused connection, a timeout or a 404 (an archive still being
-% unpacked) is retried up to RETRY times, DELAY seconds apart, so a dead
-% endpoint takes about RETRY*DELAY seconds to report false. Any other
-% failure is final at once.
+% unpacked) is retried up to RETRY times, DELAY seconds apart. An
+% endpoint that refuses connections takes about RETRY*DELAY seconds to
+% report false; one that never answers takes up to (RETRY+1)*TIMEOUT. Any
+% other failure is final at once.
 
 % Copyright 2022-2026 The MathWorks, Inc.
 

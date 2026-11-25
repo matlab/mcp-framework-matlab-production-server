@@ -65,6 +65,15 @@ classdef tClientV20250618 < MockCaller
             test.verifyEqual(tf, [false; true]);
         end
 
+        function tExistListedTwice(test)
+        % A tool or resource the server lists more than once exists, though
+        % call and read refuse it as not unique.
+            tf = prodserver.mcp.exist(test.Endpoint, ...
+                ["twice", "mcp://test/twice"], ["Tool", "Resource"], ...
+                protocol="2025-06-18");
+            test.verifyEqual(tf, [true true]);
+        end
+
         function tAutoDetectFallsBackToV20250618(test)
             client = prodserver.mcp.client.Adapter.create( ...
                 test.Endpoint, protocol="discover");

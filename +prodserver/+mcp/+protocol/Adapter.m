@@ -17,6 +17,11 @@ classdef (Abstract) Adapter < handle
         [result, httpCode, httpMsg, msgHeaders] = handleDelete(obj, request)
         [result, httpCode, httpMsg] = formatError(obj, me, jrpc)
         headers = responseHeaders(obj, request, jrpc)
+
+        % What the client declared it supports, as a ClientCapabilities, from
+        % wherever this revision keeps it. ClientCapabilities.none() if the
+        % client declared nothing.
+        caps = clientCapabilities(obj, request, jrpc)
     end
 
     methods (Abstract, Static)
@@ -24,6 +29,43 @@ classdef (Abstract) Adapter < handle
     end
 
     methods
+        function ctx = requestContext(obj, request, jrpc, opts)
+        %requestContext The RequestContext the dispatcher passes to every
+        %   handler: this revision, and the client's capabilities and
+        %   identity as this revision keeps them.
+        %
+        %   An adapter that has already read them from the request passes
+        %   them as Capabilities and ClientInfo, so the request isn't read
+        %   twice. Whatever isn't passed comes from clientCapabilities and
+        %   clientInfo.
+            arguments
+                obj
+                request
+                jrpc
+                % No defaults: an option that isn't passed is absent from
+                % OPTS, which tells it apart from a ClientInfo of [].
+                opts.Capabilities (1,1) prodserver.mcp.protocol.ClientCapabilities
+                opts.ClientInfo
+            end
+            if ~isfield(opts, "Capabilities")
+                opts.Capabilities = obj.clientCapabilities(request, jrpc);
+            end
+            if ~isfield(opts, "ClientInfo")
+                opts.ClientInfo = obj.clientInfo(request, jrpc);
+            end
+            ctx = prodserver.mcp.protocol.RequestContext(obj.Version, ...
+                Capabilities=opts.Capabilities, ClientInfo=opts.ClientInfo);
+        end
+
+        function info = clientInfo(~, ~, ~)
+        %clientInfo The client's name and version, as decoded, or [] if
+        %   this revision doesn't carry them with the request.
+        %
+        %   Signature: clientInfo(obj, request, jrpc). Defaulted rather than
+        %   abstract: a revision that doesn't carry them returns [].
+            info = [];
+        end
+
         function answer = preDetectionError(~, ~, ~, ~)
         %preDetectionError This revision's answer for a failure raised before
         %   it was fully selected, or [] if it has none.

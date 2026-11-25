@@ -1,0 +1,182 @@
+# How the client waits for an archive that answers 404, and how it recovers
+# when an endpoint's protocol revision has changed. Any path without a route
+# gets the mock's 404 with no body, as MATLAB Production Server answers for an
+# archive it doesn't have or is still deploying.
+#
+# "from: N" answers the Nth and later POSTs to the path, whatever their
+# method, so the order of the entries below matters: the first that matches
+# answers.
+
+# Copyright 2026 The MathWorks, Inc.
+
+routes:
+  # Cached as 2026-07-28, but now speaks only 2025-06-18: the 2026-07-28
+  # tools/list (POST 1) is refused as an unsupported revision, and every
+  # later tools/list is the 2025-06-18 client's, after server/discover and
+  # initialize.
+  - path: /moved/mcp
+    methods:
+      - POST
+      - DELETE
+    request:
+      - jrpc: server/discover
+        response: &discoverRefused
+          status: 400
+          headers:
+            Content-Type: application/json
+          body:
+            jsonrpc: "2.0"
+            id: 1
+            error:
+              code: -32601
+              message: "Method not found"
+      - jrpc: initialize
+        response: &initialized
+          status: 201
+          headers:
+            Content-Type: application/json
+            Mcp-Session-Id: mock-session-moved
+          body:
+            result:
+              capabilities:
+                tools:
+                  listChanged: false
+      - jrpc: notifications/initialized
+        response: &notified
+          status: 200
+          headers:
+            Mcp-Session-Id: mock-session-moved
+      - jrpc: tools/list
+        from: 2
+        response: &tools
+          status: 200
+          headers:
+            Content-Type: application/json
+            Mcp-Session-Id: mock-session-moved
+          body:
+            result:
+              tools:
+                - name: "addNumbers"
+                  description: "Add two numbers together"
+                  inputSchema:
+                    type: object
+                    properties:
+                      a:
+                        type: number
+                      b:
+                        type: number
+                    required: [a, b]
+      - jrpc: tools/list
+        response: &unsupported
+          status: 400
+          headers:
+            Content-Type: application/json
+          body:
+            jsonrpc: "2.0"
+            id: 1
+            error:
+              code: -32022
+              message: "Unsupported protocol version"
+              data:
+                supported: ["2025-06-18"]
+      - method: DELETE
+        body: ""
+        response:
+          status: 200
+
+  # The same change, while the archive is being redeployed: POSTs 1-3 get
+  # Production Server's 404, POST 4 the refusal, and the 2025-06-18
+  # tools/list (POST 8, after discover, initialize and initialized) the
+  # tools.
+  - path: /late/mcp
+    methods:
+      - POST
+      - DELETE
+    request:
+      - jrpc: server/discover
+        response: *discoverRefused
+      - jrpc: initialize
+        response: *initialized
+      - jrpc: notifications/initialized
+        response: *notified
+      - jrpc: tools/list
+        from: 5
+        response: *tools
+      - jrpc: tools/list
+        from: 4
+        response: *unsupported
+      - jrpc: tools/list
+        response:
+          status: 404
+          reason: "ComponentNotFound Component not found."
+          body: ""
+      - method: DELETE
+        body: ""
+        response:
+          status: 200
+
+  # What the server says it has, for the hints in the waiting warning and
+  # in UnknownArchive. "loading" has no route: listed, but not answering
+  # yet, as an archive is while a worker loads it. "my-tool" isn't a MATLAB
+  # identifier, so jsondecode renames its field: its UUID keeps the name.
+  - path: /api/discovery
+    methods:
+      - GET
+    request:
+      - method: GET
+        body: ""
+        response:
+          status: 200
+          headers:
+            Content-Type: application/json
+          body:
+            discoverySchemaVersion: "1.0.0"
+            archives:
+              primeSequence:
+                archiveUuid: "primeSequence_6613c38e-cb08-4ec5-b758-16645a9c1a33"
+              loading:
+                archiveUuid: "loading_0b1e7c2a-1f4d-4c55-9a51-0d0f3a6b9e21"
+              my-tool:
+                archiveUuid: "my-tool_5d2f8a9c-3e71-4b0a-8c6d-7f1e2a3b4c5d"
+              # Built as primeSequence, deployed as a renamed copy: the UUID
+              # keeps the name it was built under.
+              renamedCopy:
+                archiveUuid: "primeSequence_6613c38e-cb08-4ec5-b758-16645a9c1a33"
+
+  # An archive that is there, for metrics: its /ping answers, and the
+  # server reports one metric.
+  - path: /present/ping
+    methods:
+      - GET
+    request:
+      - method: GET
+        body: ""
+        response:
+          status: 200
+          headers:
+            Content-Type: text/plain
+          body: "pong"
+  - path: /api/metrics
+    methods:
+      - GET
+    request:
+      - method: GET
+        body: ""
+        response:
+          status: 200
+          headers:
+            Content-Type: text/plain
+          body: "# TYPE matlabprodserver_up_time_seconds counter\nmatlabprodserver_up_time_seconds 12\n"
+
+  # A 404 the framework sends, with a body: the archive is there, and says
+  # it has no such thing. Not Production Server's, so not waited on.
+  - path: /bodied/mcp
+    methods:
+      - POST
+    request:
+      - jrpc: tools/list
+        response:
+          status: 404
+          headers:
+            Content-Type: application/json
+          body: {}

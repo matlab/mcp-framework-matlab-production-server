@@ -116,6 +116,63 @@ classdef tAdapterV20260728 < matlab.unittest.TestCase
             test.verifyTrue(isfield(result.result, 'instructions'));
         end
 
+        function tContextCarriesCapabilities(test)
+        % The request context holds the capabilities and client info from
+        % params._meta, under this revision.
+            C = prodserver.mcp.protocol.v20260728.Constants;
+            MetaField = prodserver.mcp.MCPConstants.MetaField;
+            jrpc = test.buildJrpc("tools/list", 1);
+            jrpc.params.(MetaField).(C.MetaCapabilities_Field) = jsondecode( ...
+                '{"extensions":{"io.modelcontextprotocol/ui":{"mimeTypes":["text/html;profile=mcp-app"]}}}');
+            jrpc.params.(MetaField).(C.MetaClientInfo_Field) = ...
+                struct("name", "test", "version", "1.0");
+
+            ctx = test.adapter.requestContext(test.buildRequest("tools/list"), jrpc);
+
+            test.verifyEqual(ctx.Version, C.Version);
+            test.verifyTrue(supports(ctx.Capabilities, "io.modelcontextprotocol/ui"));
+            test.verifyEqual(string(ctx.ClientInfo.name), "test");
+        end
+
+        function tContextWithoutExtension(test)
+        % Declared capabilities without the extension don't support it.
+            jrpc = test.buildJrpc("tools/list", 1);
+            ctx = test.adapter.requestContext(test.buildRequest("tools/list"), jrpc);
+            test.verifyFalse(supports(ctx.Capabilities, "io.modelcontextprotocol/ui"));
+            test.verifyEqual(ctx.ClientInfo, []);
+        end
+
+        function tContextUsesWhatItIsGiven(test)
+        % An adapter that has already read the capabilities and client info
+        % passes them in; requestContext uses them instead of reading the
+        % request again.
+            C = prodserver.mcp.protocol.v20260728.Constants;
+            MetaField = prodserver.mcp.MCPConstants.MetaField;
+            jrpc = test.buildJrpc("tools/list", 1);
+            jrpc.params.(MetaField).(C.MetaCapabilities_Field) = jsondecode( ...
+                '{"extensions":{"io.modelcontextprotocol/ui":{}}}');
+            given = prodserver.mcp.protocol.ClientCapabilities.none();
+            ctx = test.adapter.requestContext(test.buildRequest("tools/list"), ...
+                jrpc, Capabilities=given, ClientInfo=[]);
+            test.verifyFalse(supports(ctx.Capabilities, "io.modelcontextprotocol/ui"), ...
+                "The capabilities passed in should win over the request's");
+            test.verifyEqual(ctx.ClientInfo, []);
+        end
+
+        function tContextFromAlternativeKey(test)
+        % Some clients send "capabilities" instead of "clientCapabilities";
+        % validateMeta accepts both, and so does the context.
+            C = prodserver.mcp.protocol.v20260728.Constants;
+            MetaField = prodserver.mcp.MCPConstants.MetaField;
+            jrpc = test.buildJrpc("tools/list", 1);
+            jrpc.params.(MetaField) = rmfield(jrpc.params.(MetaField), ...
+                C.MetaCapabilities_Field);
+            jrpc.params.(MetaField).(C.MetaCapabilitiesAlt_Field) = jsondecode( ...
+                '{"extensions":{"io.modelcontextprotocol/ui":{}}}');
+            ctx = test.adapter.requestContext(test.buildRequest("tools/list"), jrpc);
+            test.verifyTrue(supports(ctx.Capabilities, "io.modelcontextprotocol/ui"));
+        end
+
         function tHandleDeleteReturns405(test)
             request = test.buildRequest();
             [result, httpCode, httpMsg, ~] = test.adapter.handleDelete(request);

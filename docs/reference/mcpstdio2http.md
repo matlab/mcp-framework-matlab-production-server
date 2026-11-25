@@ -18,7 +18,9 @@ python mcpstdio2http.py [--url <MCP Server URL>] [--timeout <seconds>]
 
 The bridge always writes a log file. The MCP host must have write access to the log folder; granting that access is typically a host-specific process.
 
-The bridge works with servers under either protocol revision. It passes each message through unchanged and adds the headers the revision needs: `Mcp-Session-Id` for `2025-06-18`, and `MCP-Protocol-Version`, `Mcp-Method` and `Mcp-Name` for `2026-07-28`. See [Protocol Conformance](../concepts/protocol-conformance.md).
+The bridge works with servers under either protocol revision. It passes each message through unchanged and adds the headers the revision needs. For `2025-06-18`, after `initialize`, those are `Mcp-Session-Id` and `MCP-Protocol-Version`, set to the version the server negotiated. For `2026-07-28`, they're `MCP-Protocol-Version`, `Mcp-Method` and `Mcp-Name`.
+
+If the server answers 404 to a `2025-06-18` request that carries a session, for example because the server was upgraded, the bridge starts a new session. It replays the client's `initialize` and `notifications/initialized`, then retries the request once. The client gets the 404's error if the bridge has no `initialize` to replay, if the server doesn't issue a new session, or if the retry gets a 404 too. See [Protocol Conformance](../concepts/protocol-conformance.md).
 
 The `--url` argument specifies the HTTP server. To connect to the `primeSequence` MCP server running on `http://localhost:9910`, specify the `primeSequence` MCP server endpoint:
 ```sh

@@ -6,12 +6,12 @@ MCP Framework creates HTTP-based MCP servers hosted by MATLAB Production Server.
 
 MPS supports HTTPS for encrypted communication. When configured with TLS certificates, all MCP traffic (tool calls, resource reads, discovery queries) is encrypted in transit.
 
-Configure HTTPS in the MPS `main_config`:
+Configure HTTPS in the MPS `main_config`: the port to listen on for HTTPS, the server's certificate chain and its private key.
 
 ```
---ssl
---ssl-cert-file /path/to/server.crt
---ssl-key-file /path/to/server.key
+--https 9920
+--x509-cert-chain /path/to/server.crt
+--x509-private-key /path/to/server.key
 ```
 
 After enabling HTTPS, use `https://` in your server URLs:
@@ -65,23 +65,42 @@ The server doesn't check the `Origin` request header. The MCP specification asks
 
 Use the [network-level controls](#network-level-access-control) above instead. Binding MPS to `localhost` alone doesn't stop DNS rebinding, because the attacker's requests come from your own browser. Pair it with [authentication](#authentication), or put the server behind a reverse proxy that rejects unexpected `Origin` values.
 
+### Session IDs Are Not Authenticators
+
+Under `2025-06-18`, the session ID carries the capabilities the client declared in `initialize`, so that any worker can serve any request. The server doesn't sign it. It accepts any well-formed token, including one a client made itself, carrying whatever capabilities that client chose. So a session ID proves nothing about who sent the request or what it may do. Use [authentication](#authentication) for that. See [Sessions](./protocol-conformance.md#sessions).
+
 ### Cached List Results
 
 Under `2026-07-28`, the results of `server/discover`, `tools/list`, `resources/list` and `resources/templates/list` carry `cacheScope: public` and `ttlMs: 300000`. They tell a client, or an MCP-aware cache between client and server, that it may keep the result for 5 minutes and share it with other users. The hints are in the JSON result, not in HTTP cache headers. `resources/read` results are `private`, for one user only, for 1 minute.
 
-That's safe while every user of an archive sees the same tools, which is always true today. If you put the server behind a shared MCP cache or gateway and restrict who may reach an archive, a user who isn't allowed to call the server can still be served its tool list from the cache, for up to 5 minutes after someone else fetched it. Restrict access at the cache too, or don't share one cache between users with different access.
+That's safe while every user of an archive sees the same tools. Suppose you put the server behind a shared MCP cache or gateway, and restrict who may reach an archive. A user who isn't allowed to call the server can then still get its tool list from the cache, for up to 5 minutes after someone else fetched it. Restrict access at the cache too, or don't share one cache between users with different access.
+
+A server with an MCP App is the exception. Its `tools/list` depends on the client, since only clients that support MCP Apps see `uri2json`, so the server sends it with `cacheScope: private` and `ttlMs: 0`. No cache should keep it, so one client's list can't reach another.
 
 ### Data Marshaling and File Access
 
-When tools use [wrapper functions](./wrapper-functions.md) for large data, the `file:` URLs reference local filesystem paths on the MPS host. Ensure that:
+When tools use [wrapper functions](./wrapper-functions.md) for large data, the `file:` URLs name paths the MPS process opens. On Windows, that includes a UNC path on another machine, such as `file:////server/share/x.mat`: a client can make the server open an SMB connection to any host it names, with the MPS account's credentials. Block outbound SMB (port 445) from MPS hosts, or run MPS under an account with no network credentials. Ensure that:
 
 - The MPS process has read access to input data locations
 - The MPS process has write access to output data locations
 - Data paths are not exposed to untrusted clients (the LLM sees only the URL, but a compromised client could craft arbitrary paths)
 
+### MCP Apps and `uri2json`
+
+A server built with an [MCP App](../guides/mcp-apps.md) has a `uri2json` tool. The app's view uses it to read the data behind a URL, such as a tool's result file. It reads a registered resource, or anything the MPS process can reach through the URL's scheme: any `file:` path, and `redis:`, `kafka:` and `workspace:` locations. It returns the data itself.
+
+The server keeps `uri2json` away from the LLM in two ways:
+
+- **Its definition marks it `visibility: ["app"]`.** A host that supports MCP Apps leaves it out of the model's tool list, and lets only the view call it.
+- **The server offers it only to clients that declare MCP Apps support** (`io.modelcontextprotocol/ui`). Any other client doesn't see it in `tools/list`, and gets the unknown-tool error if it calls it. The archive's `/signature` route describes it only to a request whose `2025-06-18` session declared MCP Apps support. A request with no session, such as any `2026-07-28` client's, doesn't see it there. The server counts each refusal in `MCP_uri2json_Refused`; see [Server Metrics](../guides/server-metrics.md).
+
+That stops the model from calling `uri2json`, whether by mistake or because a document it read told it to. It doesn't stop a program that connects to the server directly: that can claim MCP Apps support, in `initialize`, in `_meta` or in a session ID it made itself (see [Session IDs](#session-ids-are-not-authenticators)), and pass `uri2json` any URL. A wrapper function's `file:` URLs already give such a caller the same reach, but `uri2json` returns the raw data. Control who can connect with [authentication](#authentication) and [network-level access control](#network-level-access-control).
+
+A host that declares MCP Apps support but doesn't honor `visibility` would still show `uri2json` to its model. The server can't detect that.
+
 ### Discovery Endpoint
 
-The [discovery endpoint](./discovery.md) reveals tool names and descriptions. `discovery=false` in `build` leaves the archive out of `/api/discovery`, but it doesn't hide the tools: any client that can reach `/<archive>/mcp` still gets them from `tools/list` and `server/discover`. If tool existence is sensitive information, restrict network access to the MPS instance or require [authentication](#authentication).
+The [discovery endpoint](./discovery.md) reveals tool names and descriptions. Up to R2026b, `discovery=false` in `build` leaves the archive out of `/api/discovery`. From R2027a, the archive is listed anyway, with a stand-in entry for each function; see [Discovery](./discovery.md#step-1-find-the-archives). Neither hides the tools: any client that can reach `/<archive>/mcp` still gets them from `tools/list`. If tool existence is sensitive information, restrict network access to the MPS instance or require [authentication](#authentication).
 
 ## See Also
 

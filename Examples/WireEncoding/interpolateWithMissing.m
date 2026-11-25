@@ -5,9 +5,9 @@ function [reconstructed, gapMask] = interpolateWithMissing(t, signal, t_query, m
 % function interpolates through the gaps using valid samples only,
 % reconstructing the signal at the requested query times.
 %
-% Without wire encoding, NaN is not a valid JSON literal. JSON null or 0
-% would be substituted, causing the interpolation to fit through zero
-% instead of bridging the gap — a dramatically different result.
+% NaN is not a valid JSON literal. Plain JSON sends it as null, which
+% reads back as NaN, but its schema allows only numbers, so a model has no
+% documented way to mark a gap. The wire encoding sends NaN as "NaN".
 
 % Copyright 2026 The MathWorks, Inc.
 

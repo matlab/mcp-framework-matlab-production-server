@@ -65,6 +65,40 @@ routes:
             Content-Type: text/plain
             MATLAB-MCP-Archive-UUID: fresh_old
           body: "pong"
+  # The uploaded build answers once, then the archive is gone: not stale,
+  # since the replaced build never answered after it.
+  - path: /once/ping
+    methods:
+      - GET
+    request:
+      - body: ""
+        from: 2
+        response:
+          status: 404
+          headers:
+            Content-Type: text/plain
+          body: ""
+      - body: ""
+        response:
+          status: 200
+          headers:
+            Content-Type: text/plain
+            MATLAB-MCP-Archive-UUID: once_new
+          body: "pong"
+  # The server goes away while deploy verifies: the first ping gets a 404
+  # (still unpacking), and the server then stops, so every later ping is
+  # refused.
+  - path: /gone/ping
+    methods:
+      - GET
+    request:
+      - body: ""
+        response:
+          status: 404
+          stop: true
+          headers:
+            Content-Type: text/plain
+          body: ""
   # An update that never takes effect.
   - path: /stale/ping
     methods:
@@ -113,6 +147,18 @@ routes:
         response:
           status: 200
           body: {"archives": {"nohdr": {"archiveUuid": "nohdr_old"}}}
+  # Verification's ping gets no answer in time: deploy stops at the first.
+  - path: /slowping/ping
+    methods:
+      - GET
+    request:
+      - body: ""
+        response:
+          delay: 5
+          status: 200
+          headers:
+            Content-Type: text/plain
+          body: "pong"
   - path: /accept/ping
     methods:
       - GET

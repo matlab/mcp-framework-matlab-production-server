@@ -45,9 +45,14 @@ classdef (Abstract) Adapter < handle
                 obj
                 data (1,1) struct
                 opts.timeout double {mustBePositive} = 60
-                opts.retry double {mustBePositive} = 3
-                opts.delay double {mustBePositive} = 2
+                opts.retry double {mustBePositive} = ...
+                    prodserver.mcp.internal.Constants.ArchiveRetry
+                opts.delay double {mustBePositive} = ...
+                    prodserver.mcp.internal.Constants.ArchiveDelay
                 opts.label string = ""
+                % Safe to send again if no answer came: true only for a
+                % request that changes nothing (see sendRequest).
+                opts.repeatable (1,1) logical = false
             end
 
             if ~isfield(data, 'id')
@@ -61,7 +66,7 @@ classdef (Abstract) Adapter < handle
             end
             response = prodserver.mcp.internal.sendRequest(request, ...
                 obj.Endpoint, timeout=opts.timeout, retry=opts.retry, ...
-                delay=opts.delay, label=opts.label);
+                delay=opts.delay, label=opts.label, repeatable=opts.repeatable);
         end
 
         function [request, data] = buildRequest(obj, data)
@@ -90,9 +95,14 @@ classdef (Abstract) Adapter < handle
             arguments
                 obj
                 type prodserver.mcp.Primitive
-                opts.timeout double {mustBePositive} = 10
-                opts.retry double {mustBePositive} = 3
-                opts.delay double {mustBePositive} = 2
+                % As long as any request: a list is often the first request
+                % to reach an archive, and a newly started server's worker
+                % may be loading it.
+                opts.timeout double {mustBePositive} = 60
+                opts.retry double {mustBePositive} = ...
+                    prodserver.mcp.internal.Constants.ArchiveRetry
+                opts.delay double {mustBePositive} = ...
+                    prodserver.mcp.internal.Constants.ArchiveDelay
             end
             import prodserver.mcp.MCPConstants
             import prodserver.mcp.internal.hasField
@@ -104,7 +114,7 @@ classdef (Abstract) Adapter < handle
                 data.method = pfield + "/list";
 
                 response = obj.send(data, timeout=opts.timeout, ...
-                    retry=opts.retry, delay=opts.delay);
+                    retry=opts.retry, delay=opts.delay, repeatable=true);
 
                 if hasField(response, "Body.Data.result." + pfield) == false
                     error("prodserver:mcp:BadListResponse", ...
@@ -132,8 +142,10 @@ classdef (Abstract) Adapter < handle
                 opts.protocol string = "discover"
                 opts.action string = "detect"
                 opts.timeout double {mustBePositive} = 60
-                opts.retry double {mustBePositive} = 3
-                opts.delay double {mustBePositive} = 2
+                opts.retry double {mustBePositive} = ...
+                    prodserver.mcp.internal.Constants.ArchiveRetry
+                opts.delay double {mustBePositive} = ...
+                    prodserver.mcp.internal.Constants.ArchiveDelay
             end
 
             persistent cache
@@ -161,8 +173,12 @@ classdef (Abstract) Adapter < handle
                     client = createAdapter(endpoint, version);
                     return
                 end
-                version = probe(endpoint, opts);
-                cache(endpoint) = {version};
+                [version, answered] = probe(endpoint, opts);
+                % A guess made because the server didn't answer isn't
+                % kept: the next call asks again.
+                if answered
+                    cache(endpoint) = {version};
+                end
                 client = createAdapter(endpoint, version);
             else
                 client = createAdapter(endpoint, opts.protocol);
@@ -174,9 +190,14 @@ classdef (Abstract) Adapter < handle
 
 end
 
-function version = probe(endpoint, opts)
+function [version, answered] = probe(endpoint, opts)
+% The revision the server at ENDPOINT speaks. answered is false if it never
+% answered -- every attempt timed out or was refused -- and VERSION, then
+% 2025-06-18, is a guess.
     import prodserver.mcp.MCPConstants
     import prodserver.mcp.internal.hasField
+
+    answered = false;
 
     data.jsonrpc = MCPConstants.jrpcVersion;
     data.method = "server/discover";
@@ -190,32 +211,34 @@ function version = probe(endpoint, opts)
     % header this revision requires therefore has to come from the one place
     % that knows the full list.
     %
-    % buildRequest rather than send: send owns retry, and the loop below is
-    % a different retry policy (outer attempts on timeout only, one
-    % transport attempt each).
+    % buildRequest rather than send: the probe sends from a client of a
+    % revision the endpoint may not speak. The status retries every request
+    % to the archive gets, since the probe is usually the first: a 404 may be
+    % an archive still deploying. And the one resend sendRequest makes of a
+    % request with no answer, as for any request that changes nothing, not
+    % opts.retry of them: each waits the whole timeout.
     probeClient = prodserver.mcp.client.v20260728.Adapter(endpoint);
     request = probeClient.buildRequest(data);
 
-    for attempt = 1:opts.retry
-        try
-            response = prodserver.mcp.internal.sendRequest(request, ...
-                endpoint, timeout=opts.timeout, retry=1, ...
-                delay=opts.delay, label="server/discover");
-
-            if hasField(response, 'Body.Data.result.supportedVersions')
-                version = probeClient.Version;
-                return
-            end
-            break
-        catch me
-            if attempt < opts.retry && ...
-                    prodserver.mcp.internal.isTransientError(me, ...
-                    connection=false, status=[])
-                pause(opts.delay);
-                continue
-            end
-            break
+    try
+        response = prodserver.mcp.internal.sendRequest(request, ...
+            endpoint, timeout=opts.timeout, retry=opts.retry, ...
+            delay=opts.delay, label="server/discover", repeatable=true);
+        answered = true;
+        if hasField(response, 'Body.Data.result.supportedVersions')
+            version = probeClient.Version;
+            return
         end
+    catch me
+        % No archive answered, so nothing was learned about its revision,
+        % and initialize would only wait again for the same 404.
+        if me.identifier == "prodserver:mcp:UnknownArchive"
+            rethrow(me);
+        end
+        % Any answer says the server doesn't speak this revision; a
+        % timeout or a refused connection is no answer.
+        answered = ~prodserver.mcp.internal.isTransientError(me, ...
+            status=[]);
     end
 
     version = prodserver.mcp.client.v20250618.Adapter.Version;

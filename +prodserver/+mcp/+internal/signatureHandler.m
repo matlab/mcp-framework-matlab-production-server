@@ -7,8 +7,15 @@ function response = signatureHandler(request)
     import prodserver.mcp.protocol.v20250618.Constants
     import prodserver.mcp.internal.getHeaderValue
 
-    % Get session, if available.
+    % Get session, if available, to echo it back. Only one this server
+    % issued: echoed, a client-supplied value of any length goes into the
+    % response headers, and past about 4 KB Production Server fails the
+    % response after the request has been handled.
     session = getHeaderValue(Constants.SessionId, request.Headers);
+    [~, caps, known] = prodserver.mcp.protocol.v20250618.decodeSession(session);
+    if ~known
+        session = string.empty;
+    end
 
     % Only support GET and POST. OPTIONS returns an Allow header.
     mth = ["GET","POST","OPTIONS"];
@@ -52,6 +59,15 @@ function response = signatureHandler(request)
         % Load the signature information from the MAT-file.
         svc = prodserver.mcp.handler.toolServices;
         signatures = svc.(MCPConstants.DefinitionVariable).signatures;
+
+        % uri2json is for an MCP App's view: like tools/list, describe it
+        % only to a client that declared MCP Apps support. The only place
+        % this route can learn that is the session token, so a request
+        % without a 2025-06-18 session doesn't see it.
+        if isfield(signatures, MCPConstants.Uri2JsonTool) && ...
+                ~supports(caps, MCPConstants.UIExtension_JSON)
+            signatures = rmfield(signatures, MCPConstants.Uri2JsonTool);
+        end
     end
 
     if ~isempty(fcnList) 

@@ -17,6 +17,13 @@ classdef Adapter < prodserver.mcp.protocol.Adapter
         function [result, httpCode, httpMsg, msgHeaders] = handlePost(obj, request, jrpc)
             mth = lower(string(jrpc.method));
 
+            % Every request but initialize must carry a session this server
+            % issued: 404 otherwise, before anything runs. The same decoding
+            % gives the client's capabilities.
+            if mth ~= "initialize"
+                caps = obj.requireKnownSession(request);
+            end
+
             % No notification arms here: mcpHandler acknowledges every
             % notifications/* POST at stage B, ahead of both the envelope
             % check and detection, so handlePost is only ever reached by a
@@ -37,11 +44,15 @@ classdef Adapter < prodserver.mcp.protocol.Adapter
             else
                 [result, httpCode, httpMsg, msgHeaders] = ...
                     prodserver.mcp.handler.ProtocolDispatcher.instance( ...
-                        ).dispatch(jrpc, obj.Version);
+                        ).dispatch(jrpc, obj.requestContext(request, jrpc, ...
+                            Capabilities=caps));
             end
         end
 
-        function [result, httpCode, httpMsg, msgHeaders] = handleDelete(~, ~)
+        function [result, httpCode, httpMsg, msgHeaders] = handleDelete(obj, request)
+            % Only a session this server issued can be terminated.
+            obj.requireKnownSession(request);
+
             % Acknowledge session termination. The session id is echoed
             % back through responseHeaders (the single header authority for
             % this protocol), so no message-specific headers are needed
@@ -49,6 +60,16 @@ classdef Adapter < prodserver.mcp.protocol.Adapter
             [httpCode, httpMsg] = prodserver.mcp.handler.internal.httpStatus(204);
             result = [];
             msgHeaders = {};
+        end
+
+        function caps = clientCapabilities(~, request, ~)
+        %clientCapabilities The client declares its capabilities once, in
+        %   initialize, which puts them in the session ID it issues (see
+        %   encodeSession). Every later request sends that ID back. None if
+        %   the request has no readable session ID; handlePost has already
+        %   refused one that isn't readable.
+            [~, caps] = prodserver.mcp.protocol.v20250618.decodeSession( ...
+                prodserver.mcp.protocol.v20250618.Adapter.sessionOf(request));
         end
 
         function aliases = versionAliases(~)
@@ -124,13 +145,17 @@ classdef Adapter < prodserver.mcp.protocol.Adapter
                 return
             end
 
-            if ~isempty(request.Headers)
-                session = prodserver.mcp.protocol.v20250618.Adapter.sessionOf(request);
-                if ~isempty(session)
-                    % char: Production Server requires char header values,
-                    % and getHeaderValue returns a string.
-                    headers = vertcat(headers, {Constants.SessionId char(session)});
-                end
+            % Echo only a session ID this server issued. Anything else is
+            % refused with 404, and echoing a client-supplied value would
+            % let it make the response headers arbitrarily long: past
+            % about 4 KB, Production Server fails the response after the
+            % request has run.
+            session = prodserver.mcp.protocol.v20250618.Adapter.sessionOf(request);
+            [~, ~, known] = prodserver.mcp.protocol.v20250618.decodeSession(session);
+            if known
+                % char: Production Server requires char header values,
+                % and getHeaderValue returns a string.
+                headers = vertcat(headers, {Constants.SessionId char(session)});
             end
             % Only initialize carries params.protocolVersion, and it returned
             % above, so the header is the only source left. Read through
@@ -141,6 +166,27 @@ classdef Adapter < prodserver.mcp.protocol.Adapter
             if strlength(pv) > 0
                 headers = vertcat(headers, ...
                     {char(MCPConstants.ProtocolVersion) char(pv)});
+            end
+        end
+    end
+
+    methods (Static, Access = private)
+        function caps = requireKnownSession(request)
+        %requireKnownSession Refuse a session ID this server didn't issue.
+        %   Returns the capabilities the session ID carries, or
+        %   ClientCapabilities.none() if the request has no session ID.
+        %   A plain UUID from before session IDs carried capabilities, a
+        %   malformed ID and an over-long one are all unknown sessions. The
+        %   2025-06-18 answer is 404, and a client that gets it MUST start a
+        %   new session, so a host re-initializes and gets a token. A request
+        %   with no session ID isn't checked here: it either is initialize,
+        %   or wasn't attributed to this revision at all.
+            session = prodserver.mcp.protocol.v20250618.Adapter.sessionOf(request);
+            [~, caps, known] = prodserver.mcp.protocol.v20250618.decodeSession(session);
+            if ~isempty(session) && ~known
+                error("prodserver:mcp:SessionNotFound", "Session not found. " + ...
+                    "Start a new session: send initialize without an " + ...
+                    "Mcp-Session-Id.");
             end
         end
     end
@@ -168,6 +214,11 @@ classdef Adapter < prodserver.mcp.protocol.Adapter
         %   session, so it must neither attribute the request to this
         %   revision nor be echoed back as though it did.
             import prodserver.mcp.protocol.v20250618.Constants
+            session = string.empty;
+            if isempty(request) || ~isfield(request, 'Headers') || ...
+                    isempty(request.Headers)
+                return
+            end
             session = prodserver.mcp.internal.getHeaderValue( ...
                 Constants.SessionId, request.Headers);
             if ~isempty(session) && strlength(strip(string(session))) == 0

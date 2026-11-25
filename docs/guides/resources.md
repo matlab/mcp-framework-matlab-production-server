@@ -35,7 +35,7 @@ Resources provide the data that makes tools usable without requiring the user to
 A resource is a struct with a `uri` and `contents`. Optional fields help the LLM decide whether to read it.
 
 ```MATLAB
-resource = struct( ...
+aluminum = struct( ...
     'uri', 'mcp://materials/aluminum_6061', ...
     'contents', 'aluminum_6061.json', ...
     'name', 'aluminum_6061', ...
@@ -48,7 +48,7 @@ resource = struct( ...
 
 | Field | Type | Description |
 | :--- | :--- | :--- |
-| `uri` | string | Unique identifier for the resource within this server |
+| `uri` | string | Unique identifier for the resource within this server. `build` raises `DuplicateResourceURI` if two resources share one, or if a resource uses the URI of the framework's own wire-encoding rules (`mcp://protocol/tools/wire-format/parameters/encoding_rules`) on a server that has them. |
 | `contents` | string or uint8 | Literal text, raw bytes (uint8) for binary content, or a path to a file containing the content |
 
 If `contents` is a file path, `build` reads the file and embeds its content in the archive. The file is read once at build time. A file with a text `mimeType` (`text/*`, `application/json` and similar), or with no `mimeType`, is read as UTF-8 text; with no `mimeType` it is labelled `text/plain`. A file with any other `mimeType` is read as bytes.
@@ -84,10 +84,10 @@ r2 = struct('uri', 'mcp://data/config', ...
 Pass a struct or struct array to `prodserver.mcp.build` via the `resource` argument:
 
 ```MATLAB
-% Single resource
-ctf = prodserver.mcp.build("thermalAnalysis", resource=material);
+% Single resource: aluminum, defined above
+ctf = prodserver.mcp.build("thermalAnalysis", resource=aluminum);
 
-% Multiple resources
+% Multiple resources (steel and titanium defined the same way)
 materials = [aluminum, steel, titanium];
 ctf = prodserver.mcp.build("thermalAnalysis", resource=materials);
 ```
@@ -164,7 +164,7 @@ Resource URIs can use any scheme. Choose one that conveys the domain:
 
 The URI must be unique within a server. The scheme is for readability — the framework does not route based on it.
 
-`build` doesn't check uniqueness; reading does. If two resources share a URI, the server builds and lists both, but `resources/read` of that URI fails with error `-32602`, and `prodserver.mcp.read` raises `prodserver:mcp:NonUniqueResource`.
+`build` checks: it raises `prodserver:mcp:DuplicateResourceURI` if two of your resources share a URI, or if one uses the URI of the framework's own wire-encoding rules on a server that has them. An archive built before 1.7 may still have two resources with one URI. It lists both, but `resources/read` of that URI fails with error `-32602`, and `prodserver.mcp.read` raises `prodserver:mcp:NonUniqueResource`.
 
 ---
 

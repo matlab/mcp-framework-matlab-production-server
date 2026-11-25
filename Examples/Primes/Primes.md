@@ -8,9 +8,20 @@ The `primeSequence` function generates four types of prime sequences:
 `primeSequence` has two inputs and one output:
 ```MATLAB
 function seq = primeSequence(n,type)
-% n   : Number of primes in the generated sequence
-% type: Type of the sequence -- a string type name
-% seq : The primes in the requested sequence
+% Return the first N primes of the given sequence type. Four sequence types
+% supported: Eisenstein, Balanced, Isolated and Gaussian.
+
+    arguments(Input)
+        n double    % Length of the generated sequence
+        type string % Name of the sequence to generate
+    end
+    arguments(Output)
+        seq double  % Generated sequence of prime numbers
+    end
+
+    seq = feval(lower(type),n);
+
+end
 ```
 
 # Package and Deploy Prime Sequence Tool
@@ -20,7 +31,7 @@ Create an MCP tool from the `primeSequence` function. If the returned sequences 
 
 ```MATLAB
 ctf = prodserver.mcp.build("primeSequence",wrapper="None");
-endpoint = prodserver.mcp.deploy(ctf,"localhost",9910);
+endpoint = prodserver.mcp.deploy(ctf, "http://localhost:9910");
 ```
 
 # Verify Deployment

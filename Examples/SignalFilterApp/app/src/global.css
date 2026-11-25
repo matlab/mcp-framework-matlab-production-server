@@ -1,0 +1,155 @@
+/* Copyright 2026 The MathWorks, Inc. */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --color-bg: var(--color-background-primary, #ffffff);
+  --color-text: var(--color-text-primary, #1a1a1a);
+  --color-text-secondary: var(--color-text-secondary, #666666);
+  --color-border: var(--color-border-primary, #e0e0e0);
+  --color-accent: var(--color-ring-primary, #2563eb);
+  --color-original: #888888;
+  --color-clean: var(--color-text-success, #16a34a);
+  --font-family: var(--font-sans, system-ui, -apple-system, sans-serif);
+  --font-mono: var(--font-mono, ui-monospace, monospace);
+  --radius: var(--border-radius-md, 6px);
+}
+
+body {
+  font-family: var(--font-family);
+  font-size: var(--text-size-sm, 14px);
+  color: var(--color-text);
+  background: var(--color-bg);
+  padding: 12px;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+#status {
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+.hidden {
+  display: none !important;
+}
+
+#controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.control-group label {
+  font-size: var(--text-size-xs, 12px);
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+.control-group input[type="text"],
+.control-group input[type="number"] {
+  font-family: var(--font-mono);
+  font-size: var(--text-size-sm, 14px);
+  padding: 6px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.frequency-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.frequency-row input {
+  flex: 1;
+}
+
+button {
+  font-family: var(--font-family);
+  font-size: var(--text-size-sm, 14px);
+  padding: 6px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-bg);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+button:hover {
+  border-color: var(--color-accent);
+}
+
+#pass-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pass-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  font-size: var(--text-size-xs, 12px);
+  font-family: var(--font-mono);
+}
+
+.pass-tag button {
+  border: none;
+  background: none;
+  padding: 0 2px;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+}
+
+#display-mode {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 8px 12px;
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+#display-mode legend {
+  font-size: var(--text-size-xs, 12px);
+  color: var(--color-text-secondary);
+  padding: 0 4px;
+}
+
+#display-mode label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}
+
+#chart {
+  width: 100%;
+  height: 250px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}

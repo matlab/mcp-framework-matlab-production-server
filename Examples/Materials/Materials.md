@@ -47,8 +47,8 @@ result =
        max_stress_Pa: 6.0000e+07
     max_deflection_m: 0.0058
        safety_factor: 4.6000
-              status: "PASS"
-             summary: "Beam stress 60 MPa (yield 276 MPa, SF=4.60). Max deflection 5.81 mm."
+              status: 'PASS'
+             summary: 'Beam stress 60 MPa (yield 276 MPa, SF=4.60). Max deflection 5.81 mm.'
 ```
 
 ```MATLAB
@@ -60,9 +60,9 @@ result =
   struct with fields:
     thermal_resistance_KperW: 1.9330e-04
         heat_transfer_rate_W: 3.8800e+05
-          heat_flux_Wperm2: 9.7000e+06
-     midpoint_temperature_C: 62.5000
-                     summary: "Heat flow: 3.88e+05 W through 3 mm plate (0.04 m^2). ..."
+            heat_flux_Wperm2: 9.7000e+06
+      midpoint_temperature_C: 62.5000
+                     summary: 'Heat flow: 3.88e+05 W through 3 mm plate (0.04 m^2). Thermal resistance 0.0001933 K/W.'
 ```
 
 ## Build and Deploy
@@ -74,7 +74,7 @@ The function `buildMaterialsServer` builds and optionally deploys the server. Su
 ctf = buildMaterialsServer();
 
 % Build and deploy to localhost:9910
-[ctf, endpoint] = buildMaterialsServer(host="localhost");
+[ctf, endpoint] = buildMaterialsServer(host="http://localhost:9910");
 
 % Build and deploy to a specific server and port
 [ctf, endpoint] = buildMaterialsServer(host="http://myserver:9920");
@@ -102,7 +102,7 @@ ctf = prodserver.mcp.build(fcn, ...
     folder="./deploy");
 
 % Deploy
-endpoint = prodserver.mcp.deploy(ctf, "localhost", 9910);
+endpoint = prodserver.mcp.deploy(ctf, "http://localhost:9910");
 ```
 
 ## Tool and Resource Reference

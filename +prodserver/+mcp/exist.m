@@ -6,7 +6,8 @@ function tf = exist(endpoint, identifier, type, opts)
 %       IDENTIFIER is the tool name. For resources, IDENTIFIER is the
 %       resource URI. IDENTIFIER may be a list; TF is the same size. TYPE
 %       is either a scalar, which applies to every IDENTIFIER, or the same
-%       size as IDENTIFIER.
+%       size as IDENTIFIER. An identifier the server lists more than once
+%       exists, though call and read refuse it as not unique.
 %
 % See also: prodserver.mcp.Primitive
 
@@ -18,9 +19,11 @@ function tf = exist(endpoint, identifier, type, opts)
         identifier string { mustBeNonempty }
         type prodserver.mcp.Primitive { mustBeNonempty }
         opts.protocol string = "discover"
-        opts.timeout double {mustBePositive} = 30
-        opts.retry double {mustBePositive} = 10
-        opts.delay double {mustBePositive} = 2
+        opts.timeout double {mustBePositive} = 60
+        opts.retry double {mustBePositive} = ...
+            prodserver.mcp.internal.Constants.ArchiveRetry
+        opts.delay double {mustBePositive} = ...
+            prodserver.mcp.internal.Constants.ArchiveDelay
     end
 
     if isscalar(type)
@@ -51,7 +54,8 @@ function tf = doExist(endpoint, identifier, type, opts)
     kinds = unique(type);
 
     client = prodserver.mcp.client.Adapter.create(endpoint, ...
-        protocol=opts.protocol);
+        protocol=opts.protocol, timeout=opts.timeout, ...
+        retry=opts.retry, delay=opts.delay);
     client.connect(require=kinds, timeout=opts.timeout, ...
         retry=opts.retry, delay=opts.delay);
     cleanup = onCleanup(@()client.disconnect()); %#ok<NASGU>
@@ -62,7 +66,9 @@ function tf = doExist(endpoint, identifier, type, opts)
     for k = 1:numel(kinds)
         ids = listedIds(items.(mcpName(kinds(k))), kinds(k));
         mine = type == kinds(k);
-        tf(mine) = arrayfun(@(id)nnz(strcmp(id, ids)) == 1, identifier(mine));
+        % Listed is existing, however many times. call and read refuse a
+        % name or URI that isn't unique, but it exists.
+        tf(mine) = ismember(identifier(mine), ids);
     end
 end
 
@@ -74,8 +80,10 @@ function ids = listedIds(p, kind)
         field = "name";
     end
 
+    % A string array, even when the list is empty: cellfun of an empty
+    % cell gives a double, which ismember refuses.
     if iscell(p)
-        ids = cellfun(@(r)string(r.(field)), p);
+        ids = string(cellfun(@(r)string(r.(field)), p, UniformOutput=false));
     elseif isstruct(p) && ~isempty(p)
         ids = string({p.(field)});
     else

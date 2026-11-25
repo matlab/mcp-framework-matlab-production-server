@@ -1,6 +1,6 @@
 # Wire Encoding for Numeric Data
 
-Build a five-tool MCP server that demonstrates why plain JSON fails for MATLAB numeric computing and how the framework's wire encoding preserves vector orientation, complex numbers, NaN values, and integer types.
+Build a five-tool MCP server that demonstrates where plain JSON falls short for MATLAB numeric computing and how the framework's wire encoding preserves vector orientation, complex numbers and integer types, and gives NaN a documented form.
 
 ## The Problem
 
@@ -10,7 +10,7 @@ JSON cannot faithfully represent MATLAB numeric data:
 | :--- | :--- |
 | Vector orientation | `[1,2,3]` has no shape — `jsondecode` always produces a column |
 | Complex numbers | No JSON type exists |
-| NaN (missing data) | Not a valid JSON literal |
+| NaN (missing data) | Not a valid JSON literal: sent as `null`, and a plain JSON schema allows only numbers |
 | Integer types | One `number` type (float64) erases `uint8` vs `double` |
 
 The wire encoding solves this by wrapping values with type and shape metadata:
@@ -24,14 +24,14 @@ The wire encoding solves this by wrapping values with type and shape metadata:
 | :--- | :--- |
 | matrixMultiply | Both orientations are valid inputs |
 | analyzeACCircuit | Outputs are complex-valued phasors |
-| interpolateWithMissing | Signal contains NaN marking dropout |
+| interpolateWithMissing | A documented form for the NaN marking dropout |
 | fuseSensors | Dispatches on `class()` for precision weighting |
 | blendImages | Dispatches on `class()` for saturation semantics |
 
 ## Build and Deploy
 
 ```MATLAB
-[ctf, endpoint] = buildWireEncodingServer(host="localhost");
+[ctf, endpoint] = buildWireEncodingServer(host="http://localhost:9910");
 ```
 
 On a shared server, give the archive a name of your own with `buildWireEncodingServer`'s `archive` option: `deploy` replaces an archive with the same name, even one someone else deployed. `buildWireEncodingServer` writes the archive to `./deploy`, in the current folder, unless you give it `folder`.
@@ -43,7 +43,7 @@ fcn = ["matrixMultiply", "analyzeACCircuit", "interpolateWithMissing", ...
 ctf = prodserver.mcp.build(fcn, archive="WireEncoding", ...
     wrapper=["None","None","None","None","None"], ...
     resource=resources, folder="./deploy", encoding="Invertible");
-endpoint = prodserver.mcp.deploy(ctf, "localhost", 9910);
+endpoint = prodserver.mcp.deploy(ctf, "http://localhost:9910");
 ```
 
 ## Verify
@@ -51,7 +51,7 @@ endpoint = prodserver.mcp.deploy(ctf, "localhost", 9910);
 ```MATLAB
 prodserver.mcp.ping(endpoint)
 tools = prodserver.mcp.list(endpoint, "Tool");
-{tools.name}'
+cellfun(@(t) t.name, tools, UniformOutput=false)
 ```
 
 ## Test with MCP Protocol

@@ -22,7 +22,12 @@ function [code, httpCode, httpMsg, data] = mapErrorCode(me, ~)
     data = [];
     id = string(me.identifier);
 
-    if startsWith(id, "prodserver:mcp:MethodNotFound")
+    if startsWith(id, "prodserver:mcp:SessionNotFound")
+        % The session doesn't exist, as far as this server can tell. 404 is
+        % the status that tells a 2025-06-18 client to start a new session.
+        code = prodserver.mcp.protocol.v20250618.Constants.ErrorSessionNotFound;
+        [httpCode, httpMsg] = prodserver.mcp.handler.internal.httpStatus(404);
+    elseif startsWith(id, "prodserver:mcp:MethodNotFound")
         % 2025-06-18 carries method-not-found in the body over HTTP 200.
         code = MCPConstants.ErrorMethodNotFound;
         [httpCode, httpMsg] = ok();

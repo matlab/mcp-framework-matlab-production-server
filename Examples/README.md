@@ -2,11 +2,14 @@
 
 Complete walkthroughs from MATLAB code to LLM prompt. Each example builds a working MCP tool, deploys it, verifies the deployment, and demonstrates how an AI agent uses it.
 
+The examples deploy to a MATLAB Production Server instance at `http://localhost:9910` with archive management turned on: without it, `deploy` can't upload. To create and configure one, see [Set Up a Server](../docs/getting-started.md#set-up-a-server).
+
 | Example | What it demonstrates | Complexity |
 | :--- | :--- | :--- |
 | [Principal Stress](./PrincipalStress/walkthrough.md) | Your first tool — build, deploy, verify, connect a client | Introductory |
 | [Prime Sequences](./Primes/walkthrough.md) | Single-function tool with string and numeric inputs | Introductory |
-| [Periodic Noise](./Periodic%20Noise/walkthrough.md) | Large-data tool with a custom wrapper function | Intermediate |
+| [Periodic Noise](./Periodic%20Noise/walkthrough.md) | Large-data tool with a generated wrapper function | Intermediate |
+| [Signal Filter App](./SignalFilterApp/walkthrough.md) | An MCP App: an interactive view of a tool's result, shown in the chat | Advanced |
 | [Earthquake Trajectories](./Earthquake/walkthrough.md) | Custom wrapper with table import and JPEG output | Intermediate |
 | [Materials Engineering](./Materials/walkthrough.md) | Multi-tool server with MCP Resources for reference data | Intermediate |
 | [Structured Data](./StructuredData/walkthrough.md) | Struct parameters described with `%#schema` pragma | Intermediate |

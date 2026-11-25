@@ -50,6 +50,33 @@ classdef tDiscover < matlab.unittest.TestCase
             test.verifyGreaterThan(strlength(result.result.instructions), 0);
         end
 
+        function tAdvertisesUIExtensionWithApp(test)
+            % An archive built with an MCP App advertises the UI extension
+            % under 2026-07-28 too: both revisions share capabilities().
+            import prodserver.mcp.MCPConstants
+            import matlab.unittest.fixtures.PathFixture
+            import matlab.unittest.fixtures.TemporaryFolderFixture
+
+            tFolder = test.applyFixture(TemporaryFolderFixture);
+            test.applyFixture(PathFixture(tFolder.Folder));
+            def.(MCPConstants.AppResourceVariable) = true;
+            save(fullfile(tFolder.Folder, MCPConstants.DefinitionFile), ...
+                "-struct", "def");
+            % The definitions are cached; clear them now and afterwards, so
+            % the app flag reaches only this test.
+            prodserver.mcp.handler.toolServices(action="clear");
+            test.addTeardown(@() prodserver.mcp.handler.toolServices(action="clear"));
+
+            jrpc = struct('jsonrpc', '2.0', 'id', 4, ...
+                'method', 'server/discover');
+            [result, ~, ~, ~] = ...
+                prodserver.mcp.protocol.v20260728.discover(jrpc);
+            caps = result.result.capabilities;
+            test.verifyTrue(isfield(caps, 'extensions') && ...
+                isfield(caps.extensions, MCPConstants.UIExtension_Field), ...
+                "server/discover should advertise " + MCPConstants.UIExtension_JSON);
+        end
+
     end
 
 end

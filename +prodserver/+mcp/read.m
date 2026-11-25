@@ -5,7 +5,8 @@ function result = read(endpoint, uri, opts)
 %    from the MCP server at ENDPOINT. URI is the unique resource
 %    identifier returned by list(ENDPOINT, "Resource").
 %
-%    Text resources come back as string (char if TextAsString is false).
+%    Text resources come back as string (a cell of char if TextAsString
+%    is false).
 %    Binary resources come back as a uint8 row vector of the bytes.
 
 % Copyright 2025-2026 The MathWorks, Inc.
@@ -16,8 +17,10 @@ function result = read(endpoint, uri, opts)
         opts.protocol string = "discover"
         opts.TextAsString logical = true;
         opts.timeout double {mustBePositive} = 60
-        opts.retry double {mustBePositive} = 3
-        opts.delay double {mustBePositive} = 2
+        opts.retry double {mustBePositive} = ...
+            prodserver.mcp.internal.Constants.ArchiveRetry
+        opts.delay double {mustBePositive} = ...
+            prodserver.mcp.internal.Constants.ArchiveDelay
     end
 
     try
@@ -37,7 +40,8 @@ function result = doRead(endpoint, uri, opts)
     import prodserver.mcp.internal.hasField
 
     client = prodserver.mcp.client.Adapter.create(endpoint, ...
-        protocol=opts.protocol);
+        protocol=opts.protocol, timeout=opts.timeout, ...
+        retry=opts.retry, delay=opts.delay);
     client.connect(require="Resource", timeout=opts.timeout, ...
         delay=opts.delay, retry=opts.retry);
     cleanup = onCleanup(@()client.disconnect()); %#ok<NASGU>
@@ -52,11 +56,18 @@ function result = doRead(endpoint, uri, opts)
     istext = false(1, numel(uri));
     for n = 1:numel(uri)
 
+        % Not found and found twice are different problems: a typo, or an
+        % archive whose resources share a URI (build refuses those now).
         found = strcmp(uri(n), uris);
-        if nnz(found) ~= 1
-            error("prodserver:mcp:NonUniqueResource", "Resources must " + ...
-                 "exist and have unique URIs. Found %d resources " + ...
-                 "with URI %s.", nnz(found), uri(n));
+        if ~any(found)
+            error("prodserver:mcp:UnknownResource", "No resource with " + ...
+                "URI '%s' at %s. %s", uri(n), prodserver.mcp.io.redactURI(endpoint), ...
+                prodserver.mcp.internal.availableList("resources", uris));
+        elseif nnz(found) > 1
+            error("prodserver:mcp:NonUniqueResource", "%s lists %d " + ...
+                "resources with URI '%s'. A URI must identify one " + ...
+                "resource: rebuild the archive, and build reports the " + ...
+                "duplicate.", prodserver.mcp.io.redactURI(endpoint), nnz(found), uri(n));
         end
         r = resources{found};
 
@@ -66,7 +77,7 @@ function result = doRead(endpoint, uri, opts)
         data.params.uri = r.uri;
 
         response = client.send(data, timeout=opts.timeout, ...
-            retry=opts.retry, delay=opts.delay);
+            retry=opts.retry, delay=opts.delay, repeatable=true);
 
         if hasField(response, "Body.Data.result.contents") == false
             error("prodserver:mcp:ResourceMissingContents", ...

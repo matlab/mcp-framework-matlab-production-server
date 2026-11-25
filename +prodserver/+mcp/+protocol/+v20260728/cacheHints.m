@@ -20,12 +20,33 @@ function result = cacheHints(result, method)
     end
 
     switch lower(string(method))
-        case {"server/discover", "tools/list", "resources/list", ...
-                "resources/templates/list"}
+        case "tools/list"
+            % An app server lists uri2json only to clients that declared MCP
+            % Apps support, so its list must not be shared across clients.
+            if serverHasApp()
+                result.ttlMs = MCPConstants.ClientDependentCacheTtlMs;
+                result.cacheScope = MCPConstants.ClientDependentCacheScope;
+            else
+                result.ttlMs = MCPConstants.DefinitionCacheTtlMs;
+                result.cacheScope = MCPConstants.DefinitionCacheScope;
+            end
+        case {"server/discover", "resources/list", "resources/templates/list"}
             result.ttlMs = MCPConstants.DefinitionCacheTtlMs;
             result.cacheScope = MCPConstants.DefinitionCacheScope;
         case "resources/read"
             result.ttlMs = MCPConstants.ResourceCacheTtlMs;
             result.cacheScope = MCPConstants.ResourceCacheScope;
     end
+end
+
+function tf = serverHasApp()
+% Whether this archive was built with an MCP App. The definition file
+% records it; a server whose definitions can't be loaded has no app, as
+% capabilities() decides too.
+    try
+        svc = prodserver.mcp.handler.toolServices;
+    catch
+        svc = [];
+    end
+    tf = ~isempty(svc) && isfield(svc, prodserver.mcp.MCPConstants.AppResourceVariable);
 end

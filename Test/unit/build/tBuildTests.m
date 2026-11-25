@@ -75,9 +75,16 @@ classdef tBuildTests < matlab.unittest.TestCase
                 fileattrib(destinationPath, "-w"); %#ok<FILEATTRIB>
 
                 % Make sure we can't actually modify the read-only file
-                % now.
-                test.verifyError(@() writelines("**POOF**",destinationPath), ...
-                    "MATLAB:table:write:FileOpenError");
+                % now. The error's ID depends on the release.
+                ids = ["MATLAB:table:write:FileOpenError", ...           % R2026a on
+                       "MATLAB:textio:writelines:InvalidFileIdentifier"]; % R2025b
+                try
+                    writelines("**POOF**",destinationPath);
+                    test.verifyFail("Wrote to a read-only file: " + destinationPath);
+                catch e
+                    test.verifyTrue(ismember(e.identifier, ids), ...
+                        "Unexpected error writing a read-only file: " + e.identifier);
+                end
             end
 
             % Get modification times of the JSON files.
@@ -351,6 +358,72 @@ classdef tBuildTests < matlab.unittest.TestCase
                         rethrow(e);
                     end
                 end
+            end
+        end
+
+        function shadowedUri2json(test)
+        % As shadowedResourceTool, for uri2json, which a server built with
+        % an app includes.
+            import matlab.unittest.fixtures.PathFixture
+            import prodserver.mcp.MCPConstants
+            shadow = fullfile(test.tempFolder, "shadow");
+            mkdir(shadow);
+            tool = MCPConstants.Uri2JsonTool;
+            writelines(["function " + tool + "()", "end"], ...
+                fullfile(shadow, tool + ".m"));
+            test.applyFixture(PathFixture(shadow));
+            app = fullfile(test.tempFolder, "mcp-app.html");
+            writelines("<html><body>test</body></html>", app);
+            build = @() prodserver.mcp.build("schemaComputeNoBlock", ...
+                example=@() schemaComputeNoBlock(1.0, 2.0, 3.0), ...
+                folder=test.tempFolder, archive="shadowed", ...
+                stop="Definition", app=app);
+            tools = fullfile(prodserver.mcp.internal.packageFolder(), ...
+                "server", "tools");
+            if prodserver.mcp.internal.isInstalledPackageFolder(tools)
+                test.verifyError(build, "prodserver:mcp:FrameworkShadowed");
+            else
+                % Only the shadowing check is under test. Any other error
+                % propagates and is reported as a test error.
+                try
+                    build();
+                catch e
+                    if e.identifier == "prodserver:mcp:FrameworkShadowed"
+                        test.verifyFail(e.message);
+                    else
+                        rethrow(e);
+                    end
+                end
+            end
+        end
+
+        function uri2jsonInCurrentFolder(test)
+        % A uri2json in the current folder comes before every folder on the
+        % path, the framework's too, so build stops; and the fix is to
+        % change folder, not to change the path, which it isn't on.
+            import matlab.unittest.fixtures.CurrentFolderFixture
+            import matlab.unittest.fixtures.PathFixture
+            import prodserver.mcp.MCPConstants
+            here = fullfile(test.tempFolder, "here");
+            mkdir(here);
+            writelines(["function " + MCPConstants.Uri2JsonTool + "()", "end"], ...
+                fullfile(here, MCPConstants.Uri2JsonTool + ".m"));
+            app = fullfile(test.tempFolder, "mcp-app.html");
+            writelines("<html><body>test</body></html>", app);
+            % The tool's own folder, so build finds it from elsewhere.
+            test.applyFixture(PathFixture(fileparts(which("schemaComputeNoBlock"))));
+            test.applyFixture(CurrentFolderFixture(here));
+            try
+                prodserver.mcp.build("schemaComputeNoBlock", ...
+                    example=@() schemaComputeNoBlock(1.0, 2.0, 3.0), ...
+                    folder=test.tempFolder, archive="shadowed", ...
+                    stop="Definition", app=app);
+                test.verifyFail("Expected FrameworkShadowed.");
+            catch e
+                test.verifyEqual(e.identifier, 'prodserver:mcp:FrameworkShadowed');
+                test.verifySubstring(e.message, "current folder");
+                test.verifyFalse(contains(e.message, "from the MATLAB path"), ...
+                    e.message);
             end
         end
 
